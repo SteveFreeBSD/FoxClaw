@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from foxclaw.cli import app
 from foxclaw.models import (
     EvidenceBundle,
@@ -15,7 +13,9 @@ from foxclaw.models import (
     ScanSummary,
     SqliteEvidence,
 )
-from foxclaw.report.sarif import render_scan_sarif
+from foxclaw.report.sarif import build_scan_sarif, render_scan_sarif
+from jsonschema import Draft4Validator
+from typer.testing import CliRunner
 
 
 def _bundle_with_findings(findings: list[Finding]) -> EvidenceBundle:
@@ -39,7 +39,6 @@ def _bundle_with_findings(findings: list[Finding]) -> EvidenceBundle:
             policies_found=0,
             sqlite_checks_total=0,
             sqlite_non_ok_count=0,
-            high_findings_count=0,
             findings_total=len(findings),
             findings_high_count=sum(1 for item in findings if item.severity == "HIGH"),
             findings_medium_count=sum(
@@ -55,6 +54,11 @@ def _bundle_with_findings(findings: list[Finding]) -> EvidenceBundle:
 def _write_profiles_ini(base_dir: Path, content: str) -> None:
     base_dir.mkdir(parents=True, exist_ok=True)
     (base_dir / "profiles.ini").write_text(content, encoding="utf-8")
+
+
+def _load_official_sarif_schema() -> dict[str, object]:
+    schema_path = Path(__file__).parent / "schemas" / "sarif-schema-2.1.0.json"
+    return json.loads(schema_path.read_text(encoding="utf-8"))
 
 
 def test_render_sarif_has_required_fields_and_result_mappings() -> None:
@@ -103,31 +107,114 @@ def test_render_sarif_has_required_fields_and_result_mappings() -> None:
     bundle = _bundle_with_findings(findings)
 
     payload = json.loads(render_scan_sarif(bundle))
-    assert payload["$schema"].endswith("sarif-2.1.0.json")
+    assert payload["$schema"].endswith("sarif-schema-2.1.0.json")
     assert payload["version"] == "2.1.0"
-    assert payload["runs"][0]["tool"]["driver"]["name"] == "FoxClaw"
+    driver = payload["runs"][0]["tool"]["driver"]
+    assert driver["name"] == "FoxClaw"
+    assert driver["version"] == "0.1.0"
 
     results = payload["runs"][0]["results"]
     assert len(results) == len(findings)
-    assert [item["ruleId"] for item in results] == [item.id for item in findings]
+    assert [item["ruleId"] for item in results] == [
+        "R-HIGH-001",
+        "R-HIGH-001",
+        "R-MED-001",
+        "R-INFO-001",
+    ]
 
     levels = [item["level"] for item in results]
-    assert levels == ["error", "warning", "error", "note"]
+    assert levels == ["error", "error", "warning", "note"]
 
-    assert results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
-        "/tmp/profile/key4.db"
-    )
+    assert results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "key4.db"
     assert results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
-        "foxclaw://profile"
+        "profile"
+    )
+    assert results[2]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
+        "profile"
     )
     assert results[3]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
-        "file:///etc/firefox/policies/policies.json"
+        "/etc/firefox/policies/policies.json"
     )
+    assert all("partialFingerprints" in item for item in results)
 
-    rules = payload["runs"][0]["tool"]["driver"]["rules"]
+    rules = driver["rules"]
     rule_ids = [item["id"] for item in rules]
     assert rule_ids == sorted(set(rule_ids))
     assert set(rule_ids) == set(result["ruleId"] for result in results)
+    assert all("helpUri" in item for item in rules)
+    assert all("security-severity" in item["properties"] for item in rules)
+    assert all(item["properties"]["tags"] for item in rules)
+
+
+def test_render_sarif_validates_against_official_schema() -> None:
+    findings = [
+        Finding(
+            id="R-SCHEMA-001",
+            title="Schema check",
+            severity="INFO",
+            category="policy",
+            rationale="Schema verification",
+            recommendation="No-op",
+            confidence="low",
+            evidence=["profile evidence"],
+        )
+    ]
+
+    payload = json.loads(render_scan_sarif(_bundle_with_findings(findings)))
+    Draft4Validator(_load_official_sarif_schema()).validate(payload)
+
+
+def test_build_scan_sarif_accepts_explicit_repo_root_for_path_normalization(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "synthetic-repo"
+    profile_root = repo_root / "profiles" / "fixture"
+    absolute_artifact = repo_root / "fixtures" / "key4.db"
+    bundle = EvidenceBundle(
+        profile=ProfileEvidence(
+            profile_id="Profile0",
+            name="default",
+            path=str(profile_root),
+            selected=True,
+            lock_detected=False,
+            lock_files=[],
+        ),
+        prefs=PrefEvidence(root={}),
+        filesystem=[],
+        policies=PolicyEvidence(),
+        sqlite=SqliteEvidence(checks=[]),
+        summary=ScanSummary(
+            prefs_parsed=0,
+            sensitive_files_checked=0,
+            high_risk_perms_count=0,
+            policies_found=0,
+            sqlite_checks_total=0,
+            sqlite_non_ok_count=0,
+            findings_total=1,
+            findings_high_count=1,
+            findings_medium_count=0,
+            findings_info_count=0,
+        ),
+        high_findings=[],
+        findings=[
+            Finding(
+                id="R-ROOT-001",
+                title="Repo root test",
+                severity="HIGH",
+                category="filesystem",
+                rationale="r",
+                recommendation="rec",
+                confidence="high",
+                evidence=[f"{absolute_artifact}: mode=0644"],
+            )
+        ],
+    )
+
+    payload = build_scan_sarif(bundle, repo_root=repo_root)
+    uri = payload["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"][
+        "uri"
+    ]
+    assert uri == "fixtures/key4.db"
 
 
 def test_scan_cli_rejects_json_and_sarif_together() -> None:
@@ -195,3 +282,28 @@ Default=1
     assert file_result.exit_code == 0
     written = json.loads(sarif_path.read_text(encoding="utf-8"))
     assert written["runs"][0]["tool"]["driver"]["name"] == "FoxClaw"
+
+
+def test_fixture_scan_sarif_uses_repo_relative_artifact_uris() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            "tests/fixtures/firefox_profile",
+            "--ruleset",
+            "foxclaw/rulesets/balanced.yml",
+            "--sarif",
+        ],
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    uris = [
+        item["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        for item in payload["runs"][0]["results"]
+    ]
+
+    assert "tests/fixtures/firefox_profile/cookies.sqlite" in uris
+    assert all(not uri.startswith("/") for uri in uris if uri != "profile")

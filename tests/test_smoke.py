@@ -1,11 +1,12 @@
-from typer.testing import CliRunner
+from importlib.metadata import version
 
 import foxclaw
 from foxclaw.cli import app
+from typer.testing import CliRunner
 
 
 def test_package_imports() -> None:
-    assert foxclaw.__version__ == "0.1.0"
+    assert foxclaw.__version__ == version("foxclaw")
 
 
 def test_cli_help() -> None:

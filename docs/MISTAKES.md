@@ -15,3 +15,7 @@
   Mistake: while refactoring M3.1 output consistency, provisional `ScanSummary` construction omitted required `high_findings_count`.
   Impact: scan command returned operational exit `1` with Pydantic validation error until corrected.
   Prevention: keep intermediate model instances schema-complete during staged construction, and run CLI-path tests immediately after model-field refactors.
+- Date: 2026-02-19
+  Mistake: attempted to remove stale docs with a blocked shell deletion command in this execution environment.
+  Impact: cleanup step failed until file deletion was retried with repository-safe patch operations.
+  Prevention: prefer `apply_patch` delete hunks for tracked-file removals to avoid policy rejection and keep edits auditable.

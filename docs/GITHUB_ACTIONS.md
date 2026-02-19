@@ -1,47 +1,50 @@
-# GitHub Actions Security Workflow
+# GitHub Actions Workflow
 
-FoxClaw uses `.github/workflows/foxclaw-security.yml` to provide visible security signal in pull requests and on `main`.
-
-## Workflow Summary
-
-Triggers:
-- `pull_request`
-- `push` to `main`
-- `workflow_dispatch`
-
-Concurrency:
-- `cancel-in-progress: true`
-- group key scoped by workflow and branch/ref to avoid redundant runs on the same branch.
+Workflow file: `.github/workflows/foxclaw-security.yml`
 
 ## Jobs
 
 1. `test`
-- Matrix: Python `3.12`, `3.13`, `3.14`
-- Installs dependencies via `pip install -e '.[dev]'`
+- Python matrix: `3.12`, `3.13`, `3.14`
+- Installs `-e '.[dev]'`
 - Runs `pytest -q`
 
 2. `scan-balanced`
-- Runs FoxClaw against `tests/fixtures/firefox_profile` using `--profile` (no profile discovery dependency).
-- Command writes:
-  - `foxclaw.json`
-  - `foxclaw.sarif`
-- Exit code handling:
-  - `0`: clean scan
-  - `2`: findings present (expected for security signal), job remains successful
-  - any other exit code fails the job
-- Uploads artifacts: `foxclaw.json`, `foxclaw.sarif`
+- Runs fixture scan against `tests/fixtures/firefox_profile`
+- Emits `foxclaw.json` and `foxclaw.sarif`
+- Accepts scan exit code `2` as expected findings signal
+- Uploads both artifacts
 
 3. `upload-sarif`
-- Downloads the SARIF artifact from `scan-balanced`.
-- Uploads SARIF to GitHub Code Scanning using official action:
-  - `github/codeql-action/upload-sarif@v4`
-- Job permissions include `security-events: write`.
+- Downloads SARIF artifact
+- Uploads SARIF using `github/codeql-action/upload-sarif@v4`
+- Uses job permissions including `security-events: write`
 
-## SARIF Upload Behavior
+## Permission Model
 
-The uploaded SARIF appears in the repository's Code Scanning UI, enabling:
-- PR-level visibility of findings
-- trend/history in code scanning alerts
-- rule/result-level drill-down from FoxClaw output
+Top-level workflow permissions stay minimal (`contents: read`).
 
-The workflow does not add any runtime network call inside FoxClaw itself; network usage is limited to GitHub Actions infrastructure and artifact/code-scanning APIs.
+The SARIF upload job explicitly requests:
+
+- `actions: read`
+- `contents: read`
+- `security-events: write`
+
+This is required for GitHub Code Scanning ingestion.
+
+## Fork Pull Request Behavior
+
+Fork-origin pull requests do not receive a token with `security-events: write`.
+The workflow handles this safely by skipping the upload job when:
+
+- event is `pull_request`, and
+- `github.event.pull_request.head.repo.fork == true`
+
+This prevents insecure permission escalation patterns while keeping tests and fixture scanning active.
+
+## Produced Artifacts
+
+- `foxclaw.json`
+- `foxclaw.sarif`
+
+Artifacts are retained via `actions/upload-artifact` for troubleshooting and local replay.

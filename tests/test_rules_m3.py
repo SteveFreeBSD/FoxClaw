@@ -4,8 +4,6 @@ import json
 import sqlite3
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from foxclaw.cli import app
 from foxclaw.models import (
     EvidenceBundle,
@@ -23,6 +21,7 @@ from foxclaw.models import (
 )
 from foxclaw.rules.dsl import evaluate_check
 from foxclaw.rules.engine import evaluate_rules
+from typer.testing import CliRunner
 
 
 def _empty_bundle() -> EvidenceBundle:
@@ -46,7 +45,6 @@ def _empty_bundle() -> EvidenceBundle:
             policies_found=0,
             sqlite_checks_total=0,
             sqlite_non_ok_count=0,
-            high_findings_count=0,
         ),
         high_findings=[],
     )
@@ -443,7 +441,6 @@ def test_high_findings_ids_and_summary_counts_align(tmp_path: Path, monkeypatch)
     summary = payload["summary"]
     assert len(findings) == summary["findings_total"]
     assert len(high_ids_from_findings) == summary["findings_high_count"]
-    assert len(high_ids_from_findings) == summary["high_findings_count"]
     assert sum(1 for item in findings if item["severity"] == "MEDIUM") == summary[
         "findings_medium_count"
     ]

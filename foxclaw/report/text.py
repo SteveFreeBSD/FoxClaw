@@ -25,7 +25,7 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
         "SQLite checks (total/non-ok)",
         f"{bundle.summary.sqlite_checks_total}/{bundle.summary.sqlite_non_ok_count}",
     )
-    table.add_row("Total HIGH findings", str(bundle.summary.high_findings_count))
+    table.add_row("Total HIGH findings", str(bundle.summary.findings_high_count))
     console.print(table)
 
     counts = Counter(finding.severity for finding in bundle.findings)

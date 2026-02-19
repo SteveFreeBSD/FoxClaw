@@ -3,10 +3,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from foxclaw.cli import app
 from foxclaw.profiles import discover_profiles
+from typer.testing import CliRunner
 
 
 def _write_profiles_ini(base_dir: Path, content: str) -> None:

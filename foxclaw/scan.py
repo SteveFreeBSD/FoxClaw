@@ -11,8 +11,8 @@ from foxclaw.collect.prefs import collect_prefs
 from foxclaw.collect.sqlite import collect_sqlite_quick_checks
 from foxclaw.models import (
     EvidenceBundle,
-    Finding,
     FilePermEvidence,
+    Finding,
     ProfileEvidence,
     ScanSummary,
 )
@@ -56,7 +56,6 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         policies_found=len(policies.discovered_paths),
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
-        high_findings_count=0,
     )
     provisional_bundle = EvidenceBundle(
         profile=profile_evidence,
@@ -78,7 +77,6 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         policies_found=len(policies.discovered_paths),
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
-        high_findings_count=len(high_finding_ids),
         findings_total=len(findings),
         findings_high_count=findings_by_severity["HIGH"],
         findings_medium_count=findings_by_severity["MEDIUM"],

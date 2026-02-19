@@ -76,10 +76,22 @@ jobs:
             exit "${scan_exit}"
           fi
 
+      - name: Validate generated JSON/SARIF
+        run: |
+          python - <<'PY'
+          import json
+          for path in ("foxclaw.json", "foxclaw.sarif"):
+              with open(path, "r", encoding="utf-8") as handle:
+                  json.load(handle)
+          print("json+sarif parse ok")
+          PY
+
       - name: Upload scan artifacts
         uses: actions/upload-artifact@v4
         with:
           name: foxclaw-balanced-artifacts
+          if-no-files-found: error
+          retention-days: 14
           path: |
             foxclaw.sarif
             foxclaw.json

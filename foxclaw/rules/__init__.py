@@ -10,8 +10,8 @@ from foxclaw.rules.engine import (
 
 __all__ = [
     "DEFAULT_RULESET_PATH",
-    "load_ruleset",
-    "load_default_ruleset",
     "evaluate_rules",
+    "load_default_ruleset",
+    "load_ruleset",
     "sort_findings",
 ]

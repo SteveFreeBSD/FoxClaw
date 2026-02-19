@@ -4,12 +4,11 @@ import json
 import sqlite3
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from foxclaw.cli import app
 from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.prefs import collect_prefs
 from foxclaw.collect.sqlite import collect_sqlite_quick_checks
+from typer.testing import CliRunner
 
 
 def _write_profiles_ini(base_dir: Path, content: str) -> None:
@@ -167,5 +166,5 @@ Default=1
         "policies_found",
         "sqlite_checks_total",
         "sqlite_non_ok_count",
-        "high_findings_count",
+        "findings_high_count",
     }

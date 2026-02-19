@@ -7,7 +7,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel, StrictBool, StrictInt, StrictStr
 
-
 PrefSource = Literal["prefs.js", "user.js", "unset"]
 PrefRawType = Literal["bool", "int", "string"]
 FindingSeverity = Literal["INFO", "MEDIUM", "HIGH"]
@@ -128,7 +127,6 @@ class ScanSummary(BaseModel):
     policies_found: int
     sqlite_checks_total: int
     sqlite_non_ok_count: int
-    high_findings_count: int
     findings_total: int = 0
     findings_high_count: int = 0
     findings_medium_count: int = 0

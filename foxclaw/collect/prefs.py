@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from foxclaw.models import PrefEvidence, PrefValue
+from foxclaw.models import PrefEvidence, PrefRawType, PrefValue
 
 _USER_PREF_RE = re.compile(
     r'^user_pref\(\s*"(?P<key>(?:\\.|[^"\\])*)"\s*,\s*(?P<value>.+?)\s*\)\s*;?\s*$'
@@ -67,10 +67,13 @@ def _parse_pref_line(
 
 def _decode_js_string(raw: str) -> str:
     # Firefox pref keys are JS string literals; `ast.literal_eval` safely decodes escapes.
-    return ast.literal_eval(f'"{raw}"')
+    decoded = ast.literal_eval(f'"{raw}"')
+    if not isinstance(decoded, str):
+        raise ValueError("decoded pref key is not a string")
+    return decoded
 
 
-def _parse_pref_value(value_text: str) -> tuple[bool | int | str, str] | None:
+def _parse_pref_value(value_text: str) -> tuple[bool | int | str, PrefRawType] | None:
     value_str = value_text.strip()
     if value_str == "true":
         return True, "bool"
