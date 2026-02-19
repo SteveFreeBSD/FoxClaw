@@ -1,2 +1,81 @@
 name: balanced
-version: 0.1.0
+version: 0.3.0
+min_firefox_major: 120
+rules:
+  - id: FC-PREF-001
+    title: Require telemetry policy preference to be explicitly set
+    severity: INFO
+    category: preferences
+    check:
+      pref_exists:
+        key: datareporting.healthreport.uploadEnabled
+    rationale: Explicit preference state reduces ambiguity in profile posture reviews.
+    recommendation: Set datareporting.healthreport.uploadEnabled explicitly in user.js.
+    confidence: medium
+
+  - id: FC-PREF-002
+    title: Enforce strict content blocking when preference is set
+    severity: MEDIUM
+    category: preferences
+    check:
+      pref_equals:
+        key: browser.contentblocking.category
+        value: strict
+    rationale: Strict tracking protection improves baseline privacy protections.
+    recommendation: Set browser.contentblocking.category to "strict" when policy allows.
+    confidence: medium
+
+  - id: FC-FILE-001
+    title: key4.db must not be group/world accessible
+    severity: HIGH
+    category: filesystem
+    check:
+      file_perm_strict:
+        key: key4
+    rationale: key4.db contains key material metadata and should remain owner-only.
+    recommendation: Set permissions to 0600 for key4.db.
+    confidence: high
+
+  - id: FC-FILE-002
+    title: Cookies SQLite files must be owner-only
+    severity: HIGH
+    category: filesystem
+    check:
+      file_perm_strict:
+        path_glob: "*cookies.sqlite*"
+    rationale: Cookie stores may expose session and tracking artifacts when overly readable.
+    recommendation: Restrict cookies SQLite and sidecar files to mode 0600.
+    confidence: high
+
+  - id: FC-POLICY-001
+    title: Enterprise policy disables telemetry
+    severity: INFO
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.DisableTelemetry
+    rationale: Managed environments often require explicit telemetry disablement.
+    recommendation: Configure DisableTelemetry in policies.json when enterprise policy is used.
+    confidence: low
+
+  - id: FC-SQL-001
+    title: places.sqlite integrity quick_check must pass
+    severity: HIGH
+    category: sqlite
+    check:
+      sqlite_quickcheck_ok:
+        db: places
+    rationale: Corrupted history metadata undermines forensic confidence and profile health.
+    recommendation: Repair or replace places.sqlite after backup if quick_check fails.
+    confidence: high
+
+  - id: FC-SQL-002
+    title: cookies.sqlite integrity quick_check must pass
+    severity: HIGH
+    category: sqlite
+    check:
+      sqlite_quickcheck_ok:
+        db: cookies
+    rationale: Cookie store corruption can indicate profile instability or abrupt shutdown issues.
+    recommendation: Repair or recreate cookies.sqlite after preserving required artifacts.
+    confidence: high

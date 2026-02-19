@@ -1,0 +1,81 @@
+name: strict
+version: 0.1.0
+min_firefox_major: 120
+rules:
+  - id: FC-STRICT-PREF-001
+    title: Telemetry upload preference must be explicitly set
+    severity: HIGH
+    category: preferences
+    check:
+      pref_exists:
+        key: datareporting.healthreport.uploadEnabled
+    rationale: Hardened baselines require explicit posture controls for telemetry behavior.
+    recommendation: Set datareporting.healthreport.uploadEnabled in user.js.
+    confidence: high
+
+  - id: FC-STRICT-PREF-002
+    title: Content blocking category must be strict
+    severity: HIGH
+    category: preferences
+    check:
+      pref_equals:
+        key: browser.contentblocking.category
+        value: strict
+    rationale: Strict mode reduces tracking exposure in high-assurance environments.
+    recommendation: Set browser.contentblocking.category to "strict".
+    confidence: high
+
+  - id: FC-STRICT-FILE-001
+    title: key4.db must remain owner-only
+    severity: HIGH
+    category: filesystem
+    check:
+      file_perm_strict:
+        key: key4
+    rationale: Key material metadata requires restrictive filesystem permissions.
+    recommendation: Restrict key4.db to mode 0600.
+    confidence: high
+
+  - id: FC-STRICT-FILE-002
+    title: Cookies SQLite and sidecars must remain owner-only
+    severity: HIGH
+    category: filesystem
+    check:
+      file_perm_strict:
+        path_glob: "*cookies.sqlite*"
+    rationale: Cookie artifacts can expose sensitive session metadata if broadly readable.
+    recommendation: Restrict cookies.sqlite and sidecars to mode 0600.
+    confidence: high
+
+  - id: FC-STRICT-POLICY-001
+    title: Enterprise policy must explicitly disable telemetry
+    severity: HIGH
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.DisableTelemetry
+    rationale: Strict environments require explicit policy-level telemetry control.
+    recommendation: Add DisableTelemetry under policies in policies.json.
+    confidence: medium
+
+  - id: FC-STRICT-SQL-001
+    title: places.sqlite quick_check must pass
+    severity: HIGH
+    category: sqlite
+    check:
+      sqlite_quickcheck_ok:
+        db: places
+    rationale: Database integrity failures invalidate confidence in collected evidence.
+    recommendation: Repair or rebuild places.sqlite after preserving required data.
+    confidence: high
+
+  - id: FC-STRICT-SQL-002
+    title: cookies.sqlite quick_check must pass
+    severity: HIGH
+    category: sqlite
+    check:
+      sqlite_quickcheck_ok:
+        db: cookies
+    rationale: Cookie database integrity is required for a reliable strict baseline signal.
+    recommendation: Repair or rebuild cookies.sqlite after preserving required data.
+    confidence: high

@@ -30,7 +30,7 @@ def _run_quick_check(db_path: Path) -> SqliteCheck:
 
     uri = _sqlite_ro_uri(db_path)
     try:
-        connection = sqlite3.connect(uri, uri=True)
+        connection = sqlite3.connect(uri, uri=True, timeout=0.25, isolation_level=None)
     except sqlite3.Error as exc:
         return SqliteCheck(
             db_path=str(db_path),
@@ -39,6 +39,10 @@ def _run_quick_check(db_path: Path) -> SqliteCheck:
         )
 
     try:
+        connection.execute("PRAGMA busy_timeout = 250;")
+        connection.execute("PRAGMA query_only = ON;")
+        # Keep temporary data in memory to avoid temp-file writes.
+        connection.execute("PRAGMA temp_store = MEMORY;")
         rows = connection.execute("PRAGMA quick_check;").fetchall()
     except sqlite3.Error as exc:
         result = f"error: {exc}"
@@ -56,4 +60,4 @@ def _run_quick_check(db_path: Path) -> SqliteCheck:
 
 def _sqlite_ro_uri(db_path: Path) -> str:
     quoted = quote(str(db_path), safe="/")
-    return f"file:{quoted}?mode=ro"
+    return f"file:{quoted}?mode=ro&immutable=1"

@@ -55,5 +55,24 @@ def _summarize_policy_file(policy_path: Path) -> PolicyFileSummary:
     return PolicyFileSummary(
         path=str(policy_path),
         top_level_keys=top_level_keys,
+        key_paths=_collect_key_paths(payload),
         policies_count=policies_count,
     )
+
+
+def _collect_key_paths(payload: dict[str, object]) -> list[str]:
+    key_paths: set[str] = set()
+
+    def _walk(obj: object, prefix: str = "") -> None:
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                key_text = str(key)
+                current = f"{prefix}.{key_text}" if prefix else key_text
+                key_paths.add(current)
+                _walk(value, current)
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item, prefix)
+
+    _walk(payload)
+    return sorted(key_paths)

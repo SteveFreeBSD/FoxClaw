@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field, RootModel, StrictBool, StrictInt, StrictS
 
 PrefSource = Literal["prefs.js", "user.js", "unset"]
 PrefRawType = Literal["bool", "int", "string"]
+FindingSeverity = Literal["INFO", "MEDIUM", "HIGH"]
+FindingConfidence = Literal["low", "medium", "high"]
 
 
 class PrefValue(BaseModel):
@@ -43,6 +45,7 @@ class PolicyFileSummary(BaseModel):
 
     path: str
     top_level_keys: list[str] = Field(default_factory=list)
+    key_paths: list[str] = Field(default_factory=list)
     policies_count: int | None = None
     parse_error: str | None = None
 
@@ -69,6 +72,41 @@ class SqliteEvidence(BaseModel):
     checks: list[SqliteCheck] = Field(default_factory=list)
 
 
+class Finding(BaseModel):
+    """Single posture finding produced by rule evaluation."""
+
+    id: str
+    title: str
+    severity: FindingSeverity
+    category: str
+    rationale: str
+    recommendation: str
+    confidence: FindingConfidence
+    evidence: list[str] = Field(default_factory=list)
+
+
+class RuleDefinition(BaseModel):
+    """Rule definition loaded from a YAML ruleset."""
+
+    id: str
+    title: str
+    severity: FindingSeverity
+    category: str
+    check: dict[str, object]
+    rationale: str
+    recommendation: str
+    confidence: FindingConfidence
+
+
+class Ruleset(BaseModel):
+    """Ruleset metadata and entries."""
+
+    name: str
+    version: str
+    min_firefox_major: int | None = None
+    rules: list[RuleDefinition] = Field(default_factory=list)
+
+
 class ProfileEvidence(BaseModel):
     """Selected profile metadata for a scan."""
 
@@ -91,6 +129,10 @@ class ScanSummary(BaseModel):
     sqlite_checks_total: int
     sqlite_non_ok_count: int
     high_findings_count: int
+    findings_total: int = 0
+    findings_high_count: int = 0
+    findings_medium_count: int = 0
+    findings_info_count: int = 0
 
 
 class EvidenceBundle(BaseModel):
@@ -105,3 +147,4 @@ class EvidenceBundle(BaseModel):
     sqlite: SqliteEvidence
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
