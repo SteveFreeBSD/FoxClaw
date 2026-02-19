@@ -48,3 +48,14 @@ This prevents insecure permission escalation patterns while keeping tests and fi
 - `foxclaw.sarif`
 
 Artifacts are retained via `actions/upload-artifact` for troubleshooting and local replay.
+
+## Forward Workflow Hardening Backlog
+
+Planned next-level CI additions (non-runtime changes):
+
+- Dependency review gate for pull requests.
+- Scheduled dependency vulnerability checks.
+- Release provenance attestations for build outputs.
+- Optional SBOM artifact generation during release packaging.
+
+See `docs/ROADMAP.md` and `docs/RESEARCH.md` for the implementation sequence and source references.

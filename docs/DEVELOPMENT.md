@@ -11,7 +11,7 @@ pip install -e '.[dev]'
 
 ## Local Verification Commands
 
-Run from repository root:
+Run from repository root.
 
 ```bash
 pytest -q
@@ -45,7 +45,7 @@ PY
 
 ## Makefile Targets
 
-Equivalent shortcuts:
+Equivalent shortcuts.
 
 ```bash
 make install
@@ -57,11 +57,34 @@ make verify
 make clean
 ```
 
+## Review-Ready Gate Sequence
+
+Use this exact sequence before pushing.
+
+```bash
+make lint
+make typecheck
+make test
+make fixture-scan
+make clean
+```
+
+## Documentation Discipline
+
+- Keep docs synchronized with runtime behavior.
+- If command surfaces change, update:
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/SECURITY_MODEL.md`
+  - `docs/GITHUB_ACTIONS.md` (if CI behavior changed).
+- For roadmap or strategic changes, update:
+  - `docs/ROADMAP.md`
+  - `docs/RESEARCH.md`.
+
 ## Packaging Notes
 
-`pyproject.toml` follows PyPA guidance for:
+`pyproject.toml` follows PyPA guidance for project metadata, editable installs, package discovery, and tool configuration.
 
-- project metadata (`[project]`)
-- editable/dev installs (`.[dev]`)
-- setuptools package discovery
-- tool configuration (`pytest`, `ruff`, `mypy`)
+Primary packaging reference:
+
+- https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
