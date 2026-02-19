@@ -10,8 +10,10 @@ from rich.table import Table
 from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
+from foxclaw.report.snapshot import render_scan_snapshot
 from foxclaw.report.text import render_scan_summary
-from foxclaw.scan import detect_active_profile_reason, run_scan
+from foxclaw.rules.engine import load_ruleset
+from foxclaw.scan import detect_active_profile_reason, resolve_ruleset_path, run_scan
 
 EXIT_OK = 0
 EXIT_OPERATIONAL_ERROR = 1
@@ -99,6 +101,11 @@ def scan(
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
     ),
+    snapshot_out: Path | None = typer.Option(
+        None,
+        "--snapshot-out",
+        help="Write deterministic snapshot JSON to this path.",
+    ),
 ) -> None:
     """Run read-only scan."""
     if json_output and sarif_output:
@@ -128,14 +135,17 @@ def scan(
             )
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
+    resolved_ruleset_path = resolve_ruleset_path(ruleset)
+
     try:
-        evidence = run_scan(selected_profile, ruleset_path=ruleset)
+        evidence = run_scan(selected_profile, ruleset_path=resolved_ruleset_path)
     except (OSError, ValueError) as exc:
         console.print(f"[red]Operational error: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     json_payload: str | None = None
     sarif_payload: str | None = None
+    snapshot_payload: str | None = None
     if json_output or output is not None:
         json_payload = render_scan_json(evidence)
     if sarif_output or sarif_out is not None:
@@ -159,6 +169,21 @@ def scan(
         except OSError as exc:
             console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    if snapshot_out is not None:
+        try:
+            snapshot_out.parent.mkdir(parents=True, exist_ok=True)
+            if snapshot_payload is None:
+                snapshot_ruleset = load_ruleset(resolved_ruleset_path)
+                snapshot_payload = render_scan_snapshot(
+                    evidence,
+                    ruleset_path=resolved_ruleset_path,
+                    ruleset_name=snapshot_ruleset.name,
+                    ruleset_version=snapshot_ruleset.version,
+                )
+            snapshot_out.write_text(snapshot_payload, encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            console.print(f"[red]Operational error writing snapshot output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     if json_output and output is None:
         if json_payload is None:
@@ -174,6 +199,8 @@ def scan(
             console.print(f"JSON report written to: {output}")
         if sarif_out is not None:
             console.print(f"SARIF report written to: {sarif_out}")
+        if snapshot_out is not None:
+            console.print(f"Snapshot report written to: {snapshot_out}")
 
     raise typer.Exit(
         code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK

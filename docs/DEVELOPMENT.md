@@ -43,6 +43,15 @@ print("json+sarif parse ok")
 PY
 ```
 
+Generate deterministic snapshot output:
+
+```bash
+python -m foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --snapshot-out foxclaw.snapshot.json
+```
+
 ## Makefile Targets
 
 Equivalent shortcuts.

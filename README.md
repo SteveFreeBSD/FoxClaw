@@ -54,6 +54,15 @@ foxclaw scan \
   --sarif-out foxclaw.sarif
 ```
 
+Write a deterministic baseline snapshot artifact:
+
+```bash
+foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --snapshot-out foxclaw.snapshot.json
+```
+
 ## Exit Codes
 
 Canonical CLI contract:

@@ -146,3 +146,24 @@ class EvidenceBundle(BaseModel):
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+
+
+class SnapshotRulesetMetadata(BaseModel):
+    """Ruleset provenance metadata for deterministic snapshots."""
+
+    name: str
+    version: str
+    path: str
+    sha256: str
+
+
+class ScanSnapshot(BaseModel):
+    """Deterministic snapshot payload for baseline and diff workflows."""
+
+    snapshot_schema_version: str = "1.0.0"
+    evidence_schema_version: str
+    profile: ProfileEvidence
+    ruleset: SnapshotRulesetMetadata
+    summary: ScanSummary
+    high_findings: list[str] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)

@@ -17,7 +17,7 @@ Target: near-term.
   - permission-risk classification from extension manifests.
   - unsigned/debug extension detection.
 - Add deterministic snapshot/diff:
-  - create baseline snapshot.
+  - baseline snapshot export is available via `scan --snapshot-out`.
   - compare current scan to baseline with stable diff output.
 - Add suppression lifecycle:
   - suppress by rule id + scope.

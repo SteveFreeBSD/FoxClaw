@@ -66,7 +66,8 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         summary=provisional_summary,
     )
 
-    ruleset = load_ruleset(ruleset_path or DEFAULT_RULESET_PATH)
+    resolved_ruleset_path = resolve_ruleset_path(ruleset_path)
+    ruleset = load_ruleset(resolved_ruleset_path)
     findings = evaluate_rules(provisional_bundle, ruleset)
     findings_by_severity = _count_findings_by_severity(findings)
     high_finding_ids = [item.id for item in findings if item.severity == "HIGH"]
@@ -93,6 +94,12 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         high_findings=high_finding_ids,
         findings=findings,
     )
+
+
+def resolve_ruleset_path(ruleset_path: Path | None) -> Path:
+    """Resolve scan ruleset path to an absolute path."""
+    candidate = ruleset_path or DEFAULT_RULESET_PATH
+    return candidate.expanduser().resolve(strict=False)
 
 
 def _count_high_risk_permissions(filesystem: list[FilePermEvidence]) -> int:
