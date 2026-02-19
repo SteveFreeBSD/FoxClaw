@@ -167,3 +167,49 @@ class ScanSnapshot(BaseModel):
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+
+
+class SnapshotMetadata(BaseModel):
+    """Core snapshot metadata used in diff payloads."""
+
+    snapshot_schema_version: str
+    evidence_schema_version: str
+    profile: ProfileEvidence
+    ruleset: SnapshotRulesetMetadata
+
+
+class SnapshotDiffSummary(BaseModel):
+    """Summary counts for baseline-to-current snapshot drift."""
+
+    drift_detected: bool
+    before_findings_total: int
+    after_findings_total: int
+    before_findings_high_count: int
+    after_findings_high_count: int
+    before_findings_medium_count: int
+    after_findings_medium_count: int
+    before_findings_info_count: int
+    after_findings_info_count: int
+    added_findings_count: int
+    removed_findings_count: int
+    changed_findings_count: int
+
+
+class SnapshotFindingChange(BaseModel):
+    """One rule-level finding change between two snapshots."""
+
+    rule_id: str
+    before: Finding
+    after: Finding
+
+
+class ScanSnapshotDiff(BaseModel):
+    """Deterministic snapshot-diff payload."""
+
+    snapshot_diff_schema_version: str = "1.0.0"
+    before: SnapshotMetadata
+    after: SnapshotMetadata
+    summary: SnapshotDiffSummary
+    added_findings: list[Finding] = Field(default_factory=list)
+    removed_findings: list[Finding] = Field(default_factory=list)
+    changed_findings: list[SnapshotFindingChange] = Field(default_factory=list)

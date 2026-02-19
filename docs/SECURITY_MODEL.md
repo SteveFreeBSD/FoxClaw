@@ -67,7 +67,8 @@ These are non-negotiable for the scan runtime:
 - Snapshot/diff integrity with hash-bound baselines.
 - Suppression governance (owner, reason, expiry).
 - Release provenance and artifact attestation in CI.
-- Optional offline intelligence cache ingestion as a separate explicit phase.
+- Optional Mozilla CVE and extension intelligence cache ingestion as a separate explicit phase.
+- Any network-backed intelligence refresh must run in explicit update commands, never scan runtime.
 
 ## References
 

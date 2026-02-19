@@ -11,6 +11,12 @@ from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
 from foxclaw.report.snapshot import render_scan_snapshot
+from foxclaw.report.snapshot_diff import (
+    build_scan_snapshot_diff,
+    load_scan_snapshot,
+    render_snapshot_diff_json,
+    render_snapshot_diff_summary,
+)
 from foxclaw.report.text import render_scan_summary
 from foxclaw.rules.engine import load_ruleset
 from foxclaw.scan import detect_active_profile_reason, resolve_ruleset_path, run_scan
@@ -21,6 +27,7 @@ EXIT_HIGH_FINDINGS = 2
 
 app = typer.Typer(help="FoxClaw: deterministic Firefox security posture scanner.")
 profiles_app = typer.Typer(help="Firefox profile discovery commands.")
+snapshot_app = typer.Typer(help="Snapshot baseline and drift commands.")
 console = Console()
 
 
@@ -208,6 +215,52 @@ def scan(
 
 
 app.add_typer(profiles_app, name="profiles")
+app.add_typer(snapshot_app, name="snapshot")
+
+
+@snapshot_app.command("diff")
+def snapshot_diff(
+    before: Path = typer.Option(
+        ..., "--before", help="Path to baseline snapshot JSON."
+    ),
+    after: Path = typer.Option(
+        ..., "--after", help="Path to current snapshot JSON."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit snapshot diff JSON to stdout."
+    ),
+    output: Path | None = typer.Option(
+        None, "--output", help="Write snapshot diff JSON to this path."
+    ),
+) -> None:
+    """Compare two deterministic snapshots."""
+    if json_output and output is not None:
+        console.print("[red]Operational error: --json and --output cannot be combined.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    try:
+        before_snapshot = load_scan_snapshot(before)
+        after_snapshot = load_scan_snapshot(after)
+        diff = build_scan_snapshot_diff(before_snapshot, after_snapshot)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if json_output:
+        typer.echo(render_snapshot_diff_json(diff))
+    elif output is not None:
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(render_snapshot_diff_json(diff), encoding="utf-8")
+            console.print(f"Snapshot diff written to: {output}")
+            render_snapshot_diff_summary(console, diff)
+        except OSError as exc:
+            console.print(f"[red]Operational error writing snapshot diff: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    else:
+        render_snapshot_diff_summary(console, diff)
+
+    raise typer.Exit(code=EXIT_HIGH_FINDINGS if diff.summary.drift_detected else EXIT_OK)
 
 
 def _build_profile_override(profile_path: Path) -> FirefoxProfile:

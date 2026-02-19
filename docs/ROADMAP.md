@@ -13,12 +13,13 @@ This roadmap advances FoxClaw from a deterministic scanner into a feature-rich s
 
 Target: near-term.
 
-- Add extension posture checks:
+- Complete snapshot/diff analyst loop:
+  - baseline snapshot export is available via `scan --snapshot-out`.
+  - deterministic snapshot diff is available via `snapshot diff`.
+- Add local extension posture checks:
+  - extension inventory from profile metadata.
   - permission-risk classification from extension manifests.
   - unsigned/debug extension detection.
-- Add deterministic snapshot/diff:
-  - baseline snapshot export is available via `scan --snapshot-out`.
-  - compare current scan to baseline with stable diff output.
 - Add suppression lifecycle:
   - suppress by rule id + scope.
   - require owner, reason, and expiration timestamp.
@@ -28,14 +29,22 @@ Target: near-term.
 
 Exit criteria:
 
-- snapshot/diff and suppression paths covered by tests.
+- snapshot/diff, extension posture, and suppression paths covered by tests.
 - no runtime network dependency introduced.
 - SARIF upload remains GitHub Code Scanning compatible.
 
-## Phase 2: Policy Packs and Supply-Chain Integrity
+## Phase 2: Vulnerability Intel Foundation and Supply-Chain Integrity
 
 Target: after phase 1 stabilization.
 
+- Add explicit intelligence sync path (network-enabled by command, not by scan):
+  - `intel sync` command to fetch and normalize Mozilla/NVD/CVE/KEV data.
+  - local intelligence snapshot store with checksums and schema versioning.
+- Add Mozilla CVE correlation:
+  - map local Firefox version to advisory/CVE affected ranges.
+  - include fixed-version and source provenance in findings.
+- Add extension intelligence correlation:
+  - correlate installed extension IDs/versions with AMO metadata and blocklist signals.
 - Signed policy packs:
   - external ruleset bundles with signature verification and manifest pinning.
 - CI provenance:
@@ -47,6 +56,8 @@ Target: after phase 1 stabilization.
 
 Exit criteria:
 
+- scan remains offline-by-default while consuming local intelligence snapshots.
+- correlated findings are reproducible from profile + snapshot id.
 - policy pack loading fails closed on verification errors.
 - release artifacts are accompanied by verifiable provenance.
 - dependency policy gates are enforced on pull requests.
@@ -57,6 +68,9 @@ Target: medium-term.
 
 - Offline intelligence cache ingestion (explicit update phase only):
   - enrich findings with KEV/EPSS-aware prioritization metadata.
+- Optional comprehensive live workflow:
+  - provide a wrapper command that runs sync + scan pinned to the new snapshot.
+  - keep deterministic replay by recording snapshot id in outputs.
 - Policy language expansion:
   - evaluate CEL/OPA-based advanced policy packs behind strict interfaces.
 - Multi-profile and fleet workflow support:

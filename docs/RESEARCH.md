@@ -1,135 +1,155 @@
 # Research Matrix
 
-This document tracks vital components needed to evolve FoxClaw beyond a baseline scanner.  
-Use it as a decision log: each item has primary sources, adoption intent, and near-term action.
+This matrix tracks high-value components for evolving FoxClaw into a feature-rich security application while preserving deterministic, offline-by-default scan behavior.
 
 ## Research Method
 
-- Prefer standards bodies, official vendor docs, and maintainer-owned repositories.
-- Record actionable constraints (size limits, permission boundaries, required fields).
-- Add implementation decisions only after validating compatibility with FoxClaw trust boundaries.
+- Prefer primary specifications, official vendor docs, and maintainer-owned repositories.
+- Extract implementation constraints, not just concepts (schema, limits, update cadence, permission boundaries).
+- Keep network-dependent capabilities in explicit non-scan phases.
 
-## Component Priorities
+## Priority Components
 
-### 1. SARIF Quality and Ingestion Reliability
+### 1. Mozilla CVE Intelligence Pipeline
 
 - Why it matters:
-  - SARIF is the machine contract for GitHub Code Scanning integration.
+  - FoxClaw needs authoritative Firefox vulnerability context, not only local posture rules.
 - Adoption intent:
-  - preserve schema-clean SARIF with deterministic fingerprints and controlled result volume.
+  - ingest Mozilla advisory data into a local intelligence snapshot used by scan correlation.
 - Immediate actions:
-  - enforce SARIF result/rule budgets before upload.
-  - continue schema validation in tests.
+  - define canonical Mozilla advisory ingestion path and schema.
+  - normalize advisory records to CVE + affected/fixed version ranges.
+- Primary sources:
+  - https://github.com/mozilla/foundation-security-advisories
+  - https://www.mozilla.org/security/known-vulnerabilities/
+  - https://www.mozilla.org/security/known-vulnerabilities/firefox/
+
+### 2. CVE Enrichment and Version Correlation
+
+- Why it matters:
+  - Mozilla advisories alone are not sufficient for CVSS-centric prioritization.
+- Adoption intent:
+  - enrich Mozilla-linked CVEs with NVD/CVE data in sync phase.
+- Immediate actions:
+  - map Firefox product/version to NVD query model.
+  - define precedence policy when NVD and Mozilla records differ.
+- Primary sources:
+  - https://nvd.nist.gov/developers/vulnerabilities
+  - https://nvd.nist.gov/vuln/data-feeds
+  - https://github.com/CVEProject/cvelistV5
+
+### 3. Known-Exploited Prioritization Signals
+
+- Why it matters:
+  - exploitability context sharply improves triage quality.
+- Adoption intent:
+  - incorporate KEV and optional EPSS scoring as correlated metadata.
+- Immediate actions:
+  - add KEV join logic by CVE id.
+  - define deterministic scoring merge order.
+- Primary sources:
+  - https://github.com/cisagov/kev-data
+  - https://www.first.org/epss/api
+
+### 4. Extension Inventory and Local Risk Signals
+
+- Why it matters:
+  - extension attack surface can exceed core browser configuration risk.
+- Adoption intent:
+  - add deterministic extension inventory and manifest-based risk checks.
+- Immediate actions:
+  - parse extension metadata and manifest permission fields from profile artifacts.
+  - classify risky permission patterns and privileged host access.
+- Primary sources:
+  - https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions
+  - https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_specific_settings
+
+### 5. Extension Reputation and Blocklist Intelligence
+
+- Why it matters:
+  - local permissions alone miss known-malicious or blocked extensions.
+- Adoption intent:
+  - correlate installed extension IDs/versions against AMO API + blocklist data snapshots.
+- Immediate actions:
+  - define GUID normalization strategy for installed extensions.
+  - ingest blocklist records into local intelligence store.
+- Primary sources:
+  - https://addons-server.readthedocs.io/en/latest/topics/api/addons.html
+  - https://mozilla.github.io/addons-server/topics/blocklist.html
+
+### 6. Intelligence Snapshot Store Design
+
+- Why it matters:
+  - deterministic offline correlation requires pinned intelligence snapshots.
+- Adoption intent:
+  - implement local snapshot-backed intelligence database with source checksums.
+- Immediate actions:
+  - define snapshot schema version and source manifest format.
+  - include source timestamps and hashes in every sync result.
+- Primary sources:
+  - https://www.sqlite.org/docs.html
+  - https://slsa.dev/spec/v1.2/
+
+### 7. SARIF Quality and Ingestion Reliability
+
+- Why it matters:
+  - correlated findings still need robust code-scanning ingestion.
+- Adoption intent:
+  - preserve schema-clean SARIF with stable fingerprints and controlled result volume.
+- Immediate actions:
+  - enforce SARIF budgets and stable categories for multi-run uploads.
+  - keep schema validation tests mandatory.
 - Primary sources:
   - https://www.oasis-open.org/standard/sarifv2-1-os/
   - https://github.com/oasis-tcs/sarif-spec/blob/main/sarif-2.1/schema/sarif-schema-2.1.0.json
   - https://docs.github.com/en/code-security/how-tos/scan-code-for-vulnerabilities/integrate-with-existing-tools/uploading-a-sarif-file-to-github
   - https://docs.github.com/en/code-security/reference/code-scanning/sarif-support-for-code-scanning
 
-### 2. Build Provenance and Artifact Attestation
+### 8. Build Provenance and Artifact Attestation
 
 - Why it matters:
-  - lets consumers verify that releases came from expected CI workflows and source.
+  - consumers need verifiable trust in build and release lineage.
 - Adoption intent:
-  - emit attestations in GitHub Actions for release artifacts.
+  - emit attestations and provenance for release artifacts.
 - Immediate actions:
-  - add attestation step to release workflow.
-  - document verification path for downstream users.
+  - add attestation workflow stage and verification docs.
 - Primary sources:
   - https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds
   - https://github.com/actions/attest-build-provenance
-
-### 3. SLSA and in-toto Alignment
-
-- Why it matters:
-  - defines a measurable maturity model for software supply-chain security.
-- Adoption intent:
-  - map FoxClaw build/release controls to SLSA requirements incrementally.
-- Immediate actions:
-  - produce a controls-to-SLSA gap checklist.
-  - attach provenance metadata to releases.
-- Primary sources:
-  - https://slsa.dev/spec/v1.2/
   - https://github.com/in-toto/attestation
 
-### 4. Package Publishing Hardening (Python)
+### 9. Packaging and Dependency Hardening
 
 - Why it matters:
-  - removes long-lived secrets and strengthens release authenticity.
+  - secure delivery and dependency hygiene are part of audit readiness.
 - Adoption intent:
-  - use PyPI Trusted Publishing when distribution is enabled.
+  - enforce dependency review and trusted publishing controls.
 - Immediate actions:
-  - prepare OIDC-based publish workflow and dry-run in test index.
+  - gate PR dependency changes.
+  - add scheduled vulnerability scans for Python dependencies.
 - Primary sources:
   - https://docs.pypi.org/trusted-publishers/using-a-publisher/
   - https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
-
-### 5. Dependency and Advisory Gates
-
-- Why it matters:
-  - blocks risky dependency changes early and keeps known vulnerabilities visible.
-- Adoption intent:
-  - gate pull requests with dependency review and scheduled vulnerability scans.
-- Immediate actions:
-  - add `actions/dependency-review-action` job.
-  - add periodic `pip-audit` run.
-- Primary sources:
   - https://github.com/actions/dependency-review-action
   - https://github.com/pypa/pip-audit
   - https://osv.dev/docs/
 
-### 6. SBOM and Vulnerability Exchange
+### 10. SBOM and Compliance Mapping
 
 - Why it matters:
-  - improves downstream transparency and enterprise adoption readiness.
+  - enterprise adoption requires transparent component inventories and control alignment.
 - Adoption intent:
-  - generate SBOM artifacts for releases and evaluate VEX support as needed.
+  - produce release SBOM artifacts and map controls to SSDF.
 - Immediate actions:
-  - decide SPDX vs CycloneDX as canonical export format.
-  - prototype SBOM generation in CI artifact stage.
+  - choose SPDX or CycloneDX export baseline.
+  - begin SSDF mapping once vulnerability-intel phase starts implementation.
 - Primary sources:
   - https://spdx.dev/specifications/
   - https://cyclonedx.org/specification/overview/
-
-### 7. Risk Prioritization Signals (KEV and EPSS)
-
-- Why it matters:
-  - helps rank findings with exploitability context instead of severity alone.
-- Adoption intent:
-  - support optional offline enrichment snapshots, never runtime network lookup.
-- Immediate actions:
-  - design enrichment cache format with source timestamp pinning.
-  - define deterministic scoring merge rules.
-- Primary sources:
-  - https://www.cisa.gov/known-exploited-vulnerabilities-catalog
-  - https://www.first.org/epss/api
-  - https://nvd.nist.gov/developers
-
-### 8. Policy Engine Evolution (DSL + CEL/OPA Evaluation)
-
-- Why it matters:
-  - advanced users need expressive policy logic without rewriting collectors.
-- Adoption intent:
-  - keep current DSL as stable baseline and evaluate optional advanced engines behind a strict adapter boundary.
-- Immediate actions:
-  - evaluate CEL and OPA with deterministic fixtures and bounded execution controls.
-- Primary sources:
-  - https://cel.dev/
-  - https://www.openpolicyagent.org/docs/latest/
-
-### 9. Secure Development Framework Mapping
-
-- Why it matters:
-  - aligns project practices to recognized secure development controls for audits.
-- Adoption intent:
-  - map CI/release controls to SSDF practice statements.
-- Immediate actions:
-  - create SSDF control mapping checklist in docs once phase 2 work begins.
-- Primary sources:
   - https://csrc.nist.gov/pubs/sp/800/218/final
 
 ## Cadence
 
-- Review this matrix at least once per release cycle.
-- Move completed items into architecture and workflow docs with explicit implementation notes.
-- Record dropped or deferred items with rationale to avoid decision churn.
+- Revisit this matrix each release cycle.
+- Promote completed items into architecture/workflow docs with implementation notes.
+- Record deferred/dropped items with explicit rationale.

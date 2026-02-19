@@ -66,6 +66,7 @@ The next-level roadmap is designed as additive modules so current scan guarantee
   - signed external rule bundles validated before load.
 - `intel/` (planned, non-scan path).
   - explicit update command for offline-cached threat intelligence metadata.
+  - includes Mozilla CVE/advisory ingestion and extension threat-intel datasets.
 - `attest/` (planned, release pipeline).
   - build provenance, signed releases, and artifact verification metadata.
 

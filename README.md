@@ -63,6 +63,15 @@ foxclaw scan \
   --snapshot-out foxclaw.snapshot.json
 ```
 
+Compare snapshots for deterministic drift detection:
+
+```bash
+foxclaw snapshot diff \
+  --before baseline.snapshot.json \
+  --after current.snapshot.json \
+  --json
+```
+
 ## Exit Codes
 
 Canonical CLI contract:
@@ -87,6 +96,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
+- `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
 - `docs/DEVELOPMENT.md`: local setup and quality gates.
 
 ## License

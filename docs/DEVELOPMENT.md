@@ -52,6 +52,15 @@ python -m foxclaw scan \
   --snapshot-out foxclaw.snapshot.json
 ```
 
+Compare snapshots:
+
+```bash
+python -m foxclaw snapshot diff \
+  --before baseline.snapshot.json \
+  --after current.snapshot.json \
+  --json
+```
+
 ## Makefile Targets
 
 Equivalent shortcuts.
@@ -88,7 +97,8 @@ make clean
   - `docs/GITHUB_ACTIONS.md` (if CI behavior changed).
 - For roadmap or strategic changes, update:
   - `docs/ROADMAP.md`
-  - `docs/RESEARCH.md`.
+  - `docs/RESEARCH.md`
+  - `docs/VULNERABILITY_INTEL.md`.
 
 ## Packaging Notes
 
