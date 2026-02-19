@@ -97,6 +97,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
+- `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
 - `docs/DEVELOPMENT.md`: local setup and quality gates.
 
 ## License

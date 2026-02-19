@@ -22,6 +22,9 @@ dev = [
   "pytest",
   "ruff",
   "mypy",
+  "bandit",
+  "vulture",
+  "detect-secrets",
   "types-PyYAML",
 ]
 

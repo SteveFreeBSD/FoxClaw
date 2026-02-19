@@ -72,6 +72,10 @@ make typecheck
 make test
 make fixture-scan
 make verify
+make verify-full
+make certify
+make certify-live
+make hooks-install
 make clean
 ```
 
@@ -80,12 +84,26 @@ make clean
 Use this exact sequence before pushing.
 
 ```bash
-make lint
-make typecheck
-make test
-make fixture-scan
-make clean
+make certify
 ```
+
+For milestone sign-off before push:
+
+```bash
+make certify-live
+```
+
+## Git Hook Setup
+
+Install the pre-push hook once per clone:
+
+```bash
+make hooks-install
+```
+
+The hook runs `./scripts/certify.sh` before every push.
+
+See `docs/QUALITY_GATES.md` for the full gate policy.
 
 ## Documentation Discipline
 
@@ -98,7 +116,8 @@ make clean
 - For roadmap or strategic changes, update:
   - `docs/ROADMAP.md`
   - `docs/RESEARCH.md`
-  - `docs/VULNERABILITY_INTEL.md`.
+  - `docs/VULNERABILITY_INTEL.md`
+  - `docs/QUALITY_GATES.md`.
 
 ## Packaging Notes
 
