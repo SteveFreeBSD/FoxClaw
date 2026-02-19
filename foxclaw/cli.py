@@ -180,34 +180,6 @@ def scan(
     )
 
 
-@app.command("snapshot", hidden=True)
-def snapshot() -> None:
-    """Planned future command for snapshot creation."""
-    typer.echo("Not implemented yet.")
-    raise typer.Exit(code=EXIT_OK)
-
-
-@app.command("diff", hidden=True)
-def diff() -> None:
-    """Planned future command for snapshot drift comparison."""
-    typer.echo("Not implemented yet.")
-    raise typer.Exit(code=EXIT_OK)
-
-
-@app.command("plan", hidden=True)
-def plan() -> None:
-    """Planned future command for remediation plan generation."""
-    typer.echo("Not implemented yet.")
-    raise typer.Exit(code=EXIT_OK)
-
-
-@app.command("apply", hidden=True)
-def apply() -> None:
-    """Planned future command for remediation plan execution."""
-    typer.echo("Not implemented yet.")
-    raise typer.Exit(code=EXIT_OK)
-
-
 app.add_typer(profiles_app, name="profiles")
 
 

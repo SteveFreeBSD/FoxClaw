@@ -27,10 +27,10 @@
 - Output: text/JSON/SARIF payloads.
 - Disallowed actions: data collection and remediation side effects.
 
-### Remediation Boundary (`plan` / `apply` commands)
+### Remediation Boundary (future phase)
 
 - Kept isolated from collectors by design.
-- Intended for explicit operator-invoked change workflows only.
+- Not shipped in the current CLI runtime surface.
 
 ## Operational Safety Assumptions
 

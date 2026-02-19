@@ -16,7 +16,7 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
 ## Trust Boundary
 
 - Evidence collection is read-only and side-effect free.
-- Remediation belongs to isolated `plan`/`apply` paths.
+- Remediation is intentionally out of scope for the current CLI surface.
 - Scan paths are offline-by-default (no runtime network calls).
 
 See `docs/SECURITY_MODEL.md` for the full model.
