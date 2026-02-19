@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: foxclaw
+Version: 0.1.0
+Summary: Firefox security posture agent scaffold
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: typer
+Requires-Dist: pydantic
+Requires-Dist: rich
+Requires-Dist: pyyaml
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+
+# foxclaw
+
+Minimal scaffold for a Firefox security posture agent.
+
+## Quickstart
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+foxclaw --help
+```

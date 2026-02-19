@@ -1,0 +1,37 @@
+# Task Log
+
+## 2026-02-19
+- Initialized project memory/process files (`agents/AGENTS.md` and docs baseline set).
+- Completed research pass with 16 linked sources across Mozilla, SQLite, SARIF, and adjacent security tooling.
+- Updated ADRs with selection strategy, trust-boundary enforcement, and deterministic output decisions.
+- Implemented M1 profile discovery and `foxclaw profiles list`:
+  - deterministic search path resolution (`XDG_CONFIG_HOME`, `~/.config`, `~/.mozilla`)
+  - robust `profiles.ini` parsing
+  - lock-file precedence (`parent.lock` / `lock`)
+  - deterministic score components (`.default-release`, `Default=1`, `places.sqlite` size, dir mtime)
+  - explicit selection reason metadata and CLI display
+  - tests for lock precedence, suffix scoring, search-order precedence, and CLI output
+- Verification: `.venv/bin/pytest -q` => 6 passed.
+- Implemented M2 `foxclaw scan` with read-only collectors and structured output:
+  - Pydantic evidence models (`EvidenceBundle`, prefs/perms/policies/sqlite models, summary counters)
+  - prefs collector for `prefs.js` + `user.js` (bool/int/string, user.js precedence, no default invention)
+  - filesystem permission collector for sensitive files + sqlite wal/shm sidecars
+  - policies collector for Linux system policy paths with top-level key summaries
+  - sqlite collector running read-only `PRAGMA quick_check` on `places.sqlite` and `cookies.sqlite`
+  - CLI scan summary (Rich), `--json`, and `--output` JSON file writing
+  - exit code contract: `0` no HIGH, `2` HIGH findings, `1` operational errors
+  - added `python -m foxclaw` entrypoint via `foxclaw/__main__.py`
+  - tests for prefs parser, permission flags, sqlite quick_check, and scan JSON schema sections
+- Verification commands:
+  - `python -m venv .venv`
+  - `.venv/bin/pip install -e '.[dev]'`
+  - `.venv/bin/pytest -q`
+  - `.venv/bin/python -m foxclaw scan --json`
+- Verification result: `.venv/bin/pytest -q` => 10 passed.
+- M2 follow-up hardening:
+  - treat unreadable selected profile directories as operational errors (exit code `1`)
+  - Rich scan summary now reports SQLite checks as `total/non-ok` explicitly
+- Follow-up verification:
+  - `.venv/bin/pytest -q` => 10 passed.
+  - `.venv/bin/python -m foxclaw scan --json` => exit `2` on current host due HIGH findings; JSON emitted successfully.
+- Next: M3 (rules engine + balanced ruleset evaluation + Rich/JSON findings reporting).

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "foxclaw"
+version = "0.1.0"
+description = "Firefox security posture agent scaffold"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "typer",
+  "pydantic",
+  "rich",
+  "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+  "mypy",
+]
+
+[project.scripts]
+foxclaw = "foxclaw.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["foxclaw*"]
