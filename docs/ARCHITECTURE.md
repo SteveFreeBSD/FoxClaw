@@ -41,7 +41,7 @@
 - Reporting boundary:
   - renderers format outputs only; they do not collect or mutate state.
 - Remediation boundary:
-  - `plan`/`apply` command surfaces are separate from scan code paths.
+  - remediation is intentionally excluded from the current runtime surface.
 
 ## Determinism Controls
 
