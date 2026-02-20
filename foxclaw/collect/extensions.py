@@ -102,6 +102,7 @@ def _build_entry(profile_dir: Path, *, addon: dict[str, object], index: int) -> 
     location = _optional_str(addon.get("location"))
     source = _optional_str(addon.get("path"))
     source_kind = _classify_source_kind(profile_dir=profile_dir, location=location, source=source)
+    debug_install, debug_reason = _extract_debug_install(addon=addon, location=location)
 
     signed_state_value = addon.get("signedState")
     signed_state = str(signed_state_value) if signed_state_value is not None else None
@@ -132,6 +133,8 @@ def _build_entry(profile_dir: Path, *, addon: dict[str, object], index: int) -> 
         location=location,
         source_kind=source_kind,
         source=source,
+        debug_install=debug_install,
+        debug_reason=debug_reason,
         signed_state=signed_state,
         signed_valid=signed_valid,
         signed_status=signed_status,
@@ -359,6 +362,23 @@ def _coerce_bool(value: object) -> bool | None:
     if isinstance(value, bool):
         return value
     return None
+
+
+def _extract_debug_install(
+    *, addon: dict[str, object], location: str | None
+) -> tuple[bool, str | None]:
+    signals: list[str] = []
+
+    temporarily_installed = addon.get("temporarilyInstalled")
+    if temporarily_installed is True:
+        signals.append("temporarilyInstalled=1")
+
+    if location and "temporary" in location.lower():
+        signals.append(f"location={location}")
+
+    if not signals:
+        return False, None
+    return True, ", ".join(signals)
 
 
 def _signed_state_valid(value: object) -> bool | None:

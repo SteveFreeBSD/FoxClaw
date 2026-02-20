@@ -1,5 +1,5 @@
 name: balanced
-version: 0.3.0
+version: 0.4.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -101,4 +101,15 @@ rules:
         include_system: false
     rationale: High-risk extension permissions can materially expand browser attack surface.
     recommendation: Review extension permissions and reduce/remove risky extensions.
+    confidence: medium
+
+  - id: FC-EXT-003
+    title: Active extensions should not be temporary debug installs
+    severity: MEDIUM
+    category: extensions
+    check:
+      extension_debug_absent:
+        include_system: false
+    rationale: Temporary debug extension installs bypass normal signing/release controls.
+    recommendation: Remove temporary installs and use vetted signed extension releases.
     confidence: medium

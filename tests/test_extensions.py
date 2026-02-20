@@ -150,6 +150,36 @@ def test_collect_extensions_reports_missing_manifest(tmp_path: Path) -> None:
     assert evidence.entries[0].manifest_status == "unavailable"
 
 
+def test_collect_extensions_marks_temporarily_installed_debug_extensions(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    (profile_dir / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": "debug@example.com",
+                        "type": "extension",
+                        "active": True,
+                        "signedState": 2,
+                        "temporarilyInstalled": True,
+                    }
+                ]
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_extensions(profile_dir)
+    assert evidence.addons_seen == 1
+    entry = evidence.entries[0]
+    assert entry.debug_install is True
+    assert entry.debug_reason == "temporarilyInstalled=1"
+
+
 def test_collect_extensions_builtin_without_manifest_is_reported_as_unavailable(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -184,7 +214,7 @@ def test_collect_extensions_builtin_without_manifest_is_reported_as_unavailable(
     assert entry.signed_status == "unavailable"
 
 
-def test_dsl_extension_unsigned_absent_and_permission_risk_absent() -> None:
+def test_dsl_extension_unsigned_debug_and_permission_risk_absent() -> None:
     bundle = _empty_bundle()
     bundle.extensions = ExtensionEvidence(
         entries=[
@@ -208,6 +238,8 @@ def test_dsl_extension_unsigned_absent_and_permission_risk_absent() -> None:
                 source_kind="profile",
                 signed_valid=False,
                 signed_state="0",
+                debug_install=True,
+                debug_reason="temporarilyInstalled=1",
                 risky_permissions=[
                     ExtensionPermissionRisk(
                         permission="nativeMessaging",
@@ -238,6 +270,12 @@ def test_dsl_extension_unsigned_absent_and_permission_risk_absent() -> None:
     )
     assert unsigned_with_system.passed is False
     assert len(unsigned_with_system.evidence) == 2
+
+    debug_result = evaluate_check(bundle, {"extension_debug_absent": {}})
+    assert debug_result.passed is False
+    assert debug_result.evidence == [
+        "unsigned@example.com: debug_install=1, reason=temporarilyInstalled=1, active=1"
+    ]
 
     high_only = evaluate_check(
         bundle,
@@ -297,6 +335,7 @@ def test_scan_emits_extension_posture_summary_and_findings(tmp_path: Path) -> No
                         "active": True,
                         "version": "1.0.0",
                         "signedState": 0,
+                        "temporarilyInstalled": True,
                         "path": str(xpi_path),
                     }
                 ]
@@ -333,6 +372,15 @@ def test_scan_emits_extension_posture_summary_and_findings(tmp_path: Path) -> No
                 "    rationale: least privilege",
                 "    recommendation: remove risky extension",
                 "    confidence: medium",
+                "  - id: EXT-MED-DBG",
+                "    title: debug installs are disallowed",
+                "    severity: MEDIUM",
+                "    category: extensions",
+                "    check:",
+                "      extension_debug_absent: {}",
+                "    rationale: debug installs are volatile",
+                "    recommendation: remove temporary extension installs",
+                "    confidence: medium",
             ]
         ),
         encoding="utf-8",
@@ -355,13 +403,14 @@ def test_scan_emits_extension_posture_summary_and_findings(tmp_path: Path) -> No
     payload = json.loads(result.stdout)
 
     findings = {item["id"] for item in payload["findings"]}
-    assert findings == {"EXT-HIGH-001", "EXT-MED-001"}
+    assert findings == {"EXT-HIGH-001", "EXT-MED-001", "EXT-MED-DBG"}
 
     summary = payload["summary"]
     assert summary["extensions_found"] == 1
     assert summary["extensions_active"] == 1
     assert summary["extensions_high_risk_count"] == 1
     assert summary["extensions_unsigned_count"] == 1
+    assert summary["extensions_debug_count"] == 1
 
     extensions_payload = payload["extensions"]
     assert extensions_payload["addons_seen"] == 1

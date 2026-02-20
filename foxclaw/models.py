@@ -76,6 +76,8 @@ class ExtensionEntry(BaseModel):
     location: str | None = None
     source_kind: Literal["profile", "system", "builtin", "external", "unknown"] = "unknown"
     source: str | None = None
+    debug_install: bool = False
+    debug_reason: str | None = None
     signed_state: str | None = None
     signed_valid: bool | None = None
     signed_status: Literal["valid", "invalid", "unavailable"] = "unavailable"
@@ -171,6 +173,7 @@ class ScanSummary(BaseModel):
     extensions_active: int = 0
     extensions_high_risk_count: int = 0
     extensions_unsigned_count: int = 0
+    extensions_debug_count: int = 0
     sqlite_checks_total: int
     sqlite_non_ok_count: int
     findings_total: int = 0

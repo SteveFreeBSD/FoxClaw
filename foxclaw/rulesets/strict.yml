@@ -1,5 +1,5 @@
 name: strict
-version: 0.1.0
+version: 0.2.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -112,4 +112,15 @@ rules:
         include_system: false
     rationale: Known malicious or heavily flawed extensions compromise the browser.
     recommendation: Remove blocklisted extensions immediately.
+    confidence: high
+
+  - id: FC-STRICT-EXT-004
+    title: Active extensions must not be temporary debug installs
+    severity: HIGH
+    category: extensions
+    check:
+      extension_debug_absent:
+        include_system: false
+    rationale: Strict environments should disallow temporary debug extension loading paths.
+    recommendation: Remove temporary installs and deploy signed production extension builds only.
     confidence: high

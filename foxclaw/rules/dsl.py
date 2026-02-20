@@ -56,6 +56,8 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_sqlite_quickcheck_ok(bundle, config)
     if check_name == "extension_unsigned_absent":
         return _check_extension_unsigned_absent(bundle, config)
+    if check_name == "extension_debug_absent":
+        return _check_extension_debug_absent(bundle, config)
     if check_name == "extension_permission_risk_absent":
         return _check_extension_permission_risk_absent(bundle, config)
     if check_name == "extension_blocklisted_absent":
@@ -235,6 +237,30 @@ def _check_extension_blocklisted_absent(bundle: EvidenceBundle, config: object) 
         for item in violations
     ]
     return CheckResult(passed=False, evidence=evidence)
+
+
+def _check_extension_debug_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    include_inactive, include_system = _extract_extension_scope_config(
+        config, "extension_debug_absent"
+    )
+    candidates = [
+        item
+        for item in bundle.extensions.entries
+        if (include_inactive or item.active is True)
+        and (include_system or not _is_system_extension(item.source_kind))
+    ]
+    violations = [item for item in candidates if item.debug_install]
+    if not violations:
+        return CheckResult(passed=True)
+
+    evidence = [
+        (
+            f"{item.addon_id}: debug_install=1, reason={item.debug_reason or 'unspecified'}, "
+            f"active={int(item.active is True)}"
+        )
+        for item in violations
+    ]
+    return CheckResult(passed=False, evidence=sorted(evidence))
 
 
 def _check_extension_permission_risk_absent(
