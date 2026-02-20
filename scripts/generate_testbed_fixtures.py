@@ -12,6 +12,7 @@ import sqlite3
 import stat
 import sys
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -259,7 +260,9 @@ def build_profile_fixture_files(scenario: str) -> list[FixtureFile]:
                 ),
                 FixtureFile(
                     relpath=f"{scenario}/extensions.json",
-                    content=(json.dumps(extensions_json, indent=2) + "\n").encode("utf-8"),
+                    content=(
+                        json.dumps(extensions_json, indent=2, sort_keys=True) + "\n"
+                    ).encode("utf-8"),
                     mode=0o600,
                 ),
             ]
@@ -267,14 +270,31 @@ def build_profile_fixture_files(scenario: str) -> list[FixtureFile]:
 
     return profile_files
 
+
 def _build_xpi_bytes(manifest: dict[str, object]) -> bytes:
-    import zipfile
-    
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", json.dumps(manifest, indent=2))
-        zf.writestr("background.js", "// hello world")
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as archive:
+        _write_deterministic_zip_entry(
+            archive,
+            name="manifest.json",
+            content=(json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+        )
+        _write_deterministic_zip_entry(
+            archive,
+            name="background.js",
+            content=b"// deterministic fixture entrypoint\n",
+        )
     return buf.getvalue()
+
+
+def _write_deterministic_zip_entry(
+    archive: zipfile.ZipFile, *, name: str, content: bytes
+) -> None:
+    zip_info = zipfile.ZipInfo(filename=name)
+    zip_info.date_time = (1980, 1, 1, 0, 0, 0)
+    zip_info.compress_type = zipfile.ZIP_STORED
+    zip_info.external_attr = 0o100644 << 16
+    archive.writestr(zip_info, content)
 
 
 def build_sqlite_bytes(*, db_name: str, scenario: str) -> bytes:

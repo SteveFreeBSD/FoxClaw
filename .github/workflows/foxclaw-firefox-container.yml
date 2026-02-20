@@ -29,6 +29,9 @@ jobs:
       - name: Build Firefox testbed image
         run: docker build --build-arg FIREFOX_CHANNEL=${{ matrix.firefox_channel }} -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed-${{ matrix.firefox_channel }} .
 
+      - name: Verify Firefox channel build
+        run: docker run --rm foxclaw-firefox-testbed-${{ matrix.firefox_channel }} firefox --version
+
       - name: Run containerized Firefox smoke scan
         run: |
           docker run --rm \
@@ -43,17 +46,17 @@ jobs:
               /tmp/venv/bin/pip install -e ".[dev]"
               scripts/firefox_container_scan.sh \
                 --python /tmp/venv/bin/python \
-                --output-dir /workspace/firefox-container-artifacts
+                --output-dir /workspace/firefox-container-artifacts/${{ matrix.firefox_channel }}
             '
 
       - name: Upload container smoke artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firefox-container-artifacts
+          name: firefox-container-artifacts-${{ matrix.firefox_channel }}
           if-no-files-found: error
           retention-days: 14
           path: |
-            firefox-container-artifacts/foxclaw.json
-            firefox-container-artifacts/foxclaw.sarif
-            firefox-container-artifacts/foxclaw.snapshot.json
-            firefox-container-artifacts/firefox-headless.log
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/foxclaw.json
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/foxclaw.sarif
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/foxclaw.snapshot.json
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/firefox-headless.log

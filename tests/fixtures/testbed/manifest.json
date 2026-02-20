@@ -117,14 +117,14 @@
     {
       "mode": "0600",
       "path": "profile_third_party_xpi/extensions.json",
-      "sha256": "5ed8701db2e76ae3b5818196bc82fb891cc6ce653292a5151669e3b0b554bb43",
+      "sha256": "ab4d5384fff7984ef9a895ef312a318582d3a0f8839a826faad255f7d5b9b4c3",
       "size": 317
     },
     {
       "mode": "0644",
       "path": "profile_third_party_xpi/extensions/third-party@example.com.xpi",
-      "sha256": "68274b8211f1cd52cbb8a103cf0b8a5a998ef993136396fd760442085ebe71fe",
-      "size": 349
+      "sha256": "926562d11f47d9c7804370437e53571c0d4ffe1c9d1442028254807ea4446a22",
+      "size": 401
     },
     {
       "mode": "0600",

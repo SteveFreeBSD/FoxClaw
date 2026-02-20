@@ -7,7 +7,13 @@ cd "${ROOT_DIR}"
 output_file="$(mktemp)"
 trap 'rm -f "${output_file}"' EXIT
 
-.venv/bin/detect-secrets scan $(git ls-files) > "${output_file}"
+# Fixture manifests intentionally store SHA-256 checksums and trigger false
+# positives on entropy-based detectors.
+readonly DETECT_SECRETS_EXCLUDE_FILES='^tests/fixtures/testbed/manifest\.json$'
+
+.venv/bin/detect-secrets scan \
+  --exclude-files "${DETECT_SECRETS_EXCLUDE_FILES}" \
+  $(git ls-files) > "${output_file}"
 
 .venv/bin/python - <<'PY' "${output_file}"
 import json

@@ -1,15 +1,15 @@
 {
-  "schemaVersion": 35,
   "addons": [
     {
-      "id": "third-party@example.com",
-      "type": "extension",
-      "name": "Third Party Test",
-      "version": "1.0.0",
       "active": true,
+      "id": "third-party@example.com",
       "location": "app-profile",
+      "name": "Third Party Test",
       "path": "extensions/third-party@example.com.xpi",
-      "signedState": 2
+      "signedState": 2,
+      "type": "extension",
+      "version": "1.0.0"
     }
-  ]
+  ],
+  "schemaVersion": 35
 }

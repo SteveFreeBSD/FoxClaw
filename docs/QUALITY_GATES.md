@@ -29,7 +29,7 @@ This runs:
 - fixture scan (`scripts/fixture_scan.sh`)
 - `bandit -q -r foxclaw -x tests`
 - `vulture foxclaw tests --min-confidence 80`
-- `detect-secrets scan $(git ls-files)`
+- `detect-secrets scan --exclude-files '^tests/fixtures/testbed/manifest\.json$' $(git ls-files)`
 - cleanup (`make clean`)
 
 ## Live Profile Validation Gate
