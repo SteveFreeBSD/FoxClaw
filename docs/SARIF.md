@@ -1,101 +1,98 @@
 # SARIF Output
 
-FoxClaw emits SARIF 2.1.0 for GitHub Code Scanning and generic SARIF consumers.
+FoxClaw emits deterministic SARIF 2.1.0 for GitHub Code Scanning and other SARIF consumers.
 
-## Specifications
-
-Primary references used for implementation:
+## Primary Specifications
 
 - OASIS SARIF 2.1.0 standard:
   - https://www.oasis-open.org/standard/sarifv2-1-os/
-- OASIS SARIF 2.1.0 schema:
+- OASIS SARIF schema:
   - https://github.com/oasis-tcs/sarif-spec/blob/main/sarif-2.1/schema/sarif-schema-2.1.0.json
-- GitHub upload guidance:
+- GitHub SARIF upload guide:
   - https://docs.github.com/en/code-security/how-tos/scan-code-for-vulnerabilities/integrate-with-existing-tools/uploading-a-sarif-file-to-github
-- GitHub SARIF support limits:
+- GitHub SARIF support and limits:
   - https://docs.github.com/en/code-security/reference/code-scanning/sarif-support-for-code-scanning
 
-## Field Mapping
+## Schema Shape (Emitted)
 
-FoxClaw finding fields map to SARIF as follows:
+- Top level:
+  - `version: "2.1.0"`
+  - `$schema: https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json`
+  - `runs: [...]`
+- `runs[0].tool.driver`:
+  - `name`, `version`, `semanticVersion`
+  - `rules[]` (stable ids and metadata).
+- `runs[0].results[]`:
+  - `ruleId`, `ruleIndex`, `level`, `message.text`
+  - `locations[].physicalLocation.artifactLocation.uri`
+  - `partialFingerprints` for stable alert identity.
 
-- `Finding.id` -> `result.ruleId`, `tool.driver.rules[].id`
-- `Finding.title` -> `rules[].name`, `rules[].shortDescription.text`
-- `Finding.rationale` -> `rules[].fullDescription.text`
-- `Finding.recommendation` -> `rules[].help.text`
-- `Finding.severity` -> `result.level` and `rules[].defaultConfiguration.level`
-- `Finding.evidence` -> `result.message.text`, `result.properties.evidence`
-- Extracted evidence path -> `result.locations[].physicalLocation.artifactLocation.uri`
+## FoxClaw Finding Mapping
+
+- `Finding.id` -> `rules[].id`, `results[].ruleId`.
+- `Finding.title` -> `rules[].name`, `rules[].shortDescription.text`.
+- `Finding.rationale` -> `rules[].fullDescription.text`.
+- `Finding.recommendation` -> `rules[].help.text`.
+- `Finding.severity` -> `results[].level`, `rules[].defaultConfiguration.level`.
+- `Finding.evidence` -> `results[].message.text`, `results[].properties.evidence`.
+- normalized evidence path -> `artifactLocation.uri`.
 
 ## Severity Mapping
 
-- `HIGH` -> `error`
-- `MEDIUM` -> `warning`
-- `INFO` -> `note`
+- `HIGH` -> `error`.
+- `MEDIUM` -> `warning`.
+- `INFO` -> `note`.
 
-Additional GitHub-friendly metadata is included in `properties`:
+Additional metadata in `properties`:
 
-- `security-severity` (stringified score)
-- `tags`
-- `category`
-- `confidence`
+- `security-severity` (string score).
+- `category`.
+- `confidence`.
+- `foxclawSeverity`.
+- `tags`.
 
-## Determinism Guarantees
+## Determinism Rules
 
-- Top-level payload is emitted with sorted keys.
-- Rules are deduplicated and sorted by rule id.
-- Results are sorted deterministically by severity then rule id.
-- Stable `partialFingerprints` are derived from rule id, normalized artifact URI, and evidence text.
-- Artifact paths are normalized:
-  - repo-relative when possible
-  - otherwise profile-relative when possible
-  - absolute path only when no safe relative base applies
+- JSON keys emitted with stable ordering.
+- Rules deduplicated and sorted by rule id.
+- Results sorted by severity then rule id.
+- `artifactLocation.uri` normalized for path stability.
+- Stable `partialFingerprints` derived from rule id, artifact URI, and normalized evidence lines.
+
+## GitHub Ingestion Constraints (Important)
+
+From current GitHub SARIF support docs:
+
+- gzip-compressed SARIF upload max size: 10 MB.
+- max runs per file: 20.
+- max results per run: 25,000 (top 5,000 displayed).
+- max rules per run: 25,000.
+
+Operational implication:
+
+- Keep result cardinality controlled.
+- Keep paths and rule ids deterministic to avoid alert churn.
+- Use upload categories consistently when uploading multiple SARIF files for the same commit.
+
+## Validation and Tests
+
+- FoxClaw validates SARIF against the official SARIF Draft-04 schema in `tests/test_sarif_m4.py`.
+- Validation schema is vendored at `tests/schemas/sarif-schema-2.1.0.json`.
+
+Local parse check:
+
+```bash
+python - <<'PY'
+import json
+json.load(open("foxclaw.sarif", "r", encoding="utf-8"))
+print("sarif parse ok")
+PY
+```
 
 ## Rule Help URI Convention
 
-Each rule entry includes:
+Each rule uses:
 
-- `helpUri: docs/SARIF.md#rule-<rule-id-slug>`
+- `helpUri: docs/SARIF.md#rule-<rule-id-slug>`.
 
-This provides a stable, deterministic URI value for SARIF consumers.
-
-## Example
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --ruleset foxclaw/rulesets/balanced.yml \
-  --sarif-out foxclaw.sarif
-```
-
-FoxClaw validates SARIF generation against the official SARIF 2.1.0 schema in `tests/test_sarif_m4.py` using `tests/schemas/sarif-schema-2.1.0.json`.
-
-## Rule Reference Anchors
-
-### Rule: FC-PREF-001
-
-### Rule: FC-PREF-002
-
-### Rule: FC-FILE-001
-
-### Rule: FC-FILE-002
-
-### Rule: FC-POLICY-001
-
-### Rule: FC-SQL-001
-
-### Rule: FC-SQL-002
-
-### Rule: FC-STRICT-PREF-001
-
-### Rule: FC-STRICT-PREF-002
-
-### Rule: FC-STRICT-FILE-001
-
-### Rule: FC-STRICT-FILE-002
-
-### Rule: FC-STRICT-POLICY-001
-
-### Rule: FC-STRICT-SQL-001
-
-### Rule: FC-STRICT-SQL-002
+This keeps rule links deterministic across environments.

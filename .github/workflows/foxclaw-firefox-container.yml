@@ -1,0 +1,62 @@
+name: FoxClaw Firefox Container Smoke
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foxclaw-firefox-container-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firefox-container-smoke:
+    name: firefox-container-smoke
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        firefox_channel: [esr, beta, nightly]
+        
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build Firefox testbed image
+        run: docker build --build-arg FIREFOX_CHANNEL=${{ matrix.firefox_channel }} -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed-${{ matrix.firefox_channel }} .
+
+      - name: Verify Firefox channel build
+        run: docker run --rm foxclaw-firefox-testbed-${{ matrix.firefox_channel }} firefox --version
+
+      - name: Run containerized Firefox smoke scan
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            foxclaw-firefox-testbed-${{ matrix.firefox_channel }} \
+            bash -lc '
+              python -m venv /tmp/venv
+              /tmp/venv/bin/pip install --upgrade pip
+              /tmp/venv/bin/pip install -e ".[dev]"
+              scripts/firefox_container_scan.sh \
+                --python /tmp/venv/bin/python \
+                --output-dir /workspace/firefox-container-artifacts/${{ matrix.firefox_channel }}
+            '
+
+      - name: Upload container smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-container-artifacts-${{ matrix.firefox_channel }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/foxclaw.json
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/foxclaw.sarif
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/foxclaw.snapshot.json
+            firefox-container-artifacts/${{ matrix.firefox_channel }}/firefox-headless.log

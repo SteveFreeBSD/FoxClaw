@@ -22,6 +22,14 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
     table.add_row("High-risk permissions", str(bundle.summary.high_risk_perms_count))
     table.add_row("Policies found", str(bundle.summary.policies_found))
     table.add_row(
+        "Extensions (found/active)",
+        f"{bundle.summary.extensions_found}/{bundle.summary.extensions_active}",
+    )
+    table.add_row(
+        "Extension risk (unsigned/high-risk)",
+        f"{bundle.summary.extensions_unsigned_count}/{bundle.summary.extensions_high_risk_count}",
+    )
+    table.add_row(
         "SQLite checks (total/non-ok)",
         f"{bundle.summary.sqlite_checks_total}/{bundle.summary.sqlite_non_ok_count}",
     )

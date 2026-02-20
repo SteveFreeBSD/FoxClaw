@@ -11,12 +11,15 @@ pip install -e '.[dev]'
 
 ## Local Verification Commands
 
-Run from repository root:
+Run from repository root.
 
 ```bash
-pytest -q
+pytest -q -m "not integration"
+python scripts/generate_testbed_fixtures.py --write
+pytest -q -m integration
 ruff check .
 mypy foxclaw
+python scripts/generate_testbed_fixtures.py --check
 ```
 
 Generate fixture outputs and keep exit-code semantics intact (`2` means findings, not crash):
@@ -43,25 +46,91 @@ print("json+sarif parse ok")
 PY
 ```
 
+Generate deterministic snapshot output:
+
+```bash
+python -m foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --snapshot-out foxclaw.snapshot.json
+```
+
+Compare snapshots:
+
+```bash
+python -m foxclaw snapshot diff \
+  --before baseline.snapshot.json \
+  --after current.snapshot.json \
+  --json
+```
+
 ## Makefile Targets
 
-Equivalent shortcuts:
+Equivalent shortcuts.
 
 ```bash
 make install
 make lint
 make typecheck
 make test
+make test-integration
+make testbed-fixtures
+make testbed-fixtures-write
 make fixture-scan
 make verify
+make verify-full
+make certify
+make certify-live
+make test-firefox-container
+make hooks-install
 make clean
 ```
 
+## Review-Ready Gate Sequence
+
+Use this exact sequence before pushing.
+
+```bash
+make certify
+```
+
+For milestone sign-off before push:
+
+```bash
+make certify-live
+```
+
+## Git Hook Setup
+
+Install the pre-push hook once per clone:
+
+```bash
+make hooks-install
+```
+
+The hook runs `./scripts/certify.sh` before every push.
+
+See `docs/QUALITY_GATES.md` for the full gate policy.
+
+## Documentation Discipline
+
+- Keep docs synchronized with runtime behavior.
+- If command surfaces change, update:
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/SECURITY_MODEL.md`
+  - `docs/GITHUB_ACTIONS.md` (if CI behavior changed).
+  - `docs/TESTBED.md` (if fixture or container testbed flows changed).
+- For roadmap or strategic changes, update:
+  - `docs/ROADMAP.md`
+  - `docs/RESEARCH.md`
+  - `docs/VULNERABILITY_INTEL.md`
+  - `docs/QUALITY_GATES.md`.
+
 ## Packaging Notes
 
-`pyproject.toml` follows PyPA guidance for:
+`pyproject.toml` follows PyPA guidance for project metadata, editable installs, package discovery, and tool configuration.
 
-- project metadata (`[project]`)
-- editable/dev installs (`.[dev]`)
-- setuptools package discovery
-- tool configuration (`pytest`, `ruff`, `mypy`)
+Primary packaging reference:
+
+- https://packaging.python.org/en/latest/guides/writing-pyproject-toml/

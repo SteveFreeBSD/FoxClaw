@@ -10,8 +10,16 @@ from rich.table import Table
 from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
+from foxclaw.report.snapshot import render_scan_snapshot
+from foxclaw.report.snapshot_diff import (
+    build_scan_snapshot_diff,
+    load_scan_snapshot,
+    render_snapshot_diff_json,
+    render_snapshot_diff_summary,
+)
 from foxclaw.report.text import render_scan_summary
-from foxclaw.scan import detect_active_profile_reason, run_scan
+from foxclaw.rules.engine import load_ruleset
+from foxclaw.scan import detect_active_profile_reason, resolve_ruleset_path, run_scan
 
 EXIT_OK = 0
 EXIT_OPERATIONAL_ERROR = 1
@@ -19,6 +27,7 @@ EXIT_HIGH_FINDINGS = 2
 
 app = typer.Typer(help="FoxClaw: deterministic Firefox security posture scanner.")
 profiles_app = typer.Typer(help="Firefox profile discovery commands.")
+snapshot_app = typer.Typer(help="Snapshot baseline and drift commands.")
 console = Console()
 
 
@@ -90,6 +99,14 @@ def scan(
     ruleset: Path | None = typer.Option(
         None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
     ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help=(
+            "Override enterprise policy discovery path(s); "
+            "repeatable and defaults are ignored when provided."
+        ),
+    ),
     sarif_output: bool = typer.Option(
         False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
     ),
@@ -98,6 +115,11 @@ def scan(
     ),
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
+    ),
+    snapshot_out: Path | None = typer.Option(
+        None,
+        "--snapshot-out",
+        help="Write deterministic snapshot JSON to this path.",
     ),
 ) -> None:
     """Run read-only scan."""
@@ -128,14 +150,21 @@ def scan(
             )
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
+    resolved_ruleset_path = resolve_ruleset_path(ruleset)
+
     try:
-        evidence = run_scan(selected_profile, ruleset_path=ruleset)
+        evidence = run_scan(
+            selected_profile,
+            ruleset_path=resolved_ruleset_path,
+            policy_paths=policy_path,
+        )
     except (OSError, ValueError) as exc:
         console.print(f"[red]Operational error: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     json_payload: str | None = None
     sarif_payload: str | None = None
+    snapshot_payload: str | None = None
     if json_output or output is not None:
         json_payload = render_scan_json(evidence)
     if sarif_output or sarif_out is not None:
@@ -159,6 +188,21 @@ def scan(
         except OSError as exc:
             console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    if snapshot_out is not None:
+        try:
+            snapshot_out.parent.mkdir(parents=True, exist_ok=True)
+            if snapshot_payload is None:
+                snapshot_ruleset = load_ruleset(resolved_ruleset_path)
+                snapshot_payload = render_scan_snapshot(
+                    evidence,
+                    ruleset_path=resolved_ruleset_path,
+                    ruleset_name=snapshot_ruleset.name,
+                    ruleset_version=snapshot_ruleset.version,
+                )
+            snapshot_out.write_text(snapshot_payload, encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            console.print(f"[red]Operational error writing snapshot output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     if json_output and output is None:
         if json_payload is None:
@@ -174,6 +218,8 @@ def scan(
             console.print(f"JSON report written to: {output}")
         if sarif_out is not None:
             console.print(f"SARIF report written to: {sarif_out}")
+        if snapshot_out is not None:
+            console.print(f"Snapshot report written to: {snapshot_out}")
 
     raise typer.Exit(
         code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
@@ -181,6 +227,52 @@ def scan(
 
 
 app.add_typer(profiles_app, name="profiles")
+app.add_typer(snapshot_app, name="snapshot")
+
+
+@snapshot_app.command("diff")
+def snapshot_diff(
+    before: Path = typer.Option(
+        ..., "--before", help="Path to baseline snapshot JSON."
+    ),
+    after: Path = typer.Option(
+        ..., "--after", help="Path to current snapshot JSON."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit snapshot diff JSON to stdout."
+    ),
+    output: Path | None = typer.Option(
+        None, "--output", help="Write snapshot diff JSON to this path."
+    ),
+) -> None:
+    """Compare two deterministic snapshots."""
+    if json_output and output is not None:
+        console.print("[red]Operational error: --json and --output cannot be combined.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    try:
+        before_snapshot = load_scan_snapshot(before)
+        after_snapshot = load_scan_snapshot(after)
+        diff = build_scan_snapshot_diff(before_snapshot, after_snapshot)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if json_output:
+        typer.echo(render_snapshot_diff_json(diff))
+    elif output is not None:
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(render_snapshot_diff_json(diff), encoding="utf-8")
+            console.print(f"Snapshot diff written to: {output}")
+            render_snapshot_diff_summary(console, diff)
+        except OSError as exc:
+            console.print(f"[red]Operational error writing snapshot diff: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    else:
+        render_snapshot_diff_summary(console, diff)
+
+    raise typer.Exit(code=EXIT_HIGH_FINDINGS if diff.summary.drift_detected else EXIT_OK)
 
 
 def _build_profile_override(profile_path: Path) -> FirefoxProfile:

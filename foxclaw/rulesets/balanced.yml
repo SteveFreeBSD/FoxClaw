@@ -79,3 +79,26 @@ rules:
     rationale: Cookie store corruption can indicate profile instability or abrupt shutdown issues.
     recommendation: Repair or recreate cookies.sqlite after preserving required artifacts.
     confidence: high
+
+  - id: FC-EXT-001
+    title: Active extensions should be signed
+    severity: INFO
+    category: extensions
+    check:
+      extension_unsigned_absent:
+        include_system: false
+    rationale: Unsigned active extensions increase supply-chain and tampering risk.
+    recommendation: Disable or remove unsigned extensions and install signed releases.
+    confidence: medium
+
+  - id: FC-EXT-002
+    title: Active extensions should avoid high-risk permissions
+    severity: MEDIUM
+    category: extensions
+    check:
+      extension_permission_risk_absent:
+        min_level: high
+        include_system: false
+    rationale: High-risk extension permissions can materially expand browser attack surface.
+    recommendation: Review extension permissions and reduce/remove risky extensions.
+    confidence: medium

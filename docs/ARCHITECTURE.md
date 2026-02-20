@@ -1,51 +1,78 @@
 # Architecture
 
-## Design Goals
+## Architecture Goals
 
-- Deterministic scan and report outputs.
-- Strict trust boundaries (read-only collection, isolated remediation).
-- Offline-by-default runtime behavior.
+- Deterministic outputs suitable for CI gating and diffing.
+- Strict trust boundaries between collection, evaluation, and reporting.
+- Offline-by-default scanning with no runtime network dependency.
+- Incremental path to a richer security platform without breaking current guarantees.
 
-## Module Layout
+## Runtime Modules (Current)
 
-- `foxclaw/cli.py`
-  - Command surface and exit-code orchestration.
-- `foxclaw/profiles.py`
-  - Firefox profile discovery and deterministic selection.
-- `foxclaw/collect/`
-  - Read-only evidence collectors.
-  - No mutation side effects.
-- `foxclaw/rules/`
-  - Ruleset loader and constrained DSL evaluator.
-- `foxclaw/report/`
-  - Pure output rendering (`text`, `json`, `sarif`).
-- `foxclaw/models.py`
-  - Pydantic evidence and finding models (shared schema contract).
-- `foxclaw/rulesets/`
-  - Versioned YAML rulesets.
+- `foxclaw/cli.py`.
+  - CLI orchestration, flag validation, and exit-code contract.
+- `foxclaw/profiles.py`.
+  - deterministic profile discovery and selection.
+- `foxclaw/collect/`.
+  - read-only evidence acquisition from local profile/system paths, including extension inventory posture.
+  - extension evidence classifies source kind (`profile`, `system`, `builtin`, `external`, `unknown`) and manifest status (`parsed`, `unavailable`, `error`).
+- `foxclaw/rules/`.
+  - ruleset parsing and constrained DSL evaluation.
+- `foxclaw/report/`.
+  - pure renderers (`text`, `json`, `sarif`) with no collection logic.
+- `foxclaw/models.py`.
+  - pydantic schema contract for evidence, findings, and summaries.
+- `foxclaw/rulesets/`.
+  - versioned policy packs (balanced, strict).
 
-## Scan Data Flow
+## Data Flow (Current)
 
-1. Resolve/select profile (`discover_profiles` or `--profile` override).
-2. Collect read-only evidence from profile + system policy paths.
-3. Build `EvidenceBundle` (stable internal schema).
-4. Evaluate ruleset into deterministic findings.
-5. Emit report formats without mutating evidence.
+1. Select profile (`profiles list` scoring or explicit `--profile`).
+2. Collect local evidence through read-only collectors.
+3. Build typed `EvidenceBundle` contract.
+4. Evaluate ruleset into finding set.
+5. Render deterministic output payloads.
 
-## Trust Boundaries
+## Trust Boundary Implementation
 
-- Collection boundary:
-  - `foxclaw/collect/*` only reads filesystem/SQLite in read-only mode.
-- Evaluation boundary:
-  - rule DSL consumes evidence models; no host mutation.
-- Reporting boundary:
-  - renderers format outputs only; they do not collect or mutate state.
-- Remediation boundary:
-  - remediation is intentionally excluded from the current runtime surface.
+- Collection boundary (`foxclaw/collect/*`, `foxclaw/profiles.py`).
+  - Reads files, metadata, and SQLite in read-only mode.
+  - Never writes profile or system state.
+- Evaluation boundary (`foxclaw/rules/*`).
+  - Consumes evidence, emits findings only.
+  - No host mutation or network I/O.
+- Reporting boundary (`foxclaw/report/*`).
+  - Formats evidence/findings only.
+  - No collection side effects.
+- Remediation boundary.
+  - Intentionally excluded from current runtime surface.
 
-## Determinism Controls
+## Determinism Contract
 
-- Stable sort order for findings (severity then rule id).
-- Stable JSON key ordering.
-- Stable SARIF rule/result ordering and fingerprints.
-- Relative SARIF artifact URIs when evidence paths are inside repo/profile roots.
+- Stable finding ordering by severity and rule id.
+- Stable rules and results ordering in SARIF.
+- Stable SARIF fingerprints from normalized evidence material.
+- Sorted JSON output keys.
+- Stable relative artifact URIs when paths resolve under repo/profile roots.
+
+## Planned Expansion Points
+
+The next-level roadmap is designed as additive modules so current scan guarantees remain intact.
+
+- `state/` (planned).
+  - signed snapshot format and deterministic diff engine.
+- `suppression/` (planned).
+  - scoped suppressions with owner, reason, and expiration.
+- `policypacks/` (planned).
+  - signed external rule bundles validated before load.
+- `intel/` (planned, non-scan path).
+  - explicit update command for offline-cached threat intelligence metadata.
+  - includes Mozilla CVE/advisory ingestion and extension threat-intel datasets.
+- `attest/` (planned, release pipeline).
+  - build provenance, signed releases, and artifact verification metadata.
+
+## Non-Goals for Current Runtime
+
+- Automatic remediation in scan command paths.
+- Network lookups during evidence collection/evaluation.
+- Dynamic plugin execution from untrusted sources at runtime.

@@ -1,48 +1,78 @@
 # Security Model
 
-## Core Principles
+## Security Invariants
 
-- Offline-by-default: scan paths do not perform network calls.
-- Read-only evidence collection: collectors never mutate host/profile state.
-- Explicit phase separation: remediation is isolated from scan collection/evaluation.
-- Deterministic outputs: stable sorting and schema contracts for machine consumers.
+These are non-negotiable for the scan runtime:
 
-## Trust Boundary
+- Offline-by-default.
+  - No network calls during scan collection/evaluation/reporting.
+- Read-only collection.
+  - Collectors never mutate host/profile state.
+- Boundary separation.
+  - Collection, rule evaluation, and reporting remain isolated concerns.
+- Deterministic contracts.
+  - Stable sorting and schemas for machine consumers and CI.
+
+## Trust Boundaries
 
 ### Evidence Boundary (`foxclaw/collect/*`, `foxclaw/profiles.py`)
 
-- Inputs: local filesystem artifacts and SQLite files.
-- Allowed actions: read-only open/stat/query operations.
-- Disallowed actions: writing/modifying profile or system configuration.
+- Inputs: local filesystem artifacts and SQLite databases.
+- Allowed: read-only open/stat/query operations.
+- Disallowed: write, chmod/chown, profile config mutation, process control.
 
 ### Evaluation Boundary (`foxclaw/rules/*`)
 
-- Inputs: immutable evidence models + declarative rules.
-- Output: finding objects only.
-- Disallowed actions: host mutation, network activity.
+- Inputs: evidence models and declarative rulesets.
+- Allowed: deterministic finding evaluation only.
+- Disallowed: host mutation and network operations.
 
 ### Reporting Boundary (`foxclaw/report/*`)
 
-- Inputs: evidence/findings.
-- Output: text/JSON/SARIF payloads.
-- Disallowed actions: data collection and remediation side effects.
+- Inputs: findings and evidence models.
+- Allowed: text/JSON/SARIF rendering.
+- Disallowed: extra collection, remediation actions, network transmission.
 
 ### Remediation Boundary (future phase)
 
-- Kept isolated from collectors by design.
+- Kept isolated from scan runtime by design.
 - Not shipped in the current CLI runtime surface.
 
-## Operational Safety Assumptions
+## Threat Model (Current)
 
-- Scan commands may run on live profiles; `--require-quiet-profile` can enforce additional guardrails.
-- SQLite checks use read-only URI mode and integrity-oriented pragmas.
-- Reports are outputs only and do not trigger host changes.
+- Malicious or malformed local artifacts.
+  - Control: strict parsing, typed models, and fail-closed operational errors.
+- Live profile race conditions.
+  - Control: lock detection and optional `--require-quiet-profile` gate.
+- Ruleset drift or inconsistent outputs across runs.
+  - Control: deterministic ordering and versioned rulesets.
+- CI token misuse for SARIF upload.
+  - Control: job-scoped `security-events: write` and fork PR upload skip logic.
 
-## CI and Upload Surface
+## Data Handling
 
-- SARIF upload happens in GitHub Actions, not in FoxClaw runtime.
-- Upload job requires `security-events: write` and is intentionally skipped for fork-origin pull requests.
+- Inputs are local machine artifacts only.
+- Output payloads may contain local file paths and evidence text.
+- Operators should treat JSON/SARIF artifacts as potentially sensitive operational telemetry.
 
-## Exit Codes
+## Operational Assumptions
 
-The canonical exit-code contract is documented in `README.md`.
+- Scan may run against active profiles unless `--require-quiet-profile` is set.
+- SQLite integrity checks use read-only URI mode.
+- Runtime does not persist hidden state beyond explicit output files.
+
+## Forward Security Backlog
+
+- Signed policy packs and manifest verification.
+- Snapshot/diff integrity with hash-bound baselines.
+- Suppression governance (owner, reason, expiry).
+- Release provenance and artifact attestation in CI.
+- Optional Mozilla CVE and extension intelligence cache ingestion as a separate explicit phase.
+- Any network-backed intelligence refresh must run in explicit update commands, never scan runtime.
+
+## References
+
+- NIST Secure Software Development Framework (SP 800-218):
+  - https://csrc.nist.gov/pubs/sp/800/218/final
+- GitHub SARIF upload permission model:
+  - https://docs.github.com/en/code-security/how-tos/scan-code-for-vulnerabilities/integrate-with-existing-tools/uploading-a-sarif-file-to-github

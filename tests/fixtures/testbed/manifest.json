@@ -1,0 +1,210 @@
+{
+  "fixtures": [
+    {
+      "mode": "0644",
+      "path": "policies/disable_telemetry.json",
+      "sha256": "844eb0a1fb2626a2b89d4000f6f9a37228d370d1f725f28e3f117089f1e9c48b",
+      "size": 53
+    },
+    {
+      "mode": "0600",
+      "path": "profile_active_lock/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_active_lock/key4.db",
+      "sha256": "833d84c2b1e40fb7a5eee3ad6ef07b84ca5e919339dcb5135a9b7997ab700c57",
+      "size": 45
+    },
+    {
+      "mode": "0600",
+      "path": "profile_active_lock/parent.lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "mode": "0600",
+      "path": "profile_active_lock/places.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_active_lock/prefs.js",
+      "sha256": "d428a26161bf2b156c46633e938af2962f755eccfce3a5f40575abef83e7e206",
+      "size": 181
+    },
+    {
+      "mode": "0600",
+      "path": "profile_baseline/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_baseline/key4.db",
+      "sha256": "09ad314a6de1b6c148c9a2ba5603f08cf9db9ac17154e0fb4c57bebf8d3f56e1",
+      "size": 42
+    },
+    {
+      "mode": "0600",
+      "path": "profile_baseline/places.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_baseline/prefs.js",
+      "sha256": "d428a26161bf2b156c46633e938af2962f755eccfce3a5f40575abef83e7e206",
+      "size": 181
+    },
+    {
+      "mode": "0600",
+      "path": "profile_policy_present/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_policy_present/key4.db",
+      "sha256": "4b10e3e179ef4c54225e22064736236ac8ef44071933ead12237c69a219e4a25",
+      "size": 48
+    },
+    {
+      "mode": "0600",
+      "path": "profile_policy_present/places.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_policy_present/prefs.js",
+      "sha256": "d428a26161bf2b156c46633e938af2962f755eccfce3a5f40575abef83e7e206",
+      "size": 181
+    },
+    {
+      "mode": "0600",
+      "path": "profile_sqlite_error/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_sqlite_error/key4.db",
+      "sha256": "c3a4976d7cd7b4660e0befa0edd1f9dc27828fba6db5e6b9f52767ad030cd0ed",
+      "size": 46
+    },
+    {
+      "mode": "0600",
+      "path": "profile_sqlite_error/places.sqlite",
+      "sha256": "a3d620ba1011d1b41b35b1ca773dae3c78920be226f7b87c6e3ca0fbe689384d",
+      "size": 30
+    },
+    {
+      "mode": "0600",
+      "path": "profile_sqlite_error/prefs.js",
+      "sha256": "d428a26161bf2b156c46633e938af2962f755eccfce3a5f40575abef83e7e206",
+      "size": 181
+    },
+    {
+      "mode": "0600",
+      "path": "profile_third_party_xpi/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_third_party_xpi/extensions.json",
+      "sha256": "ab4d5384fff7984ef9a895ef312a318582d3a0f8839a826faad255f7d5b9b4c3",
+      "size": 317
+    },
+    {
+      "mode": "0644",
+      "path": "profile_third_party_xpi/extensions/third-party@example.com.xpi",
+      "sha256": "926562d11f47d9c7804370437e53571c0d4ffe1c9d1442028254807ea4446a22",
+      "size": 401
+    },
+    {
+      "mode": "0600",
+      "path": "profile_third_party_xpi/key4.db",
+      "sha256": "e58a273d53182d6d531a3f13472cce405ce3baccda0ea1a2ba3b335c4ceb32b4",
+      "size": 49
+    },
+    {
+      "mode": "0600",
+      "path": "profile_third_party_xpi/places.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_third_party_xpi/prefs.js",
+      "sha256": "d428a26161bf2b156c46633e938af2962f755eccfce3a5f40575abef83e7e206",
+      "size": 181
+    },
+    {
+      "mode": "0600",
+      "path": "profile_userjs_override/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_userjs_override/key4.db",
+      "sha256": "6ebf6b7d4b475d1faabc1cbe3d36c690e1ebffc4ba3f00e23253cc5bef5c82b3",
+      "size": 49
+    },
+    {
+      "mode": "0600",
+      "path": "profile_userjs_override/places.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_userjs_override/prefs.js",
+      "sha256": "678f68ef181d05e6d3a7e7922cc9fedb24b8c7c12ac11f5fe29027cdb1fb1f24",
+      "size": 231
+    },
+    {
+      "mode": "0600",
+      "path": "profile_userjs_override/user.js",
+      "sha256": "27127d3ac0226ece9d80104a06ec69d3e3c7265469e4befed09a66a8c389b6ac",
+      "size": 91
+    },
+    {
+      "mode": "0600",
+      "path": "profile_weak_perms/cookies.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0644",
+      "path": "profile_weak_perms/key4.db",
+      "sha256": "870c5d6d17522f0049a55351dce973104a1cd7c4c329dc8c99e6679d81d73881",
+      "size": 44
+    },
+    {
+      "mode": "0600",
+      "path": "profile_weak_perms/places.sqlite",
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
+    },
+    {
+      "mode": "0600",
+      "path": "profile_weak_perms/prefs.js",
+      "sha256": "d428a26161bf2b156c46633e938af2962f755eccfce3a5f40575abef83e7e206",
+      "size": 181
+    },
+    {
+      "mode": "0644",
+      "path": "rulesets/integration.yml",
+      "sha256": "166ce8a4fef8e9991203392263d4b72692f1fef7532f7dcf4a3c12203e2a4046",
+      "size": 1705
+    }
+  ],
+  "generator_version": "1.0.0",
+  "schema_version": "1.0.0"
+}

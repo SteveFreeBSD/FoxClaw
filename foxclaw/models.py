@@ -57,6 +57,48 @@ class PolicyEvidence(BaseModel):
     summaries: list[PolicyFileSummary] = Field(default_factory=list)
 
 
+class ExtensionPermissionRisk(BaseModel):
+    """One extension permission flagged with a risk level."""
+
+    permission: str
+    level: Literal["medium", "high"]
+    reason: str
+
+
+class ExtensionEntry(BaseModel):
+    """Parsed extension metadata from extensions.json and manifest content."""
+
+    addon_id: str
+    name: str | None = None
+    version: str | None = None
+    active: bool | None = None
+    addon_type: str | None = None
+    location: str | None = None
+    source_kind: Literal["profile", "system", "builtin", "external", "unknown"] = "unknown"
+    source: str | None = None
+    signed_state: str | None = None
+    signed_valid: bool | None = None
+    signed_status: Literal["valid", "invalid", "unavailable"] = "unavailable"
+    manifest_path: str | None = None
+    manifest_status: Literal["parsed", "unavailable", "error"] = "unavailable"
+    manifest_version: int | None = None
+    permissions: list[str] = Field(default_factory=list)
+    host_permissions: list[str] = Field(default_factory=list)
+    risky_permissions: list[ExtensionPermissionRisk] = Field(default_factory=list)
+    blocklisted: bool | None = None
+    parse_error: str | None = None
+
+
+class ExtensionEvidence(BaseModel):
+    """Extension inventory and posture evidence."""
+
+    extensions_json_path: str | None = None
+    parse_error: str | None = None
+    addons_seen: int = 0
+    active_addons: int = 0
+    entries: list[ExtensionEntry] = Field(default_factory=list)
+
+
 class SqliteCheck(BaseModel):
     """Result of read-only SQLite quick_check for one database."""
 
@@ -125,6 +167,10 @@ class ScanSummary(BaseModel):
     sensitive_files_checked: int
     high_risk_perms_count: int
     policies_found: int
+    extensions_found: int = 0
+    extensions_active: int = 0
+    extensions_high_risk_count: int = 0
+    extensions_unsigned_count: int = 0
     sqlite_checks_total: int
     sqlite_non_ok_count: int
     findings_total: int = 0
@@ -142,7 +188,75 @@ class EvidenceBundle(BaseModel):
     prefs: PrefEvidence
     filesystem: list[FilePermEvidence] = Field(default_factory=list)
     policies: PolicyEvidence
+    extensions: ExtensionEvidence = Field(default_factory=ExtensionEvidence)
     sqlite: SqliteEvidence
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+
+
+class SnapshotRulesetMetadata(BaseModel):
+    """Ruleset provenance metadata for deterministic snapshots."""
+
+    name: str
+    version: str
+    path: str
+    sha256: str
+
+
+class ScanSnapshot(BaseModel):
+    """Deterministic snapshot payload for baseline and diff workflows."""
+
+    snapshot_schema_version: str = "1.0.0"
+    evidence_schema_version: str
+    profile: ProfileEvidence
+    ruleset: SnapshotRulesetMetadata
+    summary: ScanSummary
+    high_findings: list[str] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
+
+
+class SnapshotMetadata(BaseModel):
+    """Core snapshot metadata used in diff payloads."""
+
+    snapshot_schema_version: str
+    evidence_schema_version: str
+    profile: ProfileEvidence
+    ruleset: SnapshotRulesetMetadata
+
+
+class SnapshotDiffSummary(BaseModel):
+    """Summary counts for baseline-to-current snapshot drift."""
+
+    drift_detected: bool
+    before_findings_total: int
+    after_findings_total: int
+    before_findings_high_count: int
+    after_findings_high_count: int
+    before_findings_medium_count: int
+    after_findings_medium_count: int
+    before_findings_info_count: int
+    after_findings_info_count: int
+    added_findings_count: int
+    removed_findings_count: int
+    changed_findings_count: int
+
+
+class SnapshotFindingChange(BaseModel):
+    """One rule-level finding change between two snapshots."""
+
+    rule_id: str
+    before: Finding
+    after: Finding
+
+
+class ScanSnapshotDiff(BaseModel):
+    """Deterministic snapshot-diff payload."""
+
+    snapshot_diff_schema_version: str = "1.0.0"
+    before: SnapshotMetadata
+    after: SnapshotMetadata
+    summary: SnapshotDiffSummary
+    added_findings: list[Finding] = Field(default_factory=list)
+    removed_findings: list[Finding] = Field(default_factory=list)
+    changed_findings: list[SnapshotFindingChange] = Field(default_factory=list)
