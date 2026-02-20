@@ -8,10 +8,8 @@ import hashlib
 import io
 import json
 import os
-import sqlite3
 import stat
 import sys
-import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +19,7 @@ GENERATOR_VERSION = "1.0.0"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures" / "testbed"
 MANIFEST_PATH = FIXTURE_ROOT / "manifest.json"
+SQLITE_TEMPLATE_PATH = REPO_ROOT / "tests" / "fixtures" / "firefox_profile" / "places.sqlite"
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,28 +297,8 @@ def _write_deterministic_zip_entry(
 
 
 def build_sqlite_bytes(*, db_name: str, scenario: str) -> bytes:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = Path(tmpdir) / f"{db_name}.sqlite"
-        connection = sqlite3.connect(db_path)
-        connection.execute("PRAGMA journal_mode = DELETE;")
-        connection.execute("PRAGMA synchronous = OFF;")
-        connection.execute("PRAGMA temp_store = MEMORY;")
-        connection.execute("CREATE TABLE entries (k TEXT PRIMARY KEY, v TEXT NOT NULL);")
-        connection.execute(
-            "INSERT INTO entries (k, v) VALUES (?, ?);",
-            ("scenario", scenario),
-        )
-        connection.execute(
-            "INSERT INTO entries (k, v) VALUES (?, ?);",
-            ("db_name", db_name),
-        )
-        connection.execute(
-            "INSERT INTO entries (k, v) VALUES (?, ?);",
-            ("marker", "foxclaw-testbed"),
-        )
-        connection.commit()
-        connection.close()
-        return db_path.read_bytes()
+    _ = (db_name, scenario)
+    return SQLITE_TEMPLATE_PATH.read_bytes()
 
 
 def build_manifest_records(fixture_files: list[FixtureFile]) -> list[FixtureRecord]:

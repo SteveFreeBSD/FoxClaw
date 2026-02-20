@@ -9,8 +9,8 @@
     {
       "mode": "0600",
       "path": "profile_active_lock/cookies.sqlite",
-      "sha256": "2f55bfda0202022fda13919b43912dc0cb23863b02aea0bc8c447040fb1c2555",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -27,8 +27,8 @@
     {
       "mode": "0600",
       "path": "profile_active_lock/places.sqlite",
-      "sha256": "4d1537cc8f502dd75418710b6ae481919596fa9c3e4305f2fd8849de4fb9870a",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -39,8 +39,8 @@
     {
       "mode": "0600",
       "path": "profile_baseline/cookies.sqlite",
-      "sha256": "a283a4f1026408618769eecbb6d92865927512ba4ff12a84bdbd17fac0a27562",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -51,8 +51,8 @@
     {
       "mode": "0600",
       "path": "profile_baseline/places.sqlite",
-      "sha256": "86ae3d66ade696ec6512e49675924fd39c2ac663287452793471916084668c50",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -63,8 +63,8 @@
     {
       "mode": "0600",
       "path": "profile_policy_present/cookies.sqlite",
-      "sha256": "a991e5cf87abc0a3a3a63601408eaed750d5899068b38fa20752cf927ddd15e1",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -75,8 +75,8 @@
     {
       "mode": "0600",
       "path": "profile_policy_present/places.sqlite",
-      "sha256": "9ef9acc0dcf2a2f3ca3e2c1a044ad9f0f89b6c070a2f30be72abea10a647b1a4",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -87,8 +87,8 @@
     {
       "mode": "0600",
       "path": "profile_sqlite_error/cookies.sqlite",
-      "sha256": "916dd21da1e9753e01155bfd0a0f0633d5412e051d715b09a58955b7f6549293",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -111,8 +111,8 @@
     {
       "mode": "0600",
       "path": "profile_third_party_xpi/cookies.sqlite",
-      "sha256": "9623a90d6e7e42f0f4151477a6201931b2a0b2c01d82ca317c0729732a633515",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -135,8 +135,8 @@
     {
       "mode": "0600",
       "path": "profile_third_party_xpi/places.sqlite",
-      "sha256": "f615bbf8866bb1d76d3ee0a2570f6f46e72dbf2a1c0187bd4191068477219291",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -147,8 +147,8 @@
     {
       "mode": "0600",
       "path": "profile_userjs_override/cookies.sqlite",
-      "sha256": "81610a7312d422a187bc7a4a00f5101c8dbfdb6aadcd05a47e08dbdd8d533ae7",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -159,8 +159,8 @@
     {
       "mode": "0600",
       "path": "profile_userjs_override/places.sqlite",
-      "sha256": "234aacadda0ef3078cdc361f276297e5fc393113dd6dd209c7f1685ee38a6c46",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
@@ -177,8 +177,8 @@
     {
       "mode": "0600",
       "path": "profile_weak_perms/cookies.sqlite",
-      "sha256": "d97494a2e3ba980144ba9d05b47afacaf13a5a9c1ec9dc000502295b93d7f233",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0644",
@@ -189,8 +189,8 @@
     {
       "mode": "0600",
       "path": "profile_weak_perms/places.sqlite",
-      "sha256": "3cbcc645824b95d4b87353c4459258aa20830c0f46018784b87aba9ef274f3bd",
-      "size": 12288
+      "sha256": "7f9a55b7222b6de01f9c8f01e5afc8e7540943b1d7e9f40f2fb8921ef7ac44b6",
+      "size": 8192
     },
     {
       "mode": "0600",
