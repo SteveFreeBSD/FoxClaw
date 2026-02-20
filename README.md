@@ -116,6 +116,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/ARCHITECTURE.md`: runtime boundaries and extension points.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
 - `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
+- `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.

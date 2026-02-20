@@ -70,6 +70,12 @@ Run locally (Docker required):
 make test-firefox-container
 ```
 
+If your user does not have direct Docker socket access:
+
+```bash
+make test-firefox-container DOCKER="sudo docker"
+```
+
 This builds `docker/testbed/Dockerfile`, launches Firefox headless to generate a real profile, runs a scan, and writes artifacts to `firefox-container-artifacts/`.
 
 Equivalent compose workflow:

@@ -11,10 +11,7 @@ services:
       HOME: /tmp
     command: >
       bash -lc "
-      python -m venv /tmp/venv &&
-      /tmp/venv/bin/pip install --upgrade pip &&
-      /tmp/venv/bin/pip install -e '.[dev]' &&
+      scripts/container_workspace_exec.sh
       scripts/firefox_container_scan.sh
-      --python /tmp/venv/bin/python
       --output-dir /workspace/firefox-container-artifacts
       "

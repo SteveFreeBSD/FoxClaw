@@ -7,6 +7,7 @@ MYPY_BIN := $(VENV)/bin/mypy
 BANDIT_BIN := $(VENV)/bin/bandit
 VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
+DOCKER ?= docker
 
 .PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container lint typecheck fixture-scan verify verify-full bandit vulture secrets certify certify-live hooks-install clean clean-venv
 
@@ -32,24 +33,24 @@ testbed-fixtures-write:
 	$(PYTHON_BIN) ./scripts/generate_testbed_fixtures.py --write
 
 test-firefox-container:
-	docker build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
-	docker run --rm \
+	$(DOCKER) build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
+	$(DOCKER) run --rm \
 		--user "$$(id -u):$$(id -g)" \
 		-e HOME=/tmp \
 		-v "$$(pwd):/workspace" \
 		-w /workspace \
 		foxclaw-firefox-testbed \
-		bash -lc 'python -m venv /tmp/venv && /tmp/venv/bin/pip install --upgrade pip && /tmp/venv/bin/pip install -e ".[dev]" && scripts/firefox_container_scan.sh --python /tmp/venv/bin/python --output-dir /workspace/firefox-container-artifacts'
+		bash -lc 'scripts/container_workspace_exec.sh scripts/firefox_container_scan.sh --output-dir /workspace/firefox-container-artifacts'
 
 demo-insecure-container:
-	docker build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
-	docker run --rm \
+	$(DOCKER) build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
+	$(DOCKER) run --rm \
 		--user "$$(id -u):$$(id -g)" \
 		-e HOME=/tmp \
 		-v "$$(pwd):/workspace" \
 		-w /workspace \
 		foxclaw-firefox-testbed \
-		bash -lc 'python -m venv /tmp/venv && /tmp/venv/bin/pip install --upgrade pip && /tmp/venv/bin/pip install -e ".[dev]" && scripts/firefox_container_demo.sh --python /tmp/venv/bin/python --output-dir /workspace/demo-insecure-artifacts'
+		bash -lc 'scripts/container_workspace_exec.sh scripts/firefox_container_demo.sh --output-dir /workspace/demo-insecure-artifacts'
 
 lint:
 	$(RUFF_BIN) check .

@@ -62,7 +62,7 @@ Workflow file: `.github/workflows/foxclaw-firefox-container.yml`
 
 - Triggered by weekly schedule and `workflow_dispatch`.
 - Builds `docker/testbed/Dockerfile` (Firefox ESR + Python runtime).
-- Runs `scripts/firefox_container_scan.sh` inside the container.
+- Runs `scripts/container_workspace_exec.sh` to copy source into a writable temp workspace, then executes `scripts/firefox_container_scan.sh`.
 - Uploads:
   - `foxclaw.json`
   - `foxclaw.sarif`

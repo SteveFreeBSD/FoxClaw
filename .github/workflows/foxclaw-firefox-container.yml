@@ -41,11 +41,8 @@ jobs:
             -w /workspace \
             foxclaw-firefox-testbed-${{ matrix.firefox_channel }} \
             bash -lc '
-              python -m venv /tmp/venv
-              /tmp/venv/bin/pip install --upgrade pip
-              /tmp/venv/bin/pip install -e ".[dev]"
-              scripts/firefox_container_scan.sh \
-                --python /tmp/venv/bin/python \
+              scripts/container_workspace_exec.sh \
+                scripts/firefox_container_scan.sh \
                 --output-dir /workspace/firefox-container-artifacts/${{ matrix.firefox_channel }}
             '
 

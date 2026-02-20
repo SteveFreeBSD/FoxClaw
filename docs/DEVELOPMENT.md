@@ -96,6 +96,12 @@ make hooks-install
 make clean
 ```
 
+If Docker requires elevated access on your host:
+
+```bash
+make test-firefox-container DOCKER="sudo docker"
+```
+
 ## Review-Ready Gate Sequence
 
 Use this exact sequence before pushing.
@@ -109,6 +115,24 @@ For milestone sign-off before push:
 ```bash
 make certify-live
 ```
+
+## Long-Run Soak
+
+Start overnight soak with structured logs:
+
+```bash
+systemd-run --user \
+  --unit foxclaw-soak-overnight \
+  --same-dir \
+  --collect \
+  --setenv=SOAK_SUDO_PASSWORD='<sudo-password>' \
+  scripts/soak_runner.sh \
+  --duration-hours 10 \
+  --label overnight-phase1 \
+  --output-root /var/tmp/foxclaw-soak
+```
+
+See `docs/SOAK.md` for artifact structure and failure triage workflow.
 
 ## Git Hook Setup
 
