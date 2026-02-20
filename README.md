@@ -9,6 +9,9 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
   - preference files (`prefs.js`, `user.js`)
   - sensitive profile file permissions
   - enterprise policy files
+  - extension inventory and manifest permission posture (`extensions.json`, `extensions/`)
+    - extensions are classified by source (`profile`, `system`, `builtin`, etc.)
+    - unsigned/risk checks default to profile-controlled extensions (system/builtin excluded)
   - SQLite quick integrity checks (`PRAGMA quick_check`)
 - Declarative rule evaluation from versioned YAML rulesets.
 - Output renderers for terminal, JSON, and SARIF 2.1.0.
@@ -72,6 +75,15 @@ foxclaw snapshot diff \
   --json
 ```
 
+Override enterprise policy discovery paths (repeatable):
+
+```bash
+foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --policy-path /etc/firefox/policies/policies.json \
+  --json
+```
+
 ## Exit Codes
 
 Canonical CLI contract:
@@ -99,6 +111,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
 - `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
 - `docs/DEVELOPMENT.md`: local setup and quality gates.
+- `docs/TESTBED.md`: deterministic Firefox testbed fixtures and container smoke lane.
 
 ## License
 

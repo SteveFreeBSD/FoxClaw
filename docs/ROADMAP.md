@@ -17,9 +17,10 @@ Target: near-term.
   - baseline snapshot export is available via `scan --snapshot-out`.
   - deterministic snapshot diff is available via `snapshot diff`.
 - Add local extension posture checks:
-  - extension inventory from profile metadata.
-  - permission-risk classification from extension manifests.
-  - unsigned/debug extension detection.
+  - baseline extension inventory from profile metadata is available.
+  - baseline permission-risk classification from extension manifests is available.
+  - baseline unsigned extension detection is available.
+  - extend detection depth (debug/dev install states, richer risk model, suppression-aware workflows).
 - Add suppression lifecycle:
   - suppress by rule id + scope.
   - require owner, reason, and expiration timestamp.

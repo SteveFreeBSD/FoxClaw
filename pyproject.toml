@@ -33,6 +33,9 @@ foxclaw = "foxclaw.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "integration: deterministic integration tests for generated Firefox testbed fixtures",
+]
 
 [tool.ruff]
 target-version = "py312"

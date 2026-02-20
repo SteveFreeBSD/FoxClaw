@@ -8,7 +8,7 @@ BANDIT_BIN := $(VENV)/bin/bandit
 VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 
-.PHONY: venv install test lint typecheck fixture-scan verify verify-full bandit vulture secrets certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container lint typecheck fixture-scan verify verify-full bandit vulture secrets certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -18,7 +18,38 @@ install: venv
 	$(PIP_BIN) install -e '.[dev]'
 
 test:
-	$(PYTEST_BIN) -q
+	$(PYTEST_BIN) -q -m "not integration"
+
+test-integration: testbed-fixtures
+	$(PYTEST_BIN) -q -m integration
+
+testbed-fixtures:
+	$(PYTHON_BIN) ./scripts/generate_testbed_fixtures.py --write
+	$(PYTHON_BIN) ./scripts/generate_testbed_fixtures.py --check
+	@git diff --quiet -- tests/fixtures/testbed || (echo "error: testbed fixtures are out of date; run 'make testbed-fixtures-write' and commit updates." >&2 && git --no-pager diff -- tests/fixtures/testbed && exit 1)
+
+testbed-fixtures-write:
+	$(PYTHON_BIN) ./scripts/generate_testbed_fixtures.py --write
+
+test-firefox-container:
+	docker build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
+	docker run --rm \
+		--user "$$(id -u):$$(id -g)" \
+		-e HOME=/tmp \
+		-v "$$(pwd):/workspace" \
+		-w /workspace \
+		foxclaw-firefox-testbed \
+		bash -lc 'python -m venv /tmp/venv && /tmp/venv/bin/pip install --upgrade pip && /tmp/venv/bin/pip install -e ".[dev]" && scripts/firefox_container_scan.sh --python /tmp/venv/bin/python --output-dir /workspace/firefox-container-artifacts'
+
+demo-insecure-container:
+	docker build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
+	docker run --rm \
+		--user "$$(id -u):$$(id -g)" \
+		-e HOME=/tmp \
+		-v "$$(pwd):/workspace" \
+		-w /workspace \
+		foxclaw-firefox-testbed \
+		bash -lc 'python -m venv /tmp/venv && /tmp/venv/bin/pip install --upgrade pip && /tmp/venv/bin/pip install -e ".[dev]" && scripts/firefox_container_demo.sh --python /tmp/venv/bin/python --output-dir /workspace/demo-insecure-artifacts'
 
 lint:
 	$(RUFF_BIN) check .
@@ -29,7 +60,7 @@ typecheck:
 fixture-scan:
 	@./scripts/fixture_scan.sh "$(PYTHON_BIN)"
 
-verify: lint typecheck test fixture-scan
+verify: lint typecheck test test-integration fixture-scan
 
 bandit:
 	$(BANDIT_BIN) -q -r foxclaw -x tests

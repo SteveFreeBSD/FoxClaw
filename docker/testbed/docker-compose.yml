@@ -1,0 +1,20 @@
+services:
+  firefox-esr-smoke:
+    build:
+      context: ../..
+      dockerfile: docker/testbed/Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      HOME: /tmp
+    command: >
+      bash -lc "
+      python -m venv /tmp/venv &&
+      /tmp/venv/bin/pip install --upgrade pip &&
+      /tmp/venv/bin/pip install -e '.[dev]' &&
+      scripts/firefox_container_scan.sh
+      --python /tmp/venv/bin/python
+      --output-dir /workspace/firefox-container-artifacts
+      "

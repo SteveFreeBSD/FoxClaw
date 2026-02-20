@@ -1,0 +1,54 @@
+name: testbed-integration
+version: 1.0.0
+rules:
+  - id: TB-PREF-001
+    title: testbed preference must be set
+    severity: INFO
+    category: preferences
+    check:
+      pref_exists:
+        key: testbed.pref.enabled
+    rationale: deterministic pref parsing coverage
+    recommendation: set testbed.pref.enabled explicitly
+    confidence: medium
+  - id: TB-PREF-OVERRIDE-001
+    title: user.js must override testbed.pref.override
+    severity: INFO
+    category: preferences
+    check:
+      pref_equals:
+        key: testbed.pref.override
+        value: from-user
+    rationale: user.js precedence should override prefs.js when both define a key
+    recommendation: define override value in user.js for deterministic preference control
+    confidence: medium
+  - id: TB-FILE-001
+    title: key4.db must remain owner-only
+    severity: HIGH
+    category: filesystem
+    check:
+      file_perm_strict:
+        key: key4
+    rationale: key material metadata should not be broadly readable
+    recommendation: chmod 600 key4.db
+    confidence: high
+  - id: TB-SQL-001
+    title: places.sqlite quick_check must be ok
+    severity: HIGH
+    category: sqlite
+    check:
+      sqlite_quickcheck_ok:
+        db: places
+    rationale: deterministic sqlite health validation
+    recommendation: repair or replace places.sqlite if corrupt
+    confidence: high
+  - id: TB-POL-001
+    title: enterprise telemetry disable policy should exist
+    severity: INFO
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.DisableTelemetry
+    rationale: integration tests need deterministic policy evidence
+    recommendation: define policies.DisableTelemetry in policies.json
+    confidence: low

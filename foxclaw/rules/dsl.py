@@ -27,6 +27,7 @@ SQLITE_NAME_MAP: dict[str, str] = {
     "places": "places.sqlite",
     "cookies": "cookies.sqlite",
 }
+_RISK_LEVEL_ORDER = {"medium": 0, "high": 1}
 
 
 @dataclass(slots=True)
@@ -53,6 +54,12 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_policy_key_exists(bundle, config)
     if check_name == "sqlite_quickcheck_ok":
         return _check_sqlite_quickcheck_ok(bundle, config)
+    if check_name == "extension_unsigned_absent":
+        return _check_extension_unsigned_absent(bundle, config)
+    if check_name == "extension_permission_risk_absent":
+        return _check_extension_permission_risk_absent(bundle, config)
+    if check_name == "extension_blocklisted_absent":
+        return _check_extension_blocklisted_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -185,6 +192,77 @@ def _check_sqlite_quickcheck_ok(bundle: EvidenceBundle, config: object) -> Check
     )
 
 
+def _check_extension_unsigned_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    include_inactive, include_system = _extract_extension_scope_config(
+        config, "extension_unsigned_absent"
+    )
+    candidates = [
+        item
+        for item in bundle.extensions.entries
+        if (include_inactive or item.active is True)
+        and (include_system or not _is_system_extension(item.source_kind))
+    ]
+    violations = [item for item in candidates if item.signed_valid is False]
+    if not violations:
+        return CheckResult(passed=True)
+
+    evidence = [
+        (
+            f"{item.addon_id}: signed_valid=0, signed_state={item.signed_state or 'unknown'}, "
+            f"active={int(item.active is True)}"
+        )
+        for item in violations
+    ]
+    return CheckResult(passed=False, evidence=evidence)
+
+
+def _check_extension_blocklisted_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    include_inactive, include_system = _extract_extension_scope_config(
+        config, "extension_blocklisted_absent"
+    )
+    candidates = [
+        item
+        for item in bundle.extensions.entries
+        if (include_inactive or item.active is True)
+        and (include_system or not _is_system_extension(item.source_kind))
+    ]
+    violations = [item for item in candidates if item.blocklisted is True]
+    if not violations:
+        return CheckResult(passed=True)
+
+    evidence = [
+        f"{item.addon_id}: blocklisted=1, active={int(item.active is True)}"
+        for item in violations
+    ]
+    return CheckResult(passed=False, evidence=evidence)
+
+
+def _check_extension_permission_risk_absent(
+    bundle: EvidenceBundle, config: object
+) -> CheckResult:
+    min_level, include_inactive, include_system = _extract_extension_risk_config(config)
+    candidates = [
+        item
+        for item in bundle.extensions.entries
+        if (include_inactive or item.active is True)
+        and (include_system or not _is_system_extension(item.source_kind))
+    ]
+
+    evidence: list[str] = []
+    for item in candidates:
+        for risk in item.risky_permissions:
+            if _RISK_LEVEL_ORDER[risk.level] < _RISK_LEVEL_ORDER[min_level]:
+                continue
+            evidence.append(
+                f"{item.addon_id}: permission={risk.permission}, "
+                f"level={risk.level}, active={int(item.active is True)}"
+            )
+
+    if not evidence:
+        return CheckResult(passed=True)
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
 def _match_file_evidence(
     filesystem: list[FilePermEvidence], *, path_glob: object, key: object
 ) -> list[FilePermEvidence]:
@@ -228,6 +306,46 @@ def _extract_sqlite_db_name(config: object) -> str:
     if db_name not in SQLITE_NAME_MAP:
         raise ValueError("sqlite_quickcheck_ok db must be one of: places, cookies")
     return db_name
+
+
+def _extract_extension_scope_config(config: object, check_name: str) -> tuple[bool, bool]:
+    if config is None:
+        return False, False
+    if not isinstance(config, dict):
+        raise ValueError(f"{check_name} config must be an object when provided")
+
+    include_inactive = config.get("include_inactive", False)
+    if not isinstance(include_inactive, bool):
+        raise ValueError(f"{check_name} include_inactive must be a boolean")
+
+    include_system = config.get("include_system", False)
+    if not isinstance(include_system, bool):
+        raise ValueError(f"{check_name} include_system must be a boolean")
+    return include_inactive, include_system
+
+
+def _extract_extension_risk_config(config: object) -> tuple[str, bool, bool]:
+    if config is None:
+        return "high", False, False
+    if not isinstance(config, dict):
+        raise ValueError("extension_permission_risk_absent config must be an object")
+
+    min_level_obj = config.get("min_level", "high")
+    min_level = _require_value_type(min_level_obj, str, "min_level").lower()
+    if min_level not in _RISK_LEVEL_ORDER:
+        raise ValueError("extension_permission_risk_absent min_level must be high or medium")
+
+    include_inactive_obj = config.get("include_inactive", False)
+    if not isinstance(include_inactive_obj, bool):
+        raise ValueError("extension_permission_risk_absent include_inactive must be a boolean")
+    include_system_obj = config.get("include_system", False)
+    if not isinstance(include_system_obj, bool):
+        raise ValueError("extension_permission_risk_absent include_system must be a boolean")
+    return min_level, include_inactive_obj, include_system_obj
+
+
+def _is_system_extension(source_kind: str) -> bool:
+    return source_kind in {"system", "builtin"}
 
 
 def _as_dict(config: object, check_name: str) -> dict[str, object]:

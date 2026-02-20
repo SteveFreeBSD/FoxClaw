@@ -41,3 +41,5 @@ agents/
 # Scan outputs and CI artifacts.
 *.sarif
 foxclaw*.json
+firefox-container-artifacts/
+demo-insecure-artifacts/

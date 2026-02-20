@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from foxclaw.collect.extensions import collect_extensions
 from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.policies import collect_policies
 from foxclaw.collect.prefs import collect_prefs
@@ -22,7 +23,12 @@ from foxclaw.rules.engine import DEFAULT_RULESET_PATH, evaluate_rules, load_rule
 _PROFILE_LOCK_FILES = ("parent.lock", "lock")
 
 
-def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> EvidenceBundle:
+def run_scan(
+    profile: FirefoxProfile,
+    *,
+    ruleset_path: Path | None = None,
+    policy_paths: list[Path] | None = None,
+) -> EvidenceBundle:
     """Collect evidence for a selected profile and compute summary/high findings."""
     profile_dir = profile.path
     if not profile_dir.exists() or not profile_dir.is_dir():
@@ -32,10 +38,26 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
 
     prefs = collect_prefs(profile_dir)
     filesystem = collect_file_permissions(profile_dir)
-    policies = collect_policies()
+    normalized_policy_paths = _normalize_policy_paths(policy_paths)
+    policies = collect_policies(policy_paths=normalized_policy_paths)
+    extensions = collect_extensions(profile_dir)
     sqlite = collect_sqlite_quick_checks(profile_dir)
 
     high_risk_perms_count = _count_high_risk_permissions(filesystem)
+    extensions_high_risk_count = sum(
+        1
+        for extension in extensions.entries
+        if extension.active
+        and extension.source_kind not in {"system", "builtin"}
+        and any(risk.level == "high" for risk in extension.risky_permissions)
+    )
+    extensions_unsigned_count = sum(
+        1
+        for extension in extensions.entries
+        if extension.active
+        and extension.source_kind not in {"system", "builtin"}
+        and extension.signed_valid is False
+    )
     sqlite_non_ok_count = sum(
         1 for check in sqlite.checks if check.quick_check_result.strip().lower() != "ok"
     )
@@ -54,6 +76,10 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         sensitive_files_checked=len(filesystem),
         high_risk_perms_count=high_risk_perms_count,
         policies_found=len(policies.discovered_paths),
+        extensions_found=extensions.addons_seen,
+        extensions_active=extensions.active_addons,
+        extensions_high_risk_count=extensions_high_risk_count,
+        extensions_unsigned_count=extensions_unsigned_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
     )
@@ -62,6 +88,7 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         prefs=prefs,
         filesystem=filesystem,
         policies=policies,
+        extensions=extensions,
         sqlite=sqlite,
         summary=provisional_summary,
     )
@@ -76,6 +103,10 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         sensitive_files_checked=len(filesystem),
         high_risk_perms_count=high_risk_perms_count,
         policies_found=len(policies.discovered_paths),
+        extensions_found=extensions.addons_seen,
+        extensions_active=extensions.active_addons,
+        extensions_high_risk_count=extensions_high_risk_count,
+        extensions_unsigned_count=extensions_unsigned_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
         findings_total=len(findings),
@@ -89,6 +120,7 @@ def run_scan(profile: FirefoxProfile, *, ruleset_path: Path | None = None) -> Ev
         prefs=prefs,
         filesystem=filesystem,
         policies=policies,
+        extensions=extensions,
         sqlite=sqlite,
         summary=summary,
         high_findings=high_finding_ids,
@@ -100,6 +132,21 @@ def resolve_ruleset_path(ruleset_path: Path | None) -> Path:
     """Resolve scan ruleset path to an absolute path."""
     candidate = ruleset_path or DEFAULT_RULESET_PATH
     return candidate.expanduser().resolve(strict=False)
+
+
+def _normalize_policy_paths(policy_paths: list[Path] | None) -> list[Path] | None:
+    if policy_paths is None:
+        return None
+
+    normalized: list[Path] = []
+    seen: set[Path] = set()
+    for path in policy_paths:
+        resolved = path.expanduser().resolve(strict=False)
+        if resolved in seen:
+            continue
+        normalized.append(resolved)
+        seen.add(resolved)
+    return normalized
 
 
 def _count_high_risk_permissions(filesystem: list[FilePermEvidence]) -> int:

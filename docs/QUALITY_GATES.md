@@ -21,7 +21,11 @@ This runs:
 
 - `ruff check .`
 - `mypy foxclaw`
-- `pytest -q`
+- `pytest -q -m "not integration"`
+- `python scripts/generate_testbed_fixtures.py --write`
+- `python scripts/generate_testbed_fixtures.py --check`
+- fixture tree clean (`git diff --quiet -- tests/fixtures/testbed`)
+- `pytest -q -m integration`
 - fixture scan (`scripts/fixture_scan.sh`)
 - `bandit -q -r foxclaw -x tests`
 - `vulture foxclaw tests --min-confidence 80`

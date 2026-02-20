@@ -99,6 +99,14 @@ def scan(
     ruleset: Path | None = typer.Option(
         None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
     ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help=(
+            "Override enterprise policy discovery path(s); "
+            "repeatable and defaults are ignored when provided."
+        ),
+    ),
     sarif_output: bool = typer.Option(
         False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
     ),
@@ -145,7 +153,11 @@ def scan(
     resolved_ruleset_path = resolve_ruleset_path(ruleset)
 
     try:
-        evidence = run_scan(selected_profile, ruleset_path=resolved_ruleset_path)
+        evidence = run_scan(
+            selected_profile,
+            ruleset_path=resolved_ruleset_path,
+            policy_paths=policy_path,
+        )
     except (OSError, ValueError) as exc:
         console.print(f"[red]Operational error: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc

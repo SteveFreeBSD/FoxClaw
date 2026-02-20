@@ -14,9 +14,12 @@ pip install -e '.[dev]'
 Run from repository root.
 
 ```bash
-pytest -q
+pytest -q -m "not integration"
+python scripts/generate_testbed_fixtures.py --write
+pytest -q -m integration
 ruff check .
 mypy foxclaw
+python scripts/generate_testbed_fixtures.py --check
 ```
 
 Generate fixture outputs and keep exit-code semantics intact (`2` means findings, not crash):
@@ -70,11 +73,15 @@ make install
 make lint
 make typecheck
 make test
+make test-integration
+make testbed-fixtures
+make testbed-fixtures-write
 make fixture-scan
 make verify
 make verify-full
 make certify
 make certify-live
+make test-firefox-container
 make hooks-install
 make clean
 ```
@@ -113,6 +120,7 @@ See `docs/QUALITY_GATES.md` for the full gate policy.
   - `docs/ARCHITECTURE.md`
   - `docs/SECURITY_MODEL.md`
   - `docs/GITHUB_ACTIONS.md` (if CI behavior changed).
+  - `docs/TESTBED.md` (if fixture or container testbed flows changed).
 - For roadmap or strategic changes, update:
   - `docs/ROADMAP.md`
   - `docs/RESEARCH.md`

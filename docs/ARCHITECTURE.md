@@ -14,7 +14,8 @@
 - `foxclaw/profiles.py`.
   - deterministic profile discovery and selection.
 - `foxclaw/collect/`.
-  - read-only evidence acquisition from local profile/system paths.
+  - read-only evidence acquisition from local profile/system paths, including extension inventory posture.
+  - extension evidence classifies source kind (`profile`, `system`, `builtin`, `external`, `unknown`) and manifest status (`parsed`, `unavailable`, `error`).
 - `foxclaw/rules/`.
   - ruleset parsing and constrained DSL evaluation.
 - `foxclaw/report/`.

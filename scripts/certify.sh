@@ -7,6 +7,7 @@ Usage: scripts/certify.sh [--with-live-profile] [--profile <path>] [--python <py
 
 Runs FoxClaw local certification gates:
   - lint, typecheck, tests
+  - integration testbed suite + deterministic fixture validation
   - fixture scan (+ JSON/SARIF parse)
   - security/dead-code scans (bandit, vulture, detect-secrets)
   - optional live Firefox profile scan and snapshot diff smoke test
@@ -66,7 +67,23 @@ echo "[certify] typecheck."
 .venv/bin/mypy foxclaw
 
 echo "[certify] test."
-.venv/bin/pytest -q
+.venv/bin/pytest -q -m "not integration"
+
+echo "[certify] testbed-fixtures-write."
+"${PYTHON_BIN}" ./scripts/generate_testbed_fixtures.py --write
+
+echo "[certify] testbed-fixtures-check."
+"${PYTHON_BIN}" ./scripts/generate_testbed_fixtures.py --check
+
+echo "[certify] testbed-fixtures-clean."
+if ! git diff --quiet -- tests/fixtures/testbed; then
+  echo "error: deterministic testbed fixtures are out of date. run make testbed-fixtures-write and commit updates." >&2
+  git --no-pager diff -- tests/fixtures/testbed >&2 || true
+  exit 1
+fi
+
+echo "[certify] test-integration."
+.venv/bin/pytest -q -m integration
 
 echo "[certify] fixture-scan."
 ./scripts/fixture_scan.sh "${PYTHON_BIN}"
