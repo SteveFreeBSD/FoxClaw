@@ -16,6 +16,7 @@
 - `foxclaw/collect/`.
   - read-only evidence acquisition from local profile/system paths, including extension inventory posture.
   - extension evidence classifies source kind (`profile`, `system`, `builtin`, `external`, `unknown`) and manifest status (`parsed`, `unavailable`, `error`).
+  - extension posture marks debug/dev install signals from temporary install metadata and volatile external source paths.
 - `foxclaw/rules/`.
   - ruleset parsing and constrained DSL evaluation.
   - suppression policy parsing and deterministic finding suppression.

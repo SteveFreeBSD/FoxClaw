@@ -20,6 +20,7 @@ Target: near-term.
   - baseline extension inventory from profile metadata is available.
   - baseline permission-risk classification from extension manifests is available.
   - baseline unsigned extension detection is available.
+  - baseline debug/dev install detection is available (temporary install flags and volatile external source paths).
   - extend detection depth (debug/dev install states, richer risk model, suppression-aware workflows).
 - Add suppression lifecycle:
   - baseline suppression by rule id + scope is available.

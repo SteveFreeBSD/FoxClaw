@@ -180,6 +180,80 @@ def test_collect_extensions_marks_temporarily_installed_debug_extensions(tmp_pat
     assert entry.debug_reason == "temporarilyInstalled=1"
 
 
+def test_collect_extensions_marks_external_temp_source_path_as_debug_install(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    (profile_dir / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": "external-temp@example.com",
+                        "type": "extension",
+                        "active": True,
+                        "location": "app-profile",
+                        "path": "/tmp/external-temp@example.com.xpi",
+                        "signedState": 2,
+                    }
+                ]
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_extensions(profile_dir)
+    assert evidence.addons_seen == 1
+    entry = evidence.entries[0]
+    assert entry.source_kind == "external"
+    assert entry.debug_install is True
+    assert entry.debug_reason == "source_path=/tmp/external-temp@example.com.xpi"
+
+
+def test_collect_extensions_profile_path_is_not_marked_debug_install(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    extension_id = "profile-installed@example.com"
+    relative_path = f"extensions/{extension_id}.xpi"
+    _write_xpi_manifest(
+        profile_dir / relative_path,
+        {
+            "manifest_version": 2,
+            "name": "Profile Installed",
+            "version": "1.0.0",
+        },
+    )
+
+    (profile_dir / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": extension_id,
+                        "type": "extension",
+                        "active": True,
+                        "location": "app-profile",
+                        "path": relative_path,
+                        "signedState": 2,
+                    }
+                ]
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_extensions(profile_dir)
+    assert evidence.addons_seen == 1
+    entry = evidence.entries[0]
+    assert entry.source_kind == "profile"
+    assert entry.debug_install is False
+    assert entry.debug_reason is None
+
+
 def test_collect_extensions_builtin_without_manifest_is_reported_as_unavailable(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
