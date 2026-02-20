@@ -11,6 +11,7 @@ import argparse
 import io
 import json
 import logging
+import os
 import random
 import sqlite3
 import string
@@ -118,7 +119,7 @@ class ProfileGenerator:
             return  # No extensions
 
         ext_json_path = self.profile_dir / "extensions.json"
-        
+
         if random.random() < 0.1:
             ext_json_path.write_text("INVALID JSON {" * 50)
             return
@@ -138,33 +139,35 @@ class ProfileGenerator:
             # Generate mocked XPI
             ext_id = f"fuzz{i}@test.com"
             xpi_path = f"extensions/{ext_id}.xpi"
-            
+
             if random.random() < 0.8:
                 # Actually write the XPI
                 xpi_abs_path = self.profile_dir / xpi_path
                 xpi_abs_path.parent.mkdir(parents=True, exist_ok=True)
-                
+
                 manifest = {
                     "manifest_version": random.choice([2, 3, "foo", None]),
                     "name": f"Fuzz Ext {i}",
                     "permissions": perms,
                 }
-                
+
                 buf = io.BytesIO()
                 with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as archive:
                     # Randomly inject valid or invalid manifest inside the XPI
                     if random.random() < 0.1:
-                         archive.writestr("manifest.json", "INVALID JSON {")
+                        archive.writestr("manifest.json", "INVALID JSON {")
                     elif random.random() < 0.1:
-                         pass # missing manifest
+                        # Missing manifest.json path.
+                        pass
                     else:
-                         archive.writestr("manifest.json", json.dumps(manifest))
-                         
-                    if random.random() < 0.1: # Inject a very large file to test extraction limits
-                         archive.writestr("large.js", "A" * (1024 * 1024 * 10))
-                
+                        archive.writestr("manifest.json", json.dumps(manifest))
+
+                    # Inject a very large file to test extraction limits.
+                    if random.random() < 0.1:
+                        archive.writestr("large.js", "A" * (1024 * 1024 * 10))
+
                 xpi_abs_path.write_bytes(buf.getvalue())
-            
+
             addons.append(
                 {
                     "id": ext_id,
@@ -216,5 +219,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    import os
     raise SystemExit(main())

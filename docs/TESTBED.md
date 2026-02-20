@@ -38,6 +38,7 @@ pytest -q -m integration
 - `profile_policy_present`: policy override path includes `policies.DisableTelemetry`.
 - `profile_active_lock`: `parent.lock` present for `--require-quiet-profile` validation.
 - `profile_userjs_override`: `prefs.js` + `user.js` overlap to validate user.js precedence.
+- `profile_third_party_xpi`: synthetic third-party XPI for extension add-on collection coverage.
 
 Ruleset for integration scenarios:
 

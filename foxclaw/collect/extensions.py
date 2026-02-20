@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import Literal
 
+from foxclaw.collect.blocklist import is_extension_blocklisted
 from foxclaw.models import ExtensionEntry, ExtensionEvidence, ExtensionPermissionRisk
 
 _EXTENSIONS_JSON_NAME = "extensions.json"
@@ -115,8 +116,7 @@ def _build_entry(profile_dir: Path, *, addon: dict[str, object], index: int) -> 
         addon_id=addon_id,
         source_kind=source_kind,
     )
-    from foxclaw.collect.blocklist import is_extension_blocklisted
-    
+
     blocklisted = is_extension_blocklisted(addon_id, version) if source_kind not in {"builtin", "system"} else False
     risky_permissions = _classify_risky_permissions(
         permissions=manifest.permissions,
