@@ -21,6 +21,16 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 
 ## Launch (overnight)
 
+Quick commands:
+
+```bash
+make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-daytime-detached SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-status
+make soak-stop
+```
+
 Recommended (survives terminal logout):
 
 ```bash

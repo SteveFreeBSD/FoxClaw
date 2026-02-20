@@ -92,6 +92,11 @@ make verify-full
 make certify
 make certify-live
 make test-firefox-container
+make soak-smoke
+make soak-daytime
+make soak-daytime-detached
+make soak-status
+make soak-stop
 make hooks-install
 make clean
 ```
@@ -118,7 +123,27 @@ make certify-live
 
 ## Long-Run Soak
 
-Start overnight soak with structured logs:
+Run a local smoke soak (single cycle):
+
+```bash
+make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Run the daytime burn-in gate used for commit confidence:
+
+```bash
+make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Run the same daytime burn-in detached via user systemd:
+
+```bash
+make soak-daytime-detached SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-status
+make soak-stop
+```
+
+For overnight duration, run the harness directly:
 
 ```bash
 systemd-run --user \
