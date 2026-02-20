@@ -24,7 +24,7 @@ These are non-negotiable for the scan runtime:
 ### Evaluation Boundary (`foxclaw/rules/*`)
 
 - Inputs: evidence models and declarative rulesets.
-- Allowed: deterministic finding evaluation only.
+- Allowed: deterministic finding evaluation and suppression-policy matching.
 - Disallowed: host mutation and network operations.
 
 ### Reporting Boundary (`foxclaw/report/*`)
@@ -65,7 +65,7 @@ These are non-negotiable for the scan runtime:
 
 - Signed policy packs and manifest verification.
 - Snapshot/diff integrity with hash-bound baselines.
-- Suppression governance (owner, reason, expiry).
+- Suppression governance extensions (approval workflows and tighter scope controls).
 - Release provenance and artifact attestation in CI.
 - Optional Mozilla CVE and extension intelligence cache ingestion as a separate explicit phase.
 - Any network-backed intelligence refresh must run in explicit update commands, never scan runtime.

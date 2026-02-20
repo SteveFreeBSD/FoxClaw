@@ -128,6 +128,51 @@ class Finding(BaseModel):
     evidence: list[str] = Field(default_factory=list)
 
 
+class SuppressionScope(BaseModel):
+    """Scope controls for suppression matching."""
+
+    profile_glob: str
+    evidence_contains: str | None = None
+
+
+class SuppressionEntry(BaseModel):
+    """One suppression declaration loaded from policy files."""
+
+    id: str | None = None
+    rule_id: str
+    owner: str
+    reason: str
+    expires_at: datetime
+    scope: SuppressionScope
+
+
+class SuppressionPolicy(BaseModel):
+    """Suppression policy file contract."""
+
+    schema_version: str = "1.0.0"
+    suppressions: list[SuppressionEntry] = Field(default_factory=list)
+
+
+class AppliedSuppression(BaseModel):
+    """One applied suppression mapped to a finding."""
+
+    id: str | None = None
+    rule_id: str
+    owner: str
+    reason: str
+    expires_at: datetime
+    source_path: str
+    evidence_match: str | None = None
+
+
+class SuppressionEvidence(BaseModel):
+    """Suppression loading/apply telemetry for the scan."""
+
+    source_paths: list[str] = Field(default_factory=list)
+    applied: list[AppliedSuppression] = Field(default_factory=list)
+    expired: list[AppliedSuppression] = Field(default_factory=list)
+
+
 class RuleDefinition(BaseModel):
     """Rule definition loaded from a YAML ruleset."""
 
@@ -180,6 +225,7 @@ class ScanSummary(BaseModel):
     findings_high_count: int = 0
     findings_medium_count: int = 0
     findings_info_count: int = 0
+    findings_suppressed_count: int = 0
 
 
 class EvidenceBundle(BaseModel):
@@ -196,6 +242,7 @@ class EvidenceBundle(BaseModel):
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+    suppressions: SuppressionEvidence = Field(default_factory=SuppressionEvidence)
 
 
 class SnapshotRulesetMetadata(BaseModel):

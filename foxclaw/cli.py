@@ -107,6 +107,14 @@ def scan(
             "repeatable and defaults are ignored when provided."
         ),
     ),
+    suppression_path: list[Path] | None = typer.Option(
+        None,
+        "--suppression-path",
+        help=(
+            "Apply suppression policy file(s); "
+            "repeatable and evaluated deterministically by path + rule."
+        ),
+    ),
     sarif_output: bool = typer.Option(
         False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
     ),
@@ -157,6 +165,7 @@ def scan(
             selected_profile,
             ruleset_path=resolved_ruleset_path,
             policy_paths=policy_path,
+            suppression_paths=suppression_path,
         )
     except (OSError, ValueError) as exc:
         console.print(f"[red]Operational error: {exc}[/red]")

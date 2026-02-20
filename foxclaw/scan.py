@@ -19,6 +19,7 @@ from foxclaw.models import (
 )
 from foxclaw.profiles import FirefoxProfile
 from foxclaw.rules.engine import DEFAULT_RULESET_PATH, evaluate_rules, load_ruleset
+from foxclaw.rules.suppressions import apply_suppressions
 
 _PROFILE_LOCK_FILES = ("parent.lock", "lock")
 
@@ -28,6 +29,7 @@ def run_scan(
     *,
     ruleset_path: Path | None = None,
     policy_paths: list[Path] | None = None,
+    suppression_paths: list[Path] | None = None,
 ) -> EvidenceBundle:
     """Collect evidence for a selected profile and compute summary/high findings."""
     profile_dir = profile.path
@@ -39,6 +41,7 @@ def run_scan(
     prefs = collect_prefs(profile_dir)
     filesystem = collect_file_permissions(profile_dir)
     normalized_policy_paths = _normalize_policy_paths(policy_paths)
+    normalized_suppression_paths = _normalize_suppression_paths(suppression_paths)
     policies = collect_policies(policy_paths=normalized_policy_paths)
     extensions = collect_extensions(profile_dir)
     sqlite = collect_sqlite_quick_checks(profile_dir)
@@ -104,6 +107,11 @@ def run_scan(
     resolved_ruleset_path = resolve_ruleset_path(ruleset_path)
     ruleset = load_ruleset(resolved_ruleset_path)
     findings = evaluate_rules(provisional_bundle, ruleset)
+    findings, suppression_evidence = apply_suppressions(
+        findings,
+        profile_path=profile_dir,
+        suppression_paths=normalized_suppression_paths,
+    )
     findings_by_severity = _count_findings_by_severity(findings)
     high_finding_ids = [item.id for item in findings if item.severity == "HIGH"]
     summary = ScanSummary(
@@ -122,6 +130,7 @@ def run_scan(
         findings_high_count=findings_by_severity["HIGH"],
         findings_medium_count=findings_by_severity["MEDIUM"],
         findings_info_count=findings_by_severity["INFO"],
+        findings_suppressed_count=len(suppression_evidence.applied),
     )
 
     return EvidenceBundle(
@@ -134,6 +143,7 @@ def run_scan(
         summary=summary,
         high_findings=high_finding_ids,
         findings=findings,
+        suppressions=suppression_evidence,
     )
 
 
@@ -150,6 +160,21 @@ def _normalize_policy_paths(policy_paths: list[Path] | None) -> list[Path] | Non
     normalized: list[Path] = []
     seen: set[Path] = set()
     for path in policy_paths:
+        resolved = path.expanduser().resolve(strict=False)
+        if resolved in seen:
+            continue
+        normalized.append(resolved)
+        seen.add(resolved)
+    return normalized
+
+
+def _normalize_suppression_paths(suppression_paths: list[Path] | None) -> list[Path] | None:
+    if suppression_paths is None:
+        return None
+
+    normalized: list[Path] = []
+    seen: set[Path] = set()
+    for path in suppression_paths:
         resolved = path.expanduser().resolve(strict=False)
         if resolved in seen:
             continue

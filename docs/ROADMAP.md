@@ -22,8 +22,9 @@ Target: near-term.
   - baseline unsigned extension detection is available.
   - extend detection depth (debug/dev install states, richer risk model, suppression-aware workflows).
 - Add suppression lifecycle:
-  - suppress by rule id + scope.
-  - require owner, reason, and expiration timestamp.
+  - baseline suppression by rule id + scope is available.
+  - owner, reason, and expiration timestamp are required.
+  - extend toward approval workflows and stronger governance reporting.
 - Add stronger SARIF fidelity:
   - preserve stable fingerprints across runs.
   - keep path normalization rules strict.

@@ -18,6 +18,7 @@
   - extension evidence classifies source kind (`profile`, `system`, `builtin`, `external`, `unknown`) and manifest status (`parsed`, `unavailable`, `error`).
 - `foxclaw/rules/`.
   - ruleset parsing and constrained DSL evaluation.
+  - suppression policy parsing and deterministic finding suppression.
 - `foxclaw/report/`.
   - pure renderers (`text`, `json`, `sarif`) with no collection logic.
 - `foxclaw/models.py`.
@@ -62,7 +63,7 @@ The next-level roadmap is designed as additive modules so current scan guarantee
 - `state/` (planned).
   - signed snapshot format and deterministic diff engine.
 - `suppression/` (planned).
-  - scoped suppressions with owner, reason, and expiration.
+  - additional suppression workflows beyond current runtime file-based lifecycle.
 - `policypacks/` (planned).
   - signed external rule bundles validated before load.
 - `intel/` (planned, non-scan path).

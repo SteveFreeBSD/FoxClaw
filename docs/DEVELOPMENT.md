@@ -55,6 +55,16 @@ python -m foxclaw scan \
   --snapshot-out foxclaw.snapshot.json
 ```
 
+Run with suppression policy overrides:
+
+```bash
+python -m foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --suppression-path suppressions/team-baseline.yml \
+  --json
+```
+
 Compare snapshots:
 
 ```bash
