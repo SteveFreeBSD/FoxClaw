@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from foxclaw.intel.sync import sync_sources
 from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
@@ -28,6 +29,7 @@ EXIT_HIGH_FINDINGS = 2
 app = typer.Typer(help="FoxClaw: deterministic Firefox security posture scanner.")
 profiles_app = typer.Typer(help="Firefox profile discovery commands.")
 snapshot_app = typer.Typer(help="Snapshot baseline and drift commands.")
+intel_app = typer.Typer(help="Threat intelligence synchronization commands.")
 console = Console()
 
 
@@ -237,6 +239,7 @@ def scan(
 
 app.add_typer(profiles_app, name="profiles")
 app.add_typer(snapshot_app, name="snapshot")
+app.add_typer(intel_app, name="intel")
 
 
 @snapshot_app.command("diff")
@@ -282,6 +285,85 @@ def snapshot_diff(
         render_snapshot_diff_summary(console, diff)
 
     raise typer.Exit(code=EXIT_HIGH_FINDINGS if diff.summary.drift_detected else EXIT_OK)
+
+
+@intel_app.command("sync")
+def intel_sync(
+    source: list[str] = typer.Option(
+        ...,
+        "--source",
+        help="Source mapping in name=origin format; repeatable.",
+    ),
+    store_dir: Path | None = typer.Option(
+        None,
+        "--store-dir",
+        help="Override intelligence store directory.",
+    ),
+    normalize_json: bool = typer.Option(
+        True,
+        "--normalize-json/--no-normalize-json",
+        help="Canonicalize JSON source payloads before checksuming and storage.",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit synced manifest JSON to stdout.",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        help="Write synced manifest JSON to this path.",
+    ),
+) -> None:
+    """Fetch and persist intelligence source snapshots."""
+    if json_output and output is not None:
+        console.print("[red]Operational error: --json and --output cannot be combined.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    try:
+        result = sync_sources(
+            source_specs=source,
+            store_dir=store_dir,
+            normalize_json=normalize_json,
+            cwd=Path.cwd(),
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    payload = result.manifest.model_dump_json(indent=2)
+    if output is not None:
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(payload + "\n", encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Operational error writing intel manifest: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if json_output:
+        typer.echo(payload)
+        raise typer.Exit(code=EXIT_OK)
+
+    console.print(f"Intel snapshot id: {result.manifest.snapshot_id}")
+    console.print(f"Store directory: {result.store_dir}")
+    console.print(f"Manifest path: {result.manifest_path}")
+    if output is not None:
+        console.print(f"Manifest copy written to: {output}")
+
+    table = Table(title="Synced Intel Sources")
+    table.add_column("Source")
+    table.add_column("Origin")
+    table.add_column("Bytes", justify="right")
+    table.add_column("SHA256")
+    for item in result.manifest.sources:
+        table.add_row(
+            item.name,
+            item.origin,
+            str(item.size_bytes),
+            item.sha256,
+        )
+    console.print(table)
+    raise typer.Exit(code=EXIT_OK)
 
 
 def _build_profile_override(profile_path: Path) -> FirefoxProfile:

@@ -41,8 +41,9 @@ Exit criteria:
 Target: after phase 1 stabilization.
 
 - Add explicit intelligence sync path (network-enabled by command, not by scan):
-  - `intel sync` command to fetch and normalize Mozilla/NVD/CVE/KEV data.
-  - local intelligence snapshot store with checksums and schema versioning.
+  - baseline `intel sync` command is available for deterministic source snapshot ingestion.
+  - extend source adapters to fetch/normalize Mozilla/NVD/CVE/KEV datasets.
+  - extend local intelligence snapshot store and schema/versioned source metadata.
 - Add Mozilla CVE correlation:
   - map local Firefox version to advisory/CVE affected ranges.
   - include fixed-version and source provenance in findings.

@@ -24,6 +24,8 @@
   - pure renderers (`text`, `json`, `sarif`) with no collection logic.
 - `foxclaw/models.py`.
   - pydantic schema contract for evidence, findings, and summaries.
+- `foxclaw/intel/`.
+  - explicit intelligence snapshot sync path (`intel sync`) with local checksumed source material storage.
 - `foxclaw/rulesets/`.
   - versioned policy packs (balanced, strict).
 

@@ -76,6 +76,15 @@ foxclaw snapshot diff \
   --json
 ```
 
+Synchronize intelligence source materials into a local snapshot store:
+
+```bash
+foxclaw intel sync \
+  --source mozilla=./intel/mozilla.json \
+  --source blocklist=./intel/blocklist.json \
+  --json
+```
+
 Apply suppression policies (repeatable):
 
 ```bash
