@@ -8,6 +8,8 @@ from foxclaw.cli import app
 from foxclaw.intel.sync import sync_sources
 from typer.testing import CliRunner
 
+INTEL_FIXTURE = Path("tests/fixtures/intel/mozilla_firefox_advisories.v1.json")
+
 
 def test_sync_sources_writes_manifest_and_sqlite_index(tmp_path: Path) -> None:
     source_a = tmp_path / "mozilla.json"
@@ -63,6 +65,27 @@ def test_sync_sources_reuses_snapshot_id_for_identical_inputs(tmp_path: Path) ->
     )
 
     assert first.manifest.snapshot_id == second.manifest.snapshot_id
+
+
+def test_sync_sources_indexes_mozilla_advisories_schema(tmp_path: Path) -> None:
+    store_dir = tmp_path / "intel-store"
+    result = sync_sources(
+        source_specs=[f"mozilla={INTEL_FIXTURE}"],
+        store_dir=store_dir,
+        normalize_json=True,
+        cwd=Path.cwd(),
+    )
+
+    source = result.manifest.sources[0]
+    assert source.schema_version == "foxclaw.mozilla.firefox_advisories.v1"
+    assert source.adapter == "mozilla_firefox_advisories_v1"
+    assert source.records_indexed == 2
+
+    with sqlite3.connect(store_dir / "intel.db") as connection:
+        index_rows = connection.execute("SELECT COUNT(*) FROM source_indexes").fetchone()
+        advisory_rows = connection.execute("SELECT COUNT(*) FROM mozilla_advisories").fetchone()
+        assert index_rows == (1,)
+        assert advisory_rows == (2,)
 
 
 def test_intel_sync_cli_json_output(tmp_path: Path) -> None:
@@ -129,4 +152,3 @@ def test_intel_sync_cli_rejects_duplicate_source_names(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "duplicate source name 'dup'" in result.stdout
-

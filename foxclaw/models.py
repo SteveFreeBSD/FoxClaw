@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel, StrictBool, StrictInt, StrictStr
 
+from foxclaw.intel.models import IntelCorrelationEvidence
+
 PrefSource = Literal["prefs.js", "user.js", "unset"]
 PrefRawType = Literal["bool", "int", "string"]
 FindingSeverity = Literal["INFO", "MEDIUM", "HIGH"]
@@ -221,6 +223,7 @@ class ScanSummary(BaseModel):
     extensions_debug_count: int = 0
     sqlite_checks_total: int
     sqlite_non_ok_count: int
+    intel_matches_count: int = 0
     findings_total: int = 0
     findings_high_count: int = 0
     findings_medium_count: int = 0
@@ -239,6 +242,7 @@ class EvidenceBundle(BaseModel):
     policies: PolicyEvidence
     extensions: ExtensionEvidence = Field(default_factory=ExtensionEvidence)
     sqlite: SqliteEvidence
+    intel: IntelCorrelationEvidence = Field(default_factory=IntelCorrelationEvidence)
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
@@ -261,6 +265,7 @@ class ScanSnapshot(BaseModel):
     evidence_schema_version: str
     profile: ProfileEvidence
     ruleset: SnapshotRulesetMetadata
+    intel: IntelCorrelationEvidence = Field(default_factory=IntelCorrelationEvidence)
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
@@ -273,6 +278,7 @@ class SnapshotMetadata(BaseModel):
     evidence_schema_version: str
     profile: ProfileEvidence
     ruleset: SnapshotRulesetMetadata
+    intel_snapshot_id: str | None = None
 
 
 class SnapshotDiffSummary(BaseModel):

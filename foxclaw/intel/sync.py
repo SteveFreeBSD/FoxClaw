@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import urlparse
 
-from foxclaw.intel.models import IntelSnapshotManifest, IntelSourceMaterial
+from foxclaw.intel.adapters import build_source_index
+from foxclaw.intel.models import IntelSnapshotManifest, IntelSourceIndex, IntelSourceMaterial
 from foxclaw.intel.store import default_store_dir, write_snapshot
 
 
@@ -42,9 +43,12 @@ def sync_sources(
     target_store_dir = (store_dir or default_store_dir()).expanduser().resolve(strict=False)
 
     source_payloads: list[tuple[IntelSourceMaterial, bytes]] = []
+    source_indexes: dict[str, IntelSourceIndex] = {}
     for spec in parsed_specs:
         payload = _read_source_payload(origin=spec.origin, cwd=cwd)
         payload = _normalize_payload_if_json(payload, normalize_json=normalize_json)
+        source_index = build_source_index(source_name=spec.name, payload=payload)
+        source_indexes[spec.name] = source_index
         source_payloads.append(
             (
                 IntelSourceMaterial(
@@ -54,6 +58,9 @@ def sync_sources(
                     size_bytes=len(payload),
                     fetched_at=datetime.now(UTC),
                     artifact_path="",
+                    schema_version=source_index.schema_version,
+                    adapter=source_index.adapter,
+                    records_indexed=source_index.record_count,
                 ),
                 payload,
             )
@@ -62,6 +69,7 @@ def sync_sources(
     manifest, manifest_path = write_snapshot(
         store_dir=target_store_dir,
         source_payloads=source_payloads,
+        source_indexes=source_indexes,
     )
     return IntelSyncResult(
         manifest=manifest,

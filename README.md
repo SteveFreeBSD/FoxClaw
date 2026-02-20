@@ -80,8 +80,18 @@ Synchronize intelligence source materials into a local snapshot store:
 
 ```bash
 foxclaw intel sync \
-  --source mozilla=./intel/mozilla.json \
+  --source mozilla=./intel/mozilla_firefox_advisories.v1.json \
   --source blocklist=./intel/blocklist.json \
+  --json
+```
+
+Run an offline scan correlated to a pinned intel snapshot:
+
+```bash
+foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --intel-store-dir ~/.local/share/foxclaw/intel \
+  --intel-snapshot-id latest \
   --json
 ```
 

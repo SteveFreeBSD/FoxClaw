@@ -37,10 +37,12 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
         "SQLite checks (total/non-ok)",
         f"{bundle.summary.sqlite_checks_total}/{bundle.summary.sqlite_non_ok_count}",
     )
+    table.add_row("Intel advisory matches", str(bundle.summary.intel_matches_count))
     table.add_row("Findings suppressed", str(bundle.summary.findings_suppressed_count))
     table.add_row("Total HIGH findings", str(bundle.summary.findings_high_count))
     console.print(table)
     _render_extension_posture(console, bundle)
+    _render_intel_summary(console, bundle)
     _render_suppression_summary(console, bundle)
 
     counts = Counter(finding.severity for finding in bundle.findings)
@@ -131,6 +133,22 @@ def _format_manifest(entry: ExtensionEntry) -> str:
 
 def _is_system_source(entry: ExtensionEntry) -> bool:
     return entry.source_kind in {"system", "builtin"}
+
+
+def _render_intel_summary(console: Console, bundle: EvidenceBundle) -> None:
+    if not bundle.intel.enabled:
+        return
+
+    table = Table(title="Intel Correlation")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Store", bundle.intel.store_dir or "-")
+    table.add_row("Snapshot", bundle.intel.snapshot_id or "-")
+    table.add_row("Firefox version", bundle.intel.profile_firefox_version or "-")
+    table.add_row("Advisories indexed", str(bundle.intel.advisories_indexed))
+    table.add_row("Advisories matched", str(len(bundle.intel.matched_advisories)))
+    table.add_row("Status", bundle.intel.error or "ok")
+    console.print(table)
 
 
 def _render_suppression_summary(console: Console, bundle: EvidenceBundle) -> None:

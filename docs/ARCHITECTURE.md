@@ -26,6 +26,7 @@
   - pydantic schema contract for evidence, findings, and summaries.
 - `foxclaw/intel/`.
   - explicit intelligence snapshot sync path (`intel sync`) with local checksumed source material storage.
+  - normalized source indexing (`source_indexes`, `mozilla_advisories`) for offline correlation.
 - `foxclaw/rulesets/`.
   - versioned policy packs (balanced, strict).
 
@@ -33,9 +34,10 @@
 
 1. Select profile (`profiles list` scoring or explicit `--profile`).
 2. Collect local evidence through read-only collectors.
-3. Build typed `EvidenceBundle` contract.
-4. Evaluate ruleset into finding set.
-5. Render deterministic output payloads.
+3. Optionally correlate local Firefox version against pinned local intel snapshot (`--intel-store-dir` / `--intel-snapshot-id`).
+4. Build typed `EvidenceBundle` contract.
+5. Evaluate ruleset into finding set.
+6. Render deterministic output payloads.
 
 ## Trust Boundary Implementation
 
@@ -69,9 +71,10 @@ The next-level roadmap is designed as additive modules so current scan guarantee
   - additional suppression workflows beyond current runtime file-based lifecycle.
 - `policypacks/` (planned).
   - signed external rule bundles validated before load.
-- `intel/` (planned, non-scan path).
+- `intel/` (active expansion area).
   - explicit update command for offline-cached threat intelligence metadata.
-  - includes Mozilla CVE/advisory ingestion and extension threat-intel datasets.
+  - baseline Mozilla advisory normalization and offline CVE correlation in scan.
+  - extend with NVD/KEV enrichment and extension threat-intel datasets.
 - `attest/` (planned, release pipeline).
   - build provenance, signed releases, and artifact verification metadata.
 

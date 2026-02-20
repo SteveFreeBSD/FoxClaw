@@ -10,6 +10,7 @@ from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.policies import collect_policies
 from foxclaw.collect.prefs import collect_prefs
 from foxclaw.collect.sqlite import collect_sqlite_quick_checks
+from foxclaw.intel.correlation import correlate_firefox_vulnerability_intel
 from foxclaw.models import (
     EvidenceBundle,
     FilePermEvidence,
@@ -18,7 +19,12 @@ from foxclaw.models import (
     ScanSummary,
 )
 from foxclaw.profiles import FirefoxProfile
-from foxclaw.rules.engine import DEFAULT_RULESET_PATH, evaluate_rules, load_ruleset
+from foxclaw.rules.engine import (
+    DEFAULT_RULESET_PATH,
+    evaluate_rules,
+    load_ruleset,
+    sort_findings,
+)
 from foxclaw.rules.suppressions import apply_suppressions
 
 _PROFILE_LOCK_FILES = ("parent.lock", "lock")
@@ -30,6 +36,8 @@ def run_scan(
     ruleset_path: Path | None = None,
     policy_paths: list[Path] | None = None,
     suppression_paths: list[Path] | None = None,
+    intel_store_dir: Path | None = None,
+    intel_snapshot_id: str | None = None,
 ) -> EvidenceBundle:
     """Collect evidence for a selected profile and compute summary/high findings."""
     profile_dir = profile.path
@@ -45,6 +53,11 @@ def run_scan(
     policies = collect_policies(policy_paths=normalized_policy_paths)
     extensions = collect_extensions(profile_dir)
     sqlite = collect_sqlite_quick_checks(profile_dir)
+    intel, intel_findings = correlate_firefox_vulnerability_intel(
+        profile_dir=profile_dir,
+        intel_store_dir=intel_store_dir,
+        intel_snapshot_id=intel_snapshot_id,
+    )
 
     high_risk_perms_count = _count_high_risk_permissions(filesystem)
     extensions_high_risk_count = sum(
@@ -93,6 +106,7 @@ def run_scan(
         extensions_debug_count=extensions_debug_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
+        intel_matches_count=len(intel.matched_advisories),
     )
     provisional_bundle = EvidenceBundle(
         profile=profile_evidence,
@@ -101,12 +115,14 @@ def run_scan(
         policies=policies,
         extensions=extensions,
         sqlite=sqlite,
+        intel=intel,
         summary=provisional_summary,
     )
 
     resolved_ruleset_path = resolve_ruleset_path(ruleset_path)
     ruleset = load_ruleset(resolved_ruleset_path)
     findings = evaluate_rules(provisional_bundle, ruleset)
+    findings = sort_findings([*findings, *intel_findings])
     findings, suppression_evidence = apply_suppressions(
         findings,
         profile_path=profile_dir,
@@ -126,6 +142,7 @@ def run_scan(
         extensions_debug_count=extensions_debug_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
+        intel_matches_count=len(intel.matched_advisories),
         findings_total=len(findings),
         findings_high_count=findings_by_severity["HIGH"],
         findings_medium_count=findings_by_severity["MEDIUM"],
@@ -140,6 +157,7 @@ def run_scan(
         policies=policies,
         extensions=extensions,
         sqlite=sqlite,
+        intel=intel,
         summary=summary,
         high_findings=high_finding_ids,
         findings=findings,

@@ -117,6 +117,22 @@ def scan(
             "repeatable and evaluated deterministically by path + rule."
         ),
     ),
+    intel_store_dir: Path | None = typer.Option(
+        None,
+        "--intel-store-dir",
+        help=(
+            "Enable offline vulnerability correlation from this local intel store "
+            "(defaults to XDG/HOME intel path when --intel-snapshot-id is set)."
+        ),
+    ),
+    intel_snapshot_id: str | None = typer.Option(
+        None,
+        "--intel-snapshot-id",
+        help=(
+            "Correlate against this synced intel snapshot id; "
+            "use 'latest' or omit to resolve from store latest pointer."
+        ),
+    ),
     sarif_output: bool = typer.Option(
         False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
     ),
@@ -168,6 +184,8 @@ def scan(
             ruleset_path=resolved_ruleset_path,
             policy_paths=policy_path,
             suppression_paths=suppression_path,
+            intel_store_dir=intel_store_dir,
+            intel_snapshot_id=intel_snapshot_id,
         )
     except (OSError, ValueError) as exc:
         console.print(f"[red]Operational error: {exc}[/red]")

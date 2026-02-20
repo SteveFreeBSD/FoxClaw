@@ -42,11 +42,13 @@ Target: after phase 1 stabilization.
 
 - Add explicit intelligence sync path (network-enabled by command, not by scan):
   - baseline `intel sync` command is available for deterministic source snapshot ingestion.
+  - baseline normalized source adapter/indexing is available for `foxclaw.mozilla.firefox_advisories.v1`.
   - extend source adapters to fetch/normalize Mozilla/NVD/CVE/KEV datasets.
-  - extend local intelligence snapshot store and schema/versioned source metadata.
+  - baseline local intelligence snapshot store now includes schema/versioned source metadata indexing.
 - Add Mozilla CVE correlation:
-  - map local Firefox version to advisory/CVE affected ranges.
-  - include fixed-version and source provenance in findings.
+  - baseline local Firefox version correlation from `compatibility.ini` is available.
+  - baseline findings include fixed-version and source provenance with pinned snapshot id.
+  - extend with richer vendor/NVD merge logic and confidence scoring.
 - Add extension intelligence correlation:
   - correlate installed extension IDs/versions with AMO metadata and blocklist signals.
 - Signed policy packs:
