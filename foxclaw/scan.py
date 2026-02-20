@@ -58,6 +58,13 @@ def run_scan(
         and extension.source_kind not in {"system", "builtin"}
         and extension.signed_valid is False
     )
+    extensions_debug_count = sum(
+        1
+        for extension in extensions.entries
+        if extension.active
+        and extension.source_kind not in {"system", "builtin"}
+        and extension.debug_install
+    )
     sqlite_non_ok_count = sum(
         1 for check in sqlite.checks if check.quick_check_result.strip().lower() != "ok"
     )
@@ -80,6 +87,7 @@ def run_scan(
         extensions_active=extensions.active_addons,
         extensions_high_risk_count=extensions_high_risk_count,
         extensions_unsigned_count=extensions_unsigned_count,
+        extensions_debug_count=extensions_debug_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
     )
@@ -107,6 +115,7 @@ def run_scan(
         extensions_active=extensions.active_addons,
         extensions_high_risk_count=extensions_high_risk_count,
         extensions_unsigned_count=extensions_unsigned_count,
+        extensions_debug_count=extensions_debug_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
         findings_total=len(findings),

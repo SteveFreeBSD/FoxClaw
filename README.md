@@ -11,7 +11,7 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
   - enterprise policy files
   - extension inventory and manifest permission posture (`extensions.json`, `extensions/`)
     - extensions are classified by source (`profile`, `system`, `builtin`, etc.)
-    - unsigned/risk checks default to profile-controlled extensions (system/builtin excluded)
+    - unsigned/risk/debug checks default to profile-controlled extensions (system/builtin excluded)
   - SQLite quick integrity checks (`PRAGMA quick_check`)
 - Declarative rule evaluation from versioned YAML rulesets.
 - Output renderers for terminal, JSON, and SARIF 2.1.0.

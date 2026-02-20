@@ -7,7 +7,7 @@ from collections import Counter
 from rich.console import Console
 from rich.table import Table
 
-from foxclaw.models import EvidenceBundle
+from foxclaw.models import EvidenceBundle, ExtensionEntry
 
 
 def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
@@ -26,8 +26,12 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
         f"{bundle.summary.extensions_found}/{bundle.summary.extensions_active}",
     )
     table.add_row(
-        "Extension risk (unsigned/high-risk)",
-        f"{bundle.summary.extensions_unsigned_count}/{bundle.summary.extensions_high_risk_count}",
+        "Extension risk (unsigned/high-risk/debug)",
+        (
+            f"{bundle.summary.extensions_unsigned_count}/"
+            f"{bundle.summary.extensions_high_risk_count}/"
+            f"{bundle.summary.extensions_debug_count}"
+        ),
     )
     table.add_row(
         "SQLite checks (total/non-ok)",
@@ -35,6 +39,7 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
     )
     table.add_row("Total HIGH findings", str(bundle.summary.findings_high_count))
     console.print(table)
+    _render_extension_posture(console, bundle)
 
     counts = Counter(finding.severity for finding in bundle.findings)
     high_rule_ids = [
@@ -53,3 +58,74 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
         ", ".join(high_rule_ids) if high_rule_ids else "-",
     )
     console.print(findings_table)
+
+
+def _render_extension_posture(console: Console, bundle: EvidenceBundle) -> None:
+    if not bundle.extensions.entries:
+        return
+
+    table = Table(title="Extension Posture")
+    table.add_column("Addon ID")
+    table.add_column("Source")
+    table.add_column("Active", justify="center")
+    table.add_column("Signed")
+    table.add_column("Manifest")
+    table.add_column("Risk (H/M)", justify="right")
+    table.add_column("Notes")
+
+    for entry in bundle.extensions.entries:
+        high_risk = sum(1 for risk in entry.risky_permissions if risk.level == "high")
+        medium_risk = sum(1 for risk in entry.risky_permissions if risk.level == "medium")
+        notes: list[str] = []
+        if entry.debug_install:
+            notes.append("debug-install")
+        if entry.blocklisted:
+            notes.append("blocklisted")
+        if entry.parse_error:
+            notes.append("parse-error")
+
+        table.add_row(
+            entry.addon_id,
+            entry.source_kind,
+            _format_active(entry),
+            _format_signed(entry),
+            _format_manifest(entry),
+            f"{high_risk}/{medium_risk}",
+            ", ".join(notes) if notes else "-",
+        )
+
+    console.print(table)
+
+
+def _format_active(entry: ExtensionEntry) -> str:
+    if entry.active is True:
+        return "yes"
+    if entry.active is False:
+        return "no"
+    return "?"
+
+
+def _format_signed(entry: ExtensionEntry) -> str:
+    if entry.signed_status == "valid":
+        return "ok"
+    if entry.signed_status == "invalid":
+        return "invalid"
+    if _is_system_source(entry):
+        return "n/a"
+    return "unknown"
+
+
+def _format_manifest(entry: ExtensionEntry) -> str:
+    if entry.manifest_status == "parsed":
+        if entry.manifest_version is None:
+            return "parsed"
+        return f"mv{entry.manifest_version}"
+    if entry.manifest_status == "error":
+        return "error"
+    if _is_system_source(entry):
+        return "n/a"
+    return "missing"
+
+
+def _is_system_source(entry: ExtensionEntry) -> bool:
+    return entry.source_kind in {"system", "builtin"}
