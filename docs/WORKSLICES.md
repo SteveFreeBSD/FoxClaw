@@ -36,6 +36,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-21 | complete | WS-20 | Controlled mutation engine with reproducible corruption operators. |
 | WS-22 | complete | WS-21 | Runtime fidelity gate and realism scoring for generated profiles. |
 | WS-23 | complete | WS-22 | Soak/CI integration with fixed-seed smoke and rotating-seed deep runs. |
+| WS-24 | complete | none | Optional `live` workflow wrapper orchestrating `sync` and pinned `scan`. |
 
 ## Slice Details
 
@@ -404,6 +405,19 @@ This plan converts the current review and research into sequenced, testable exec
     - `tests/test_profile_generation_scripts.py`
     - `docs/PROFILE_HANDOFF.md`
     - `docs/PROFILE_REVIEW_CHECKLIST.md`
+- Acceptance: met.
+
+### WS-24 - Optional Live Workflow Wrapper
+
+- Status: complete.
+- Goal: provide a one-click orchestrated sync-then-scan workflow without breaking offline-by-default isolation.
+- Delivered:
+  - Added public architecture spec to `docs/WS24_LIVE_WORKFLOW_ARCHITECTURE.md`.
+  - Added new `live` Typer command in `foxclaw/cli.py` that sequences `sync_sources()` and `run_scan()`.
+  - The live wrapper captures the exact `snapshot_id` generated during the sync and passes it to the scan phase for deterministic replayability.
+  - Generates explicit `[green]Sync successful. Snapshot pinned: <hash>[/green]` provenance in stdout.
+  - Fails safely closed without scanning if the network fetch fails.
+  - Added integration tests covering successful execution and fallback abort paths in `tests/test_live_orchestration.py`.
 - Acceptance: met.
 
 ## Workslice Update Protocol

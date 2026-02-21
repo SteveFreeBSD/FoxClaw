@@ -84,6 +84,14 @@ python -m foxclaw fleet aggregate \
   --json
 ```
 
+Orchestrate a live sync and deterministic scan wrapper:
+
+```bash
+python -m foxclaw live \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml
+```
+
 ## Makefile Targets
 
 Equivalent shortcuts.
