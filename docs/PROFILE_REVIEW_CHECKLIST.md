@@ -40,7 +40,8 @@ Use this checklist before requesting CTO or final merge review for profile reali
 
 ## 6) Documentation Alignment
 
+- [ ] `docs/PROFILE_HANDOFF.md` reflects current state, deferred work, and anti-loop notes.
 - [ ] `docs/PROFILE_SYNTHESIS.md` reflects implemented runtime behavior.
 - [ ] `docs/PROFILE_FIDELITY_SPEC.md` matches current scoring and thresholds.
-- [ ] `docs/PROFILE_FUZZ_ROADMAP.md` marks delivered vs deferred items accurately.
+- [ ] `docs/MISTAKES.md` includes any newly discovered profile-system regressions.
 - [ ] `docs/DEVELOPMENT.md` and `docs/SOAK.md` commands match current Makefile/script defaults.

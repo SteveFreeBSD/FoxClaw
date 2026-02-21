@@ -4,6 +4,9 @@ The synthetic profile generator (`scripts/synth_profiles.py`) and fuzz generator
 (`scripts/fuzz_profiles.py`) move FoxClaw testing from unstructured garbage data
 to deterministic, scenario-driven Firefox profile simulation.
 
+For onboarding, current status, and anti-loop guidance, start with
+`docs/PROFILE_HANDOFF.md`.
+
 ## Proposed Architecture: The `foxclaw-synth` Engine
 The engine uses structured profile scaffolding plus controlled mutations to
 construct reproducible Firefox-like workspaces.
@@ -81,31 +84,11 @@ scripts/fuzz_runner.sh \
 - Mutations intentionally create partial corruption to validate parser robustness.
 - Fidelity scores are a gate for soak signal quality, not a cryptographic measure of authenticity.
 
-## Troubleshooting
+## Operations and Triage
 
-- `database or disk is full` / `No space left on device`
-  - clean stale `/tmp/foxclaw-*` and `/var/tmp/foxclaw-soak/*` artifacts, then rerun.
-- Fidelity gate fails in fuzz stage
-  - inspect `fidelity-summary.json`, especially `below_min_count` and common `issues`.
-  - tune mutation budget/severity only if failure is expected by scenario goals.
-- Extension fetch mismatch
-  - confirm catalog snapshot path and cache state.
-  - keep `--allow-network-fetch` disabled for deterministic local/offline review runs.
-- Reproduction request from reviewer
-  - rerun with the exact logged `seed`, `mode`, `scenario`, `mutation_budget`, and `catalog_version` from `metadata.json`.
-
-## Review Sign-Off Checklist
-
-- `make verify` is green.
-- `make soak-smoke` and `make soak-smoke-fuzz1000` are green.
-- synth and fuzz fidelity outputs report `below_min_count=0` at configured thresholds.
-- runner summaries report `Failed (crashed): 0`.
-- docs and runtime defaults match:
-  - synth min score `70`
-  - fuzz min score `50`
-  - offline-by-default extension fetching
-
-Use `docs/PROFILE_REVIEW_CHECKLIST.md` as the final merge review checklist.
+- Use `docs/SOAK.md` for soak execution and failure triage flow.
+- Use `docs/PROFILE_REVIEW_CHECKLIST.md` for final merge/CTO review sign-off.
+- Use `docs/PROFILE_HANDOFF.md` for current status and anti-loop regression notes.
 
 ### Emulated Topography
 ```text

@@ -274,6 +274,12 @@ See `docs/QUALITY_GATES.md` for the full gate policy.
   - `docs/VULNERABILITY_INTEL.md`
   - `docs/QUALITY_GATES.md`.
   - `docs/PROFILE_REVIEW_CHECKLIST.md` (when profile realism/fidelity behavior changes).
+- For profile realism work, keep one-source ownership clear:
+  - `docs/PROFILE_HANDOFF.md` (first update for state/memory/anti-loop notes).
+  - `docs/PROFILE_SYNTHESIS.md` (generator/runtime behavior changes).
+  - `docs/PROFILE_FIDELITY_SPEC.md` (fidelity scoring/gate contract changes).
+  - `docs/WORKSLICES.md` (status and deferred work changes).
+  - `docs/MISTAKES.md` (new regressions and preventive actions).
 
 ## Packaging Notes
 

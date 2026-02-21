@@ -131,12 +131,7 @@ Summary fields:
 - `addons[n] missing payload <path>`
   - usually from `drop_extension_payload` mutation.
 
-## Reviewer Acceptance Checklist
+## Related Review and Status Docs
 
-- `below_min_count=0` for:
-  - synth smoke configuration (`--min-score 70`)
-  - fuzz smoke/heavy configuration (`--min-score 50`)
-- No crash records in synth/fuzz runner summaries (`Failed (crashed): 0`).
-- Soak summary reports:
-  - `overall_status=PASS`
-  - `steps_failed=0`
+- Use `docs/PROFILE_REVIEW_CHECKLIST.md` for merge/CTO sign-off requirements.
+- Use `docs/PROFILE_HANDOFF.md` for current implementation status and anti-loop notes.
