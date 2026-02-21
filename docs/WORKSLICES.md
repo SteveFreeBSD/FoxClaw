@@ -23,6 +23,19 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-08 | complete | WS-07 | Risk prioritization metadata (KEV-aware baseline, optional EPSS). |
 | WS-09 | complete | WS-06, WS-08 | Multi-profile/fleet output contracts and aggregation schema. |
 | WS-10 | complete | WS-05 | Release provenance, attestations, and trusted publishing controls. |
+| WS-11 | complete | WS-10 | Scheduled dependency vulnerability sweeps and triage workflow. |
+| WS-12 | complete | WS-11 | Pre-merge readiness expansion and immediate roadmap planning runbook. |
+| WS-13 | complete | WS-12 | Ruleset trust boundary with manifest pinning and signature verification. |
+| WS-14 | complete | WS-04, WS-07 | Extension reputation depth from AMO intelligence snapshots and policy signals. |
+| WS-15 | complete | WS-10 | Release SBOM generation, validation, and artifact publication controls. |
+| WS-16 | complete | WS-13 | Trust manifest key rotation and multi-signature threshold policy (`schema_version` `1.1.0`). |
+| WS-17 | complete | WS-16 | Source-backed profile fidelity spec and realism validator. |
+| WS-18 | complete | WS-17 | AMO-backed extension catalog pipeline with pinned snapshots. |
+| WS-19 | complete | WS-17 | Bootstrap-first profile generator from Firefox-created baselines. |
+| WS-20 | complete | WS-18, WS-19 | Real-world scenario library with weighted archetypes. |
+| WS-21 | complete | WS-20 | Controlled mutation engine with reproducible corruption operators. |
+| WS-22 | complete | WS-21 | Runtime fidelity gate and realism scoring for generated profiles. |
+| WS-23 | complete | WS-22 | Soak/CI integration with fixed-seed smoke and rotating-seed deep runs. |
 
 ## Slice Details
 
@@ -85,7 +98,7 @@ This plan converts the current review and research into sequenced, testable exec
   - expanded `balanced` ruleset policy checks for `DisableFirefoxStudies`,
     `ExtensionSettings`, and `HTTPSOnlyMode`.
   - expanded `strict` ruleset with high-severity parity policy checks for the same keys.
-  - bumped ruleset versions (`balanced` `0.5.0`, `strict` `0.3.0`).
+  - bumped ruleset versions (`balanced` `0.6.0`, `strict` `0.4.0`).
   - expanded deterministic policy fixtures and integration rules in the testbed generator.
   - added policy-path regression assertions in `tests/test_policies.py` and updated
     integration expected findings in `tests/test_integration_testbed.py`.
@@ -163,6 +176,234 @@ This plan converts the current review and research into sequenced, testable exec
     - release assets include built distributions plus `provenance.txt` pointers.
   - published verification runbook in `docs/RELEASE_PROVENANCE.md`.
   - documented workflow behavior updates in `docs/GITHUB_ACTIONS.md`.
+- Acceptance: met.
+
+### WS-11 - Scheduled Dependency Vulnerability Sweeps
+
+- Status: complete.
+- Goal: continuously detect vulnerable dependency versions between release cycles.
+- Delivered:
+  - added scheduled dependency-audit workflow in
+    `.github/workflows/foxclaw-dependency-audit.yml`:
+    - weekly + manual triggers.
+    - installs `pip-audit` and runs environment audit.
+    - emits `pip-audit.json` artifact.
+    - fails on vulnerability findings.
+  - added local audit script `scripts/dependency_audit.sh`.
+  - added local Make shortcut `make dep-audit`.
+  - published runbook in `docs/DEPENDENCY_AUDIT.md`.
+  - updated CI/roadmap docs in:
+    - `docs/GITHUB_ACTIONS.md`
+    - `docs/QUALITY_GATES.md`
+    - `docs/ROADMAP.md`
+- Acceptance: met.
+
+### WS-12 - Pre-Merge Readiness Expansion
+
+- Status: complete.
+- Goal: enforce merge-hold discipline with explicit expanded checks and near-term execution planning.
+- Delivered:
+  - added pre-merge runbook `docs/PREMERGE_READINESS.md` including:
+    - required extended gate sequence (`certify`, `certify-live`, `dep-audit`, packaging dry-run).
+    - merge hold criteria.
+    - immediate ordered planning queue.
+  - updated gate/development docs to reference expanded merge checks:
+    - `docs/QUALITY_GATES.md`
+    - `docs/DEVELOPMENT.md`
+    - `docs/ROADMAP.md`
+    - `README.md` docs map.
+- Acceptance: met.
+
+### WS-13 - Ruleset Trust Boundary
+
+- Status: complete.
+- Goal: fail closed when the configured ruleset does not match expected trusted material.
+- Delivered:
+  - added trust verification module `foxclaw/rules/trust.py` with:
+    - schema-validated trust manifests (`schema_version` `1.0.0`).
+    - SHA256 ruleset digest pin validation.
+    - optional Ed25519 detached signature verification.
+    - explicit fail-closed errors for manifest/digest/signature/key mismatch.
+  - added CLI trust controls for both single-profile and fleet workflows:
+    - `scan --ruleset-trust-manifest`
+    - `scan --require-ruleset-signatures`
+    - `fleet aggregate --ruleset-trust-manifest`
+    - `fleet aggregate --require-ruleset-signatures`
+  - added regression coverage in:
+    - `tests/test_ruleset_trust.py`
+    - `tests/test_ruleset_trust_cli.py`
+    - integration trust-path assertions in `tests/test_integration_testbed.py`
+  - added operational hardening checks:
+    - `scripts/trust_scan_smoke.sh` for positive + fail-closed CLI trust verification.
+    - `scripts/certify.sh` now runs trust smoke as a required gate.
+    - `scripts/soak_runner.sh` now runs trust smoke once per cycle.
+  - added high-memory fuzz presets for pre-soak burn-in:
+    - `make soak-smoke-fuzz1000`
+    - `make soak-daytime-fuzz1000`
+  - updated architecture/security/roadmap/operator docs:
+    - `README.md`
+    - `docs/ARCHITECTURE.md`
+    - `docs/SECURITY_MODEL.md`
+    - `docs/ROADMAP.md`
+    - `docs/PREMERGE_READINESS.md`
+    - `docs/RULESET_TRUST.md`
+- Acceptance: met.
+
+### WS-14 - Extension Intelligence Reputation Depth
+
+- Status: complete.
+- Goal: extend extension posture checks with deterministic AMO reputation intelligence.
+- Delivered:
+  - added source schema support for `foxclaw.amo.extension_intel.v1`.
+  - added SQLite indexing table `amo_extension_intel` during `intel sync`.
+  - added offline scan-time extension reputation annotation from pinned snapshots:
+    - source/reference metadata.
+    - reputation level and AMO listing/review/user counts.
+  - expanded extension data/report surfaces:
+    - new extension intel fields in `foxclaw/models.py`.
+    - text report posture column for intel reputation/listed status.
+  - added deterministic DSL operator `extension_intel_reputation_absent`.
+  - added ruleset coverage:
+    - `balanced` rule `FC-EXT-004`.
+    - `strict` rule `FC-STRICT-EXT-005`.
+  - added regression coverage:
+    - `tests/test_intel_sync.py`
+    - `tests/test_intel_correlation.py`
+    - `tests/test_extensions.py`
+    - fixture `tests/fixtures/intel/amo_extension_intel.v1.json`
+- Acceptance: met.
+
+### WS-15 - Release SBOM Contract
+
+- Status: complete.
+- Goal: publish verifiable SBOM artifacts with release outputs.
+- Delivered:
+  - added SBOM validation helpers in `foxclaw/release/sbom.py`.
+  - added operational scripts:
+    - `scripts/generate_sbom.sh`
+    - `scripts/verify_sbom.py`
+  - added Make targets:
+    - `make sbom`
+    - `make sbom-verify`
+  - updated release workflow `.github/workflows/foxclaw-release.yml`:
+    - generate and verify `sbom.cyclonedx.json`.
+    - include SBOM in artifact bundle, attest subject paths, and release uploads.
+    - include SBOM pointer in `provenance.txt`.
+  - added regression coverage in `tests/test_sbom.py`.
+  - documented operator workflow in:
+    - `docs/SBOM.md`
+    - `docs/GITHUB_ACTIONS.md`
+    - `docs/RELEASE_PROVENANCE.md`
+- Acceptance: met.
+
+### WS-16 - Trust Rotation and Signature Threshold Policy
+
+- Status: complete.
+- Goal: support key rollover and explicit signature quorum policy while remaining fail-closed.
+- Delivered:
+  - extended trust manifest support to `schema_version` `1.1.0` while preserving `1.0.0`.
+  - added key lifecycle fields:
+    - `status` (`active`, `deprecated`, `revoked`)
+    - `valid_from`
+    - `valid_to`
+  - added per-ruleset threshold control:
+    - `min_valid_signatures`
+    - required valid signatures computed as `max(1, min_valid_signatures)` when signatures exist.
+  - added validation and fail-closed checks for:
+    - revoked keys,
+    - keys outside validity windows,
+    - threshold mismatch and missing signatures under threshold policy.
+  - expanded regression coverage:
+    - `tests/test_ruleset_trust.py`
+    - `tests/test_ruleset_trust_cli.py`
+  - hardened trust-cli output checks to avoid false failures from wrapped console output.
+- updated trust policy documentation in `docs/RULESET_TRUST.md`.
+- Acceptance: met.
+
+### WS-17 - Profile Fidelity Spec and Validator
+
+- Status: complete.
+- Delivered:
+  - added source-backed profile fidelity contract in `docs/PROFILE_FIDELITY_SPEC.md`.
+  - added executable realism gate `scripts/profile_fidelity_check.py`.
+  - added regression coverage in `tests/test_profile_fidelity_check_script.py`.
+- Acceptance: met.
+
+### WS-18 - AMO Extension Catalog Snapshot Pipeline
+
+- Status: complete.
+- Delivered:
+  - added catalog builder `scripts/build_extension_catalog.py`.
+  - added `make extension-catalog` target for pinned snapshot generation.
+  - catalog schema is consumed by profile generators via `--catalog-path`.
+- Acceptance: met.
+
+### WS-19 - Bootstrap-First Synth Generator
+
+- Status: complete.
+- Delivered:
+  - refactored synth generation into realistic artifact scaffolding using
+    `scripts/profile_generation_common.py`.
+  - added synth modes (`realistic`, `bootstrap`) and deterministic `--seed`.
+  - added advanced realism layers:
+    - NSS stores (`key4.db`, `cert9.db`, `pkcs11.txt`)
+    - HSTS state (`SiteSecurityServiceState.txt`)
+    - web storage footprints (`storage/default`)
+    - favicon store (`favicons.sqlite`)
+  - added metadata provenance per profile (`metadata.json`).
+- Acceptance: met.
+
+### WS-20 - Real-World Scenario Library
+
+- Status: complete.
+- Delivered:
+  - added weighted scenario model:
+    - `consumer_default`
+    - `privacy_hardened`
+    - `enterprise_managed`
+    - `developer_heavy`
+    - `compromised`
+  - scenario selection supports deterministic auto-weighting and forced scenario mode.
+  - scenario metadata is persisted in generated profile provenance.
+- Acceptance: met.
+
+### WS-21 - Controlled Mutation Engine
+
+- Status: complete.
+- Delivered:
+  - added bounded mutation operators with severity controls in
+    `scripts/profile_generation_common.py`.
+  - added mutation controls to both generators:
+    - `--mutation-budget`
+    - `--max-mutation-severity`
+  - fuzz `chaos` mode adds additional deterministic noise operators.
+- Acceptance: met.
+
+### WS-22 - Runtime Fidelity Gate
+
+- Status: complete.
+- Delivered:
+  - integrated fidelity gate into:
+    - `scripts/synth_runner.sh`
+    - `scripts/fuzz_runner.sh`
+  - added enforceable minimum score controls:
+    - `--fidelity-min-score`
+  - runners now emit average realism score and provenance details.
+- Acceptance: met.
+
+### WS-23 - Soak/CI Integration
+
+- Status: complete.
+- Delivered:
+  - expanded soak orchestration options in `scripts/soak_runner.sh` for
+    synth/fuzz mode, seeds, mutation budgets, and fidelity thresholds.
+  - updated soak make targets to use deterministic seeds and explicit realism controls.
+  - added docs and verification coverage:
+    - `docs/SOAK.md`
+    - `docs/DEVELOPMENT.md`
+    - `tests/test_profile_generation_scripts.py`
+    - `docs/PROFILE_HANDOFF.md`
+    - `docs/PROFILE_REVIEW_CHECKLIST.md`
 - Acceptance: met.
 
 ## Workslice Update Protocol

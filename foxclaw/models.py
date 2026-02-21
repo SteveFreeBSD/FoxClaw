@@ -91,6 +91,15 @@ class ExtensionEntry(BaseModel):
     host_permissions: list[str] = Field(default_factory=list)
     risky_permissions: list[ExtensionPermissionRisk] = Field(default_factory=list)
     blocklisted: bool | None = None
+    intel_source: str | None = None
+    intel_reference_url: str | None = None
+    intel_version: str | None = None
+    intel_reputation_level: Literal["low", "medium", "high"] | None = None
+    intel_listed: bool | None = None
+    intel_review_count: int | None = None
+    intel_average_daily_users: int | None = None
+    intel_recommended: bool | None = None
+    intel_reason: str | None = None
     parse_error: str | None = None
 
 

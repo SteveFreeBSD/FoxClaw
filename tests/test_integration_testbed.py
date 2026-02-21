@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -21,6 +22,26 @@ _MISSING_POLICY_FINDINGS = {"TB-POL-001", "TB-POL-002", "TB-POL-003", "TB-POL-00
 def _load_official_sarif_schema() -> dict[str, object]:
     schema_path = Path(__file__).parent / "schemas" / "sarif-schema-2.1.0.json"
     return json.loads(schema_path.read_text(encoding="utf-8"))
+
+
+def _write_trust_manifest(path: Path, *, ruleset: Path, sha256: str) -> None:
+    resolved_ruleset = ruleset.expanduser().resolve()
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "keys": [],
+                "rulesets": [
+                    {
+                        "path": str(resolved_ruleset),
+                        "sha256": sha256,
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -187,6 +208,61 @@ def test_testbed_fleet_aggregate_multi_profile_contract() -> None:
     profile_uids = {item["identity"]["profile_uid"] for item in payload["profiles"]}
     assert {item["profile_uid"] for item in payload["finding_records"]} <= profile_uids
     assert {"TB-FILE-001", *_MISSING_POLICY_FINDINGS} <= set(payload["aggregate"]["unique_rule_ids"])
+
+
+def test_testbed_scan_with_trust_manifest_passes(tmp_path: Path) -> None:
+    profile = TESTBED_ROOT / "profile_baseline"
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_trust_manifest(
+        manifest,
+        ruleset=TESTBED_RULESET,
+        sha256=hashlib.sha256(TESTBED_RULESET.read_bytes()).hexdigest(),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile),
+            "--ruleset",
+            str(TESTBED_RULESET),
+            "--ruleset-trust-manifest",
+            str(manifest),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert {item["id"] for item in payload["findings"]} == _MISSING_POLICY_FINDINGS
+
+
+def test_testbed_scan_with_trust_manifest_mismatch_fails_closed(tmp_path: Path) -> None:
+    profile = TESTBED_ROOT / "profile_baseline"
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_trust_manifest(
+        manifest,
+        ruleset=TESTBED_RULESET,
+        sha256="0" * 64,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile),
+            "--ruleset",
+            str(TESTBED_RULESET),
+            "--ruleset-trust-manifest",
+            str(manifest),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "sha256 mismatch" in result.stdout
 
 
 def test_testbed_userjs_override_precedence_with_policy_path() -> None:

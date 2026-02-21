@@ -22,6 +22,7 @@ from foxclaw.report.snapshot_diff import (
 )
 from foxclaw.report.text import render_scan_summary
 from foxclaw.rules.engine import load_ruleset
+from foxclaw.rules.trust import verify_ruleset_with_manifest
 from foxclaw.scan import detect_active_profile_reason, resolve_ruleset_path, run_scan
 
 EXIT_OK = 0
@@ -104,6 +105,19 @@ def scan(
     ruleset: Path | None = typer.Option(
         None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
     ),
+    ruleset_trust_manifest: Path | None = typer.Option(
+        None,
+        "--ruleset-trust-manifest",
+        help=(
+            "Verify ruleset digest/signatures against this trust manifest "
+            "(fail closed on mismatch)."
+        ),
+    ),
+    require_ruleset_signatures: bool = typer.Option(
+        False,
+        "--require-ruleset-signatures",
+        help="Require at least one valid signature in ruleset trust manifest entry.",
+    ),
     policy_path: list[Path] | None = typer.Option(
         None,
         "--policy-path",
@@ -182,6 +196,12 @@ def scan(
     resolved_ruleset_path = resolve_ruleset_path(ruleset)
 
     try:
+        if ruleset_trust_manifest is not None:
+            verify_ruleset_with_manifest(
+                ruleset_path=resolved_ruleset_path,
+                manifest_path=ruleset_trust_manifest.expanduser().resolve(strict=False),
+                require_signatures=require_ruleset_signatures,
+            )
         evidence = run_scan(
             selected_profile,
             ruleset_path=resolved_ruleset_path,
@@ -271,6 +291,19 @@ def fleet_aggregate(
     ruleset: Path | None = typer.Option(
         None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
     ),
+    ruleset_trust_manifest: Path | None = typer.Option(
+        None,
+        "--ruleset-trust-manifest",
+        help=(
+            "Verify ruleset digest/signatures against this trust manifest "
+            "(fail closed on mismatch)."
+        ),
+    ),
+    require_ruleset_signatures: bool = typer.Option(
+        False,
+        "--require-ruleset-signatures",
+        help="Require at least one valid signature in ruleset trust manifest entry.",
+    ),
     policy_path: list[Path] | None = typer.Option(
         None,
         "--policy-path",
@@ -322,6 +355,17 @@ def fleet_aggregate(
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     resolved_ruleset_path = resolve_ruleset_path(ruleset)
+    if ruleset_trust_manifest is not None:
+        try:
+            verify_ruleset_with_manifest(
+                ruleset_path=resolved_ruleset_path,
+                manifest_path=ruleset_trust_manifest.expanduser().resolve(strict=False),
+                require_signatures=require_ruleset_signatures,
+            )
+        except (OSError, ValueError) as exc:
+            console.print(f"[red]Operational error: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
     bundles = []
     try:
         for selected_profile in selected_profiles:

@@ -15,8 +15,11 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
   - suppression lifecycle (`--suppression-path`) with required owner/reason/expiration and scoped rule matching
   - SQLite quick integrity checks (`PRAGMA quick_check`)
 - Declarative rule evaluation from versioned YAML rulesets.
+- Optional ruleset trust verification via digest-pinned manifest entries, Ed25519 signatures,
+  and multi-signature threshold/key-lifecycle policy.
 - Offline intel correlation with deterministic multi-source merge metadata and finding-level
   risk priority fields (`risk_priority`, `risk_factors`).
+- Offline extension reputation correlation from pinned AMO intelligence snapshots.
 - Output renderers for terminal, JSON, and SARIF 2.1.0.
 
 ## Security Boundary
@@ -119,6 +122,17 @@ foxclaw scan \
   --json
 ```
 
+Verify ruleset trust from a pinned manifest (fail closed on mismatch):
+
+```bash
+foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --ruleset-trust-manifest policies/ruleset-trust.yml \
+  --require-ruleset-signatures \
+  --json
+```
+
 Override enterprise policy discovery paths (repeatable):
 
 ```bash
@@ -151,13 +165,21 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
 - `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
 - `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
+- `docs/PROFILE_HANDOFF.md`: canonical profile-system onboarding, status memory, and anti-loop guardrails.
+- `docs/PROFILE_SYNTHESIS.md`: profile generation architecture and runtime usage.
+- `docs/PROFILE_FIDELITY_SPEC.md`: profile realism scoring contract and fidelity gate behavior.
+- `docs/PROFILE_REVIEW_CHECKLIST.md`: merge/CTO review checklist for profile realism changes.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
 - `docs/RESEARCH_2026-02-20.md`: dated ecosystem alignment checkpoint (2026 snapshot).
 - `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
 - `docs/WORKSLICES.md`: ordered implementation slices with dependencies and acceptance criteria.
 - `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
+- `docs/RULESET_TRUST.md`: ruleset trust-manifest schema, signature policy, and CLI usage.
 - `docs/RELEASE_PROVENANCE.md`: release attestation and trusted-publishing verification runbook.
+- `docs/SBOM.md`: CycloneDX SBOM generation/verification runbook for local and release workflows.
+- `docs/DEPENDENCY_AUDIT.md`: scheduled dependency-vulnerability sweep workflow and triage runbook.
+- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and immediate planning queue.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
 - `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
 - `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.

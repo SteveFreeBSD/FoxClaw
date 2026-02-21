@@ -75,6 +75,7 @@ def _render_extension_posture(console: Console, bundle: EvidenceBundle) -> None:
     table.add_column("Signed")
     table.add_column("Manifest")
     table.add_column("Risk (H/M)", justify="right")
+    table.add_column("Intel (rep/listed)")
     table.add_column("Notes")
 
     for entry in bundle.extensions.entries:
@@ -87,6 +88,8 @@ def _render_extension_posture(console: Console, bundle: EvidenceBundle) -> None:
             notes.append("blocklisted")
         if entry.parse_error:
             notes.append("parse-error")
+        if entry.intel_listed is False:
+            notes.append("intel-unlisted")
 
         table.add_row(
             entry.addon_id,
@@ -95,6 +98,7 @@ def _render_extension_posture(console: Console, bundle: EvidenceBundle) -> None:
             _format_signed(entry),
             _format_manifest(entry),
             f"{high_risk}/{medium_risk}",
+            _format_extension_intel(entry),
             ", ".join(notes) if notes else "-",
         )
 
@@ -133,6 +137,16 @@ def _format_manifest(entry: ExtensionEntry) -> str:
 
 def _is_system_source(entry: ExtensionEntry) -> bool:
     return entry.source_kind in {"system", "builtin"}
+
+
+def _format_extension_intel(entry: ExtensionEntry) -> str:
+    reputation = entry.intel_reputation_level or "-"
+    listed = (
+        "-"
+        if entry.intel_listed is None
+        else ("yes" if entry.intel_listed else "no")
+    )
+    return f"{reputation}/{listed}"
 
 
 def _render_intel_summary(console: Console, bundle: EvidenceBundle) -> None:

@@ -27,6 +27,7 @@ This runs:
 - fixture tree clean (`git diff --quiet -- tests/fixtures/testbed`)
 - `pytest -q -m integration`
 - fixture scan (`scripts/fixture_scan.sh`)
+- trust-boundary scan smoke (`scripts/trust_scan_smoke.sh`)
 - `bandit -q -r foxclaw -x tests`
 - `vulture foxclaw tests --min-confidence 80`
 - `detect-secrets scan --exclude-files '^tests/fixtures/testbed/manifest\.json$' $(git ls-files)`
@@ -65,9 +66,18 @@ The pre-push hook runs `./scripts/certify.sh` automatically.
 
 - `make certify` passes.
 - `make certify-live` passes for release/milestone branches.
+- extended pre-merge rehearsal passes when used:
+  - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
+  - `make dep-audit`
+  - packaging dry-run (`python -m build` + `twine check dist/*`)
+  - SBOM rehearsal (`make sbom` + `make sbom-verify`)
 - `git status --short` is clean.
 - Docs updated for any CLI, schema, or trust-boundary change.
 - Commit messages are scoped and auditable.
+
+For full merge-hold workflow and immediate planning queue, see:
+
+- `docs/PREMERGE_READINESS.md`
 
 ## CI Parity
 
@@ -84,3 +94,6 @@ CI-only dependency policy gate:
 - Pull requests enforce dependency review in `dependency-policy` job
   (`actions/dependency-review-action` with high-severity failure policy).
   This gate has no exact local offline equivalent and is enforced in GitHub Actions.
+- Scheduled dependency vulnerability sweeps run in
+  `.github/workflows/foxclaw-dependency-audit.yml`.
+  Local equivalent is available with `make dep-audit`.

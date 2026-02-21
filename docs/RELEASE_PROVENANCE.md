@@ -16,13 +16,17 @@ Workflow file:
 - Artifact build gate:
   - builds `sdist` + `wheel` with `python -m build`.
   - validates package metadata with `twine check`.
+- SBOM gate:
+  - generates CycloneDX JSON SBOM (`sbom.cyclonedx.json`) from built wheel artifacts.
+  - validates SBOM structure and `foxclaw` component metadata.
 - Provenance gate:
-  - attests `dist/*` and `provenance.txt` with `actions/attest-build-provenance`.
+  - attests `dist/*`, `sbom.cyclonedx.json`, and `provenance.txt` with
+    `actions/attest-build-provenance`.
 - Trusted publishing gate:
   - publishes to PyPI using OIDC (`pypa/gh-action-pypi-publish`) with no API token.
   - requires configured PyPI trusted publisher and GitHub environment `pypi`.
 - Release asset gate:
-  - uploads `dist/*` and `provenance.txt` to the GitHub release.
+  - uploads `dist/*`, `sbom.cyclonedx.json`, and `provenance.txt` to the GitHub release.
 
 ## Dependency Policy Gates
 
@@ -47,7 +51,11 @@ Steps:
 1. Download release artifacts from GitHub Releases:
 
 ```bash
-gh release download <tag> --repo <owner>/<repo> --pattern '*.whl' --pattern '*.tar.gz' --pattern 'provenance.txt'
+gh release download <tag> --repo <owner>/<repo> \
+  --pattern '*.whl' \
+  --pattern '*.tar.gz' \
+  --pattern 'sbom.cyclonedx.json' \
+  --pattern 'provenance.txt'
 ```
 
 2. Verify artifact attestations against the repository:
@@ -55,6 +63,7 @@ gh release download <tag> --repo <owner>/<repo> --pattern '*.whl' --pattern '*.t
 ```bash
 gh attestation verify *.whl --repo <owner>/<repo>
 gh attestation verify *.tar.gz --repo <owner>/<repo>
+gh attestation verify sbom.cyclonedx.json --repo <owner>/<repo>
 gh attestation verify provenance.txt --repo <owner>/<repo>
 ```
 
@@ -63,10 +72,16 @@ gh attestation verify provenance.txt --repo <owner>/<repo>
 ```bash
 python -m pip install --upgrade twine
 python -m twine check *.whl *.tar.gz
-sha256sum *.whl *.tar.gz provenance.txt
+sha256sum *.whl *.tar.gz sbom.cyclonedx.json provenance.txt
 ```
 
-4. Cross-check `provenance.txt`:
+4. Validate SBOM contract:
+
+```bash
+python scripts/verify_sbom.py sbom.cyclonedx.json
+```
+
+5. Cross-check `provenance.txt`:
   - `release_tag` matches the expected release.
   - `commit` matches the source commit you audited.
   - `workflow_run` points to the passing release workflow run.

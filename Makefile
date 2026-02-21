@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-daytime soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan verify verify-full bandit vulture secrets certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity extension-catalog test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -31,6 +31,24 @@ testbed-fixtures:
 
 testbed-fixtures-write:
 	$(PYTHON_BIN) ./scripts/generate_testbed_fixtures.py --write
+
+synth-profiles:
+	$(PYTHON_BIN) ./scripts/synth_profiles.py --count 4 --output-dir /tmp/foxclaw-synth-profiles
+
+synth-profiles-bootstrap:
+	$(PYTHON_BIN) ./scripts/synth_profiles.py --mode bootstrap --count 4 --output-dir /tmp/foxclaw-synth-profiles
+
+synth-profiles-100:
+	$(PYTHON_BIN) ./scripts/synth_profiles.py --count 100 --output-dir /tmp/foxclaw-synth-profiles
+
+fuzz-profiles:
+	$(PYTHON_BIN) ./scripts/fuzz_profiles.py --count 20 --output-dir /tmp/foxclaw-fuzzer-profiles
+
+profile-fidelity:
+	$(PYTHON_BIN) ./scripts/profile_fidelity_check.py /tmp/foxclaw-synth-profiles --pattern "*.synth-*" --min-score 70 --enforce-min-score
+
+extension-catalog:
+	$(PYTHON_BIN) ./scripts/build_extension_catalog.py --output tests/fixtures/intel/amo_extension_catalog.v1.json
 
 test-firefox-container:
 	$(DOCKER) build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .
@@ -58,9 +76,33 @@ soak-smoke:
 		--max-cycles 1 \
 		--integration-runs 1 \
 		--snapshot-runs 1 \
+		--synth-count 10 \
+		--synth-mode bootstrap \
+		--synth-seed 424242 \
+		--synth-fidelity-min-score 70 \
 		--fuzz-count 10 \
+		--fuzz-mode chaos \
+		--fuzz-seed 525252 \
+		--fuzz-fidelity-min-score 50 \
 		--matrix-runs 1 \
 		--label smoke
+
+soak-smoke-fuzz1000:
+	@SOAK_SUDO_PASSWORD="$(SOAK_SUDO_PASSWORD)" scripts/soak_runner.sh \
+		--duration-hours 1 \
+		--max-cycles 1 \
+		--integration-runs 1 \
+		--snapshot-runs 1 \
+		--synth-count 20 \
+		--synth-mode bootstrap \
+		--synth-seed 424242 \
+		--synth-fidelity-min-score 70 \
+		--fuzz-count 1000 \
+		--fuzz-mode chaos \
+		--fuzz-seed 525252 \
+		--fuzz-fidelity-min-score 50 \
+		--matrix-runs 1 \
+		--label smoke-fuzz1000
 
 soak-daytime:
 	@SOAK_SUDO_PASSWORD="$(SOAK_SUDO_PASSWORD)" scripts/soak_runner.sh \
@@ -68,9 +110,33 @@ soak-daytime:
 		--max-cycles 6 \
 		--integration-runs 2 \
 		--snapshot-runs 3 \
+		--synth-count 50 \
+		--synth-mode bootstrap \
+		--synth-seed 424242 \
+		--synth-fidelity-min-score 70 \
 		--fuzz-count 150 \
+		--fuzz-mode chaos \
+		--fuzz-seed 525252 \
+		--fuzz-fidelity-min-score 50 \
 		--matrix-runs 1 \
 		--label daytime-burnin
+
+soak-daytime-fuzz1000:
+	@SOAK_SUDO_PASSWORD="$(SOAK_SUDO_PASSWORD)" scripts/soak_runner.sh \
+		--duration-hours 3 \
+		--max-cycles 6 \
+		--integration-runs 2 \
+		--snapshot-runs 3 \
+		--synth-count 50 \
+		--synth-mode bootstrap \
+		--synth-seed 424242 \
+		--synth-fidelity-min-score 70 \
+		--fuzz-count 1000 \
+		--fuzz-mode chaos \
+		--fuzz-seed 525252 \
+		--fuzz-fidelity-min-score 50 \
+		--matrix-runs 1 \
+		--label daytime-burnin-fuzz1000
 
 soak-daytime-detached:
 	systemd-run --user \
@@ -83,7 +149,14 @@ soak-daytime-detached:
 		--max-cycles 6 \
 		--integration-runs 2 \
 		--snapshot-runs 3 \
+		--synth-count 50 \
+		--synth-mode bootstrap \
+		--synth-seed 424242 \
+		--synth-fidelity-min-score 70 \
 		--fuzz-count 150 \
+		--fuzz-mode chaos \
+		--fuzz-seed 525252 \
+		--fuzz-fidelity-min-score 50 \
 		--matrix-runs 1 \
 		--label daytime-burnin
 
@@ -113,7 +186,17 @@ typecheck:
 fixture-scan:
 	@./scripts/fixture_scan.sh "$(PYTHON_BIN)"
 
-verify: lint typecheck test test-integration fixture-scan
+trust-smoke:
+	@./scripts/trust_scan_smoke.sh "$(PYTHON_BIN)"
+
+sbom:
+	@./scripts/generate_sbom.sh --python "$(PYTHON_BIN)" --dist-dir dist --output sbom.cyclonedx.json
+	@"$(PYTHON_BIN)" ./scripts/verify_sbom.py sbom.cyclonedx.json
+
+sbom-verify:
+	@"$(PYTHON_BIN)" ./scripts/verify_sbom.py sbom.cyclonedx.json
+
+verify: lint typecheck test test-integration fixture-scan trust-smoke
 
 bandit:
 	$(BANDIT_BIN) -q -r foxclaw -x tests
@@ -123,6 +206,10 @@ vulture:
 
 secrets:
 	@./scripts/check_secrets.sh
+
+dep-audit:
+	$(PIP_BIN) install --upgrade "pip-audit==2.7.3"
+	@./scripts/dependency_audit.sh --pip-audit-bin "$(VENV)/bin/pip-audit" --output dependency-audit.json
 
 verify-full: verify bandit vulture secrets
 
@@ -136,7 +223,7 @@ hooks-install:
 	@./scripts/install_hooks.sh
 
 clean:
-	rm -f foxclaw.json foxclaw.sarif
+	rm -f foxclaw.json foxclaw.sarif dependency-audit.json sbom.cyclonedx.json
 	rm -rf .pytest_cache .mypy_cache .ruff_cache foxclaw.egg-info build dist
 	find foxclaw tests -type d -name "__pycache__" -prune -exec rm -rf {} +
 

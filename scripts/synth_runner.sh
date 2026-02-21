@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# --------------------------------------------------------------------------
+# synth_runner.sh — Generate realistic profiles and run FoxClaw against them.
+#
+# Generates N realistic profiles, validates profile fidelity, and runs FoxClaw
+# scans to ensure parser/rule behavior remains crash-free.
+# --------------------------------------------------------------------------
+set -euo pipefail
+
+usage() {
+  cat <<'EOF_HELP'
+Usage: scripts/synth_runner.sh [options]
+
+Options:
+  --count <N>                    Number of profiles (default: 20)
+  --output-dir <path>            Output directory
+  --mode <realistic|bootstrap>   Generation mode (default: realistic)
+  --scenario <name>              Force one scenario for all generated profiles
+  --seed <N>                     Deterministic seed (default: 424242)
+  --mutation-budget <N>          Mutations per profile (default: 0)
+  --max-mutation-severity <S>    Mutation severity cap (low|medium|high; default: medium)
+  --catalog-path <path>          Optional AMO catalog snapshot JSON
+  --allow-network-fetch          Allow live AMO fetches for uncached extensions
+  --fidelity-min-score <N>       Minimum realism score (default: 70)
+EOF_HELP
+}
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+SYNTH_PROFILES_SCRIPT="${ROOT_DIR}/scripts/synth_profiles.py"
+FIDELITY_SCRIPT="${ROOT_DIR}/scripts/profile_fidelity_check.py"
+OUTPUT_DIR="/tmp/foxclaw-synth-profiles"
+RULESET_PATH="${ROOT_DIR}/foxclaw/rulesets/strict.yml"
+COUNT=20
+MODE="realistic"
+SCENARIO=""
+SEED=424242
+MUTATION_BUDGET=0
+MAX_MUTATION_SEVERITY="medium"
+CATALOG_PATH=""
+ALLOW_NETWORK_FETCH=0
+FIDELITY_MIN_SCORE=70
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --count) COUNT="${2:-}"; shift 2 ;;
+    --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
+    --mode) MODE="${2:-}"; shift 2 ;;
+    --scenario) SCENARIO="${2:-}"; shift 2 ;;
+    --seed) SEED="${2:-}"; shift 2 ;;
+    --mutation-budget) MUTATION_BUDGET="${2:-}"; shift 2 ;;
+    --max-mutation-severity) MAX_MUTATION_SEVERITY="${2:-}"; shift 2 ;;
+    --catalog-path) CATALOG_PATH="${2:-}"; shift 2 ;;
+    --allow-network-fetch) ALLOW_NETWORK_FETCH=1; shift 1 ;;
+    --fidelity-min-score) FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "error: unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "error: cannot find virtualenv python at ${PYTHON_BIN}" >&2
+  exit 1
+fi
+
+for v in COUNT SEED MUTATION_BUDGET FIDELITY_MIN_SCORE; do
+  if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
+    echo "error: ${v} must be a non-negative integer" >&2
+    exit 2
+  fi
+done
+
+if [[ "${MODE}" != "realistic" && "${MODE}" != "bootstrap" ]]; then
+  echo "error: --mode must be realistic or bootstrap" >&2
+  exit 2
+fi
+
+if [[ "${MAX_MUTATION_SEVERITY}" != "low" && "${MAX_MUTATION_SEVERITY}" != "medium" && "${MAX_MUTATION_SEVERITY}" != "high" ]]; then
+  echo "error: --max-mutation-severity must be low, medium, or high" >&2
+  exit 2
+fi
+
+echo "[synth] Cleaning up old profiles..."
+rm -rf "${OUTPUT_DIR}"
+mkdir -p "${OUTPUT_DIR}"
+
+echo "[synth] Generating ${COUNT} realistic profiles..."
+gen_cmd=(
+  "${PYTHON_BIN}" "${SYNTH_PROFILES_SCRIPT}"
+  -n "${COUNT}"
+  --output-dir "${OUTPUT_DIR}"
+  --mode "${MODE}"
+  --seed "${SEED}"
+  --mutation-budget "${MUTATION_BUDGET}"
+  --max-mutation-severity "${MAX_MUTATION_SEVERITY}"
+  --quiet
+)
+if [[ -n "${SCENARIO}" ]]; then
+  gen_cmd+=(--scenario "${SCENARIO}")
+fi
+if [[ -n "${CATALOG_PATH}" ]]; then
+  gen_cmd+=(--catalog-path "${CATALOG_PATH}")
+fi
+if [[ "${ALLOW_NETWORK_FETCH}" -eq 1 ]]; then
+  gen_cmd+=(--allow-network-fetch)
+fi
+"${gen_cmd[@]}"
+
+echo "[synth] Running profile fidelity gate (min score ${FIDELITY_MIN_SCORE})..."
+"${PYTHON_BIN}" "${FIDELITY_SCRIPT}" "${OUTPUT_DIR}" \
+  --pattern "*.synth-*" \
+  --min-score "${FIDELITY_MIN_SCORE}" \
+  --enforce-min-score \
+  --json-out "${OUTPUT_DIR}/fidelity-summary.json"
+
+avg_score="$("${PYTHON_BIN}" - <<'PY' "${OUTPUT_DIR}/fidelity-summary.json"
+import json
+import sys
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+print(payload.get("average_score", 0))
+PY
+)"
+
+catalog_version="$("${PYTHON_BIN}" - <<'PY' "${OUTPUT_DIR}"
+import json
+import pathlib
+import sys
+root = pathlib.Path(sys.argv[1])
+for profile in sorted(root.glob("*.synth-*/metadata.json")):
+    payload = json.loads(profile.read_text(encoding="utf-8"))
+    print(payload.get("catalog_version", "unknown"))
+    break
+else:
+    print("unknown")
+PY
+)"
+
+echo "[synth] Starting FoxClaw scans..."
+failed=0
+passed=0
+
+for profile in "${OUTPUT_DIR}"/*.synth-*; do
+  if [[ ! -d "${profile}" ]]; then
+    continue
+  fi
+
+  scan_exit=0
+  scan_output=$("${PYTHON_BIN}" -m foxclaw scan --profile "${profile}" --ruleset "${RULESET_PATH}" --json 2>&1) || scan_exit=$?
+
+  is_crash=false
+  if [[ "${scan_exit}" -gt 2 ]]; then
+    is_crash=true
+  elif echo "${scan_output}" | grep -q "Traceback (most recent call last):"; then
+    is_crash=true
+  fi
+
+  if [[ "${is_crash}" == true ]]; then
+    echo "❌ CRASH: profile $(basename "${profile}") (exit ${scan_exit})"
+    echo "============================="
+    echo "${scan_output}"
+    echo "============================="
+    failed=$((failed + 1))
+  else
+    passed=$((passed + 1))
+  fi
+done
+
+echo ""
+echo "[synth] Summary:"
+echo "  Passed (no crashes): ${passed}"
+echo "  Failed (crashed):    ${failed}"
+echo "  Avg realism score:   ${avg_score}"
+echo "  Provenance: mode=${MODE} seed=${SEED} scenario=${SCENARIO:-auto} catalog=${catalog_version}"
+
+if [[ "${failed}" -gt 0 ]]; then
+  exit 1
+fi
+exit 0

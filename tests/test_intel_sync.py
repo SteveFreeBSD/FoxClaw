@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 INTEL_FIXTURE = Path("tests/fixtures/intel/mozilla_firefox_advisories.v1.json")
 BLOCKLIST_FIXTURE = Path("tests/fixtures/intel/mozilla_extension_blocklist.v1.json")
+AMO_EXTENSION_FIXTURE = Path("tests/fixtures/intel/amo_extension_intel.v1.json")
 NVD_FIXTURE = Path("tests/fixtures/intel/nvd_cve_records.v1.json")
 CVE_LIST_FIXTURE = Path("tests/fixtures/intel/cve_list_records.v1.json")
 KEV_FIXTURE = Path("tests/fixtures/intel/cisa_kev.v1.json")
@@ -115,6 +116,27 @@ def test_sync_sources_indexes_extension_blocklist_schema(tmp_path: Path) -> None
         ).fetchone()
         assert index_rows == (1,)
         assert blocklist_rows == (2,)
+
+
+def test_sync_sources_indexes_amo_extension_intel_schema(tmp_path: Path) -> None:
+    store_dir = tmp_path / "intel-store"
+    result = sync_sources(
+        source_specs=[f"amo={AMO_EXTENSION_FIXTURE}"],
+        store_dir=store_dir,
+        normalize_json=True,
+        cwd=Path.cwd(),
+    )
+
+    source = result.manifest.sources[0]
+    assert source.schema_version == "foxclaw.amo.extension_intel.v1"
+    assert source.adapter == "amo_extension_intel_v1"
+    assert source.records_indexed == 2
+
+    with sqlite3.connect(store_dir / "intel.db") as connection:
+        index_rows = connection.execute("SELECT COUNT(*) FROM source_indexes").fetchone()
+        amo_rows = connection.execute("SELECT COUNT(*) FROM amo_extension_intel").fetchone()
+        assert index_rows == (1,)
+        assert amo_rows == (2,)
 
 
 def test_sync_sources_indexes_nvd_cve_schema(tmp_path: Path) -> None:

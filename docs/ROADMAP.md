@@ -50,16 +50,21 @@ Target: after phase 1 stabilization.
   - baseline findings include fixed-version and source provenance with pinned snapshot id.
   - extend with richer vendor/NVD merge logic and confidence scoring.
 - Add extension intelligence correlation:
-  - correlate installed extension IDs/versions with AMO metadata and blocklist signals.
+  - baseline installed extension IDs/versions are correlated with AMO metadata and blocklist signals from pinned snapshots.
+  - extend with richer publisher/reputation signals and confidence scoring.
 - Signed policy packs:
-  - external ruleset bundles with signature verification and manifest pinning.
+  - baseline manifest pinning and optional Ed25519 signature verification are available
+    via `--ruleset-trust-manifest` and `--require-ruleset-signatures`.
+  - baseline key rotation and signature-threshold policy are available in trust manifest schema `1.1.0`.
+  - extend toward externally distributed ruleset bundles and managed key distribution.
 - CI provenance:
   - baseline artifact attestations for release build outputs are available.
   - baseline provenance references are linked from release artifacts.
 - Release hardening:
   - baseline trusted publishing for package distribution is available.
+  - baseline CycloneDX SBOM generation and verification are available in release packaging.
   - baseline dependency review policy gate is enforced in CI pull requests.
-  - extend with scheduled dependency vulnerability sweeps.
+  - baseline scheduled dependency vulnerability sweeps are available.
 
 Exit criteria:
 
@@ -103,3 +108,4 @@ Execution tracking:
 
 - Ordered implementation slices are tracked in `docs/WORKSLICES.md`.
 - Periodic technical and ecosystem checkpoints are recorded in date-stamped docs under `docs/`.
+- Expanded pre-merge gate and planning runbook: `docs/PREMERGE_READINESS.md`.

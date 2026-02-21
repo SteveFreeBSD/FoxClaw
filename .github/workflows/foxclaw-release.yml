@@ -57,6 +57,11 @@ jobs:
           python -m build
           python -m twine check dist/*
 
+      - name: Generate and verify CycloneDX SBOM
+        run: |
+          scripts/generate_sbom.sh --python python --dist-dir dist --output sbom.cyclonedx.json
+          python scripts/verify_sbom.py sbom.cyclonedx.json
+
       - name: Write provenance pointer
         run: |
           cat > provenance.txt <<EOF
@@ -65,6 +70,7 @@ jobs:
           commit=${{ github.sha }}
           workflow_run=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           attestations=https://github.com/${{ github.repository }}/attestations
+          sbom=sbom.cyclonedx.json
           EOF
 
       - name: Upload release bundle
@@ -75,6 +81,7 @@ jobs:
           retention-days: 30
           path: |
             dist/*
+            sbom.cyclonedx.json
             provenance.txt
 
   attest-provenance:
@@ -98,6 +105,7 @@ jobs:
         with:
           subject-path: |
             dist/*
+            sbom.cyclonedx.json
             provenance.txt
 
   publish-pypi:
@@ -144,4 +152,5 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/*
+            sbom.cyclonedx.json
             provenance.txt

@@ -13,6 +13,8 @@ These are non-negotiable for the scan runtime:
 - Deterministic contracts.
   - Stable sorting and schemas for machine consumers and CI.
   - Fleet aggregation identities are deterministic hashes over local host/profile metadata.
+- Explicit ruleset trust controls.
+  - Optional manifest-pinned digest and signature checks fail closed before rule evaluation.
 
 ## Trust Boundaries
 
@@ -27,6 +29,13 @@ These are non-negotiable for the scan runtime:
 - Inputs: evidence models and declarative rulesets.
 - Allowed: deterministic finding evaluation and suppression-policy matching.
 - Disallowed: host mutation and network operations.
+
+### Ruleset Trust Boundary (`foxclaw/rules/trust.py`, `foxclaw/cli.py`)
+
+- Inputs: local ruleset file + local trust manifest.
+- Allowed: schema validation, SHA256 digest verification, optional Ed25519 signature validation,
+  signature-threshold enforcement, and key lifecycle window/status checks.
+- Disallowed: remote key fetch, network trust bootstrap, or implicit trust bypass on verification failure.
 
 ### Reporting Boundary (`foxclaw/report/*`)
 
@@ -47,6 +56,9 @@ These are non-negotiable for the scan runtime:
   - Control: lock detection and optional `--require-quiet-profile` gate.
 - Ruleset drift or inconsistent outputs across runs.
   - Control: deterministic ordering and versioned rulesets.
+- Tampered or swapped local ruleset files.
+  - Control: optional `--ruleset-trust-manifest` with pinned SHA256 and
+    `--require-ruleset-signatures` for fail-closed signature enforcement.
 - CI token misuse for SARIF upload.
   - Control: job-scoped `security-events: write` and fork PR upload skip logic.
 - Release publishing misuse.
@@ -69,7 +81,7 @@ These are non-negotiable for the scan runtime:
 
 ## Forward Security Backlog
 
-- Signed policy packs and manifest verification.
+- Signed external policy-pack distribution with managed key distribution channels.
 - Snapshot/diff integrity with hash-bound baselines.
 - Suppression governance extensions (approval workflows and tighter scope controls).
 - Continuous verification of release attestations in downstream deployment pipelines.
