@@ -34,6 +34,7 @@ profiles_app = typer.Typer(help="Firefox profile discovery commands.")
 snapshot_app = typer.Typer(help="Snapshot baseline and drift commands.")
 intel_app = typer.Typer(help="Threat intelligence synchronization commands.")
 fleet_app = typer.Typer(help="Fleet and multi-profile aggregation commands.")
+suppression_app = typer.Typer(help="Suppression governance commands.")
 console = Console()
 
 
@@ -582,6 +583,7 @@ app.add_typer(profiles_app, name="profiles")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(intel_app, name="intel")
 app.add_typer(fleet_app, name="fleet")
+app.add_typer(suppression_app, name="suppression")
 
 
 @snapshot_app.command("diff")
@@ -714,6 +716,86 @@ def intel_sync(
             item.sha256,
         )
     console.print(table)
+    raise typer.Exit(code=EXIT_OK)
+
+
+@suppression_app.command("audit")
+def suppression_audit(
+    suppression_path: list[Path] = typer.Option(
+        ...,
+        "--suppression-path",
+        help="Apply suppression policy file(s); repeatable.",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit JSON audit report to stdout."
+    ),
+) -> None:
+    """Audit suppression policies for governance violations and aging."""
+    import json
+    from datetime import UTC, datetime
+
+    from foxclaw.rules.suppressions import _load_suppression_sources
+    
+    now = datetime.now(UTC)
+    
+    from typing import Any
+    
+    try:
+        source_entries, legacy_count = _load_suppression_sources(suppression_path)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Audit failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    results: dict[str, Any] = {
+        "files_scanned": len(set(path.expanduser().resolve().as_posix() for path in suppression_path)),
+        "total_entries": len(source_entries),
+        "legacy_schema_count": legacy_count,
+        "expired": [],
+        "expiring_soon": [],
+        "duplicate_ids": [],
+    }
+
+    seen_ids = set()
+    for source in source_entries:
+        entry = source.entry
+        if entry.id:
+            if entry.id in seen_ids:
+                results["duplicate_ids"].append({"id": entry.id, "source": source.source_path.as_posix()})
+            seen_ids.add(entry.id)
+            
+        delta = entry.expires_at.astimezone(UTC) - now
+        
+        info: dict[str, Any] = {
+            "id": entry.id,
+            "rule_id": entry.rule_id,
+            "owner": entry.owner,
+            "expires_at": entry.expires_at.isoformat(),
+            "source": source.source_path.as_posix()
+        }
+        
+        if delta.total_seconds() < 0:
+            results["expired"].append(info)
+        elif delta.days <= 30:
+            info["days_remaining"] = delta.days
+            results["expiring_soon"].append(info)
+
+    if json_output:
+        typer.echo(json.dumps(results, indent=2))
+        raise typer.Exit(code=EXIT_HIGH_FINDINGS if results["expired"] else EXIT_OK)
+
+    table = Table(title="Suppression Governance Audit")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("Files scanned", str(results["files_scanned"]))
+    table.add_row("Total entries", str(results["total_entries"]))
+    table.add_row("Legacy v1.0.0 schemas", str(results["legacy_schema_count"]))
+    table.add_row("Expired entries", f"[red]{len(results['expired'])}[/red]" if results["expired"] else "0")
+    table.add_row("Expiring <= 30d", f"[yellow]{len(results['expiring_soon'])}[/yellow]" if results["expiring_soon"] else "0")
+    table.add_row("Duplicate IDs", f"[red]{len(results['duplicate_ids'])}[/red]" if results["duplicate_ids"] else "0")
+    console.print(table)
+    
+    if results["expired"] or results["duplicate_ids"]:
+        raise typer.Exit(code=EXIT_HIGH_FINDINGS)
     raise typer.Exit(code=EXIT_OK)
 
 

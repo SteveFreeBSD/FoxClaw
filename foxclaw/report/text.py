@@ -175,4 +175,9 @@ def _render_suppression_summary(console: Console, bundle: EvidenceBundle) -> Non
     table.add_row("Suppression files", str(len(bundle.suppressions.source_paths)))
     table.add_row("Applied suppressions", str(len(bundle.suppressions.applied)))
     table.add_row("Expired suppressions", str(len(bundle.suppressions.expired)))
+    table.add_row("Expiring <= 30d", str(len(bundle.suppressions.expiring_within_30d)))
+    table.add_row("Legacy v1.0.0 schemas", str(bundle.suppressions.legacy_schema_count))
+    table.add_row("Unique active owners", str(len(bundle.suppressions.applied_by_owner)))
+    table.add_row("Unique active approvers", str(len(bundle.suppressions.applied_by_approver)))
+
     console.print(table)

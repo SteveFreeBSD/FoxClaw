@@ -37,6 +37,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-22 | complete | WS-21 | Runtime fidelity gate and realism scoring for generated profiles. |
 | WS-23 | complete | WS-22 | Soak/CI integration with fixed-seed smoke and rotating-seed deep runs. |
 | WS-24 | complete | none | Optional `live` workflow wrapper orchestrating `sync` and pinned `scan`. |
+| WS-25 | complete | none | Suppression governance (approval workflow metadata + stronger reporting). |
 
 ## Slice Details
 
@@ -418,6 +419,18 @@ This plan converts the current review and research into sequenced, testable exec
   - Generates explicit `[green]Sync successful. Snapshot pinned: <hash>[/green]` provenance in stdout.
   - Fails safely closed without scanning if the network fetch fails.
   - Added integration tests covering successful execution and fallback abort paths in `tests/test_live_orchestration.py`.
+- Acceptance: met.
+
+### WS-25 - Suppression Governance
+
+- Status: complete.
+- Goal: upgrade suppressions to include approval workflow metadata and stronger tracking.
+- Delivered:
+  - Bumped policy schema to `1.1.0` and introduced `SuppressionApproval` tracing struct.
+  - Added tight fail-closed UTC validation boundary checks tracking timestamp chronologies (`requested_at` <= `approved_at` < `expires_at`).
+  - Implemented `foxclaw suppression audit` CLI endpoint to scan policies without invoking the whole engine.
+  - Aggregated reporting metrics dynamically to text outputs: expiring soon, legacy usage, active approvers.
+  - Upgraded docs (`SUPPRESSIONS.md`) safely.
 - Acceptance: met.
 
 ## Workslice Update Protocol
