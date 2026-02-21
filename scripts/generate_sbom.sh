@@ -57,7 +57,7 @@ trap 'rm -rf "${tmpdir}"' EXIT
 
 "${PYTHON_BIN}" -m venv "${tmpdir}/venv"
 "${tmpdir}/venv/bin/pip" install --upgrade pip
-"${tmpdir}/venv/bin/pip" install cyclonedx-bom "${wheel_candidates[@]}"
+"${tmpdir}/venv/bin/pip" install "cyclonedx-bom==4.1.5" "${wheel_candidates[@]}"
 "${tmpdir}/venv/bin/cyclonedx-py" environment \
   --output-format JSON \
   --output-file "${OUTPUT_PATH}"

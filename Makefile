@@ -208,7 +208,7 @@ secrets:
 	@./scripts/check_secrets.sh
 
 dep-audit:
-	$(PIP_BIN) install --upgrade pip-audit
+	$(PIP_BIN) install --upgrade "pip-audit==2.7.3"
 	@./scripts/dependency_audit.sh --pip-audit-bin "$(VENV)/bin/pip-audit" --output dependency-audit.json
 
 verify-full: verify bandit vulture secrets
