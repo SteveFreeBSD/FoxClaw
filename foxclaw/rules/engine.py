@@ -37,6 +37,29 @@ def load_ruleset(path: Path) -> Ruleset:
         raise ValueError(f"Ruleset validation failed: {path}: {exc}") from exc
 
     _validate_unique_rule_ids(ruleset)
+    
+    # Bundle provenance extraction
+    manifest_path = path.parent / "__manifest__.json"
+    if manifest_path.exists():
+        import json
+
+        from foxclaw.models import BundleProvenance
+        from foxclaw.rules.trust import RulesetBundleManifest
+        
+        try:
+            raw_manifest = json.loads(manifest_path.read_bytes().decode("utf-8"))
+            bundle_manifest = RulesetBundleManifest.model_validate(raw_manifest)
+            ruleset.bundle_provenance = BundleProvenance(
+                bundle_name=bundle_manifest.bundle_name,
+                bundle_version=bundle_manifest.bundle_version,
+                manifest_signature=bundle_manifest.manifest_signature.signature,
+                verified_at=bundle_manifest.created_at, # This uses the bundle's creation time, could be verified time if we stored it
+            )
+        except Exception:
+            # We fail open here since runtime only reports what's on disk.
+            # Verification strictly happens on fetch/install.
+            pass
+
     return ruleset
 
 

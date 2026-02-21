@@ -92,6 +92,17 @@ python -m foxclaw live \
   --ruleset foxclaw/rulesets/balanced.yml
 ```
 
+Download and install a signed external ruleset bundle:
+
+```bash
+python -m foxclaw bundle fetch https://example.com/bundle.tar.gz --output bundle.tar.gz
+
+python -m foxclaw bundle install bundle.tar.gz \
+  --keyring policies/ruleset-trust.yml \
+  --key-id release-key-2026-a \
+  --dest ~/.local/share/foxclaw/rulesets/custom-pack
+```
+
 ## Makefile Targets
 
 Equivalent shortcuts.

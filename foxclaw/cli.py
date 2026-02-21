@@ -35,6 +35,7 @@ snapshot_app = typer.Typer(help="Snapshot baseline and drift commands.")
 intel_app = typer.Typer(help="Threat intelligence synchronization commands.")
 fleet_app = typer.Typer(help="Fleet and multi-profile aggregation commands.")
 suppression_app = typer.Typer(help="Suppression governance commands.")
+bundle_app = typer.Typer(help="External ruleset bundle distribution commands.")
 console = Console()
 
 
@@ -584,6 +585,7 @@ app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(intel_app, name="intel")
 app.add_typer(fleet_app, name="fleet")
 app.add_typer(suppression_app, name="suppression")
+app.add_typer(bundle_app, name="bundle")
 
 
 @snapshot_app.command("diff")
@@ -798,6 +800,81 @@ def suppression_audit(
         raise typer.Exit(code=EXIT_HIGH_FINDINGS)
     raise typer.Exit(code=EXIT_OK)
 
+
+@bundle_app.command("fetch")
+def bundle_fetch(
+    url: str = typer.Argument(..., help="Remote URL of the signed ruleset bundle archive."),
+    output_path: Path = typer.Option(
+        ..., "--output", "-o", help="Path to write the bundle tarball."
+    ),
+    allow_insecure_http: bool = typer.Option(
+        False, "--allow-insecure-http", help="Allow unsafe HTTP transport."
+    ),
+) -> None:
+    """Download a ruleset bundle archive without verification or extraction."""
+    from foxclaw.rules.bundle import fetch_bundle
+    
+    console.print(f"[blue]Fetching bundle from: {url}[/blue]")
+    try:
+        fetch_bundle(url=url, dest_path=output_path, allow_insecure_http=allow_insecure_http)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Fetch failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        
+    console.print(f"[green]Successfully downloaded bundle to {output_path}[/green]")
+
+
+@bundle_app.command("install")
+def bundle_install(
+    archive: Path = typer.Argument(..., help="Path to the downloaded bundle tarball."),
+    keyring: Path = typer.Option(..., "--keyring", help="Path to the trusted keyring manifest."),
+    key_id: str = typer.Option(..., "--key-id", help="Required keyring key_id to verify the manifest signature."),
+    dest: Path = typer.Option(..., "--dest", help="Directory to unpack the validated bundle into."),
+) -> None:
+    """Verify an external bundle's signatures and unpack it locally."""
+    from foxclaw.rules.bundle import verify_and_unpack_bundle
+    
+    console.print("[blue]Verifying and unpacking external ruleset bundle...[/blue]")
+    try:
+        manifest = verify_and_unpack_bundle(
+            archive_path=archive,
+            install_dir=dest,
+            key_id=key_id,
+            keyring_path=keyring,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Bundle installation failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        
+    console.print(f"[green]Successfully installed '{manifest.bundle_name}' (v{manifest.bundle_version}) to {dest}[/green]")
+
+
+@bundle_app.command("verify")
+def bundle_verify(
+    archive: Path = typer.Argument(..., help="Path to the downloaded bundle tarball."),
+    keyring: Path = typer.Option(..., "--keyring", help="Path to the trusted keyring manifest."),
+    key_id: str = typer.Option(..., "--key-id", help="Required keyring key_id to verify the manifest signature."),
+) -> None:
+    """Verify an external bundle's signature strictly without unpacking it."""
+    import shutil
+    import tempfile
+
+    from foxclaw.rules.bundle import verify_and_unpack_bundle
+    
+    tmp_path = Path(tempfile.mkdtemp())
+    try:
+        manifest = verify_and_unpack_bundle(
+            archive_path=archive,
+            install_dir=tmp_path,
+            key_id=key_id,
+            keyring_path=keyring,
+        )
+        console.print(f"[green]Bundle '{manifest.bundle_name}' (v{manifest.bundle_version}) signature verification passed.[/green]")
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Bundle verification failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxProfile]:
     if profile_paths:

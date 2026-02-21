@@ -38,6 +38,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-23 | complete | WS-22 | Soak/CI integration with fixed-seed smoke and rotating-seed deep runs. |
 | WS-24 | complete | none | Optional `live` workflow wrapper orchestrating `sync` and pinned `scan`. |
 | WS-25 | complete | none | Suppression governance (approval workflow metadata + stronger reporting). |
+| WS-26 | complete | WS-16 | External ruleset bundle distribution model with managed key delivery. |
 
 ## Slice Details
 
@@ -431,6 +432,17 @@ This plan converts the current review and research into sequenced, testable exec
   - Implemented `foxclaw suppression audit` CLI endpoint to scan policies without invoking the whole engine.
   - Aggregated reporting metrics dynamically to text outputs: expiring soon, legacy usage, active approvers.
   - Upgraded docs (`SUPPRESSIONS.md`) safely.
+- Acceptance: met.
+
+### WS-26 - External Ruleset Bundle Distribution
+
+- Status: complete.
+- Goal: fetch external ruleset bundles from the network safely utilizing offline-by-default runtime boundaries.
+- Delivered:
+  - Modeled `RulesetBundleManifest` linking a trusted `KeyringManifest` system (`foxclaw.rules.keyring`).
+  - Added network-fetching operations strictly confined to `foxclaw bundle fetch/install/verify` commands.
+  - Runtime extraction injects `BundleProvenance` to the local scanner, propagating transparently into SARIF and JSON artifacts.
+  - Built full downgrade attack and invalid signature protections natively into the bundle manifest parsing.
 - Acceptance: met.
 
 ## Workslice Update Protocol

@@ -229,6 +229,15 @@ class RuleDefinition(BaseModel):
     confidence: FindingConfidence
 
 
+class BundleProvenance(BaseModel):
+    """Metadata about the external bundle this ruleset was loaded from."""
+
+    bundle_name: str
+    bundle_version: str
+    manifest_signature: str
+    verified_at: datetime
+
+
 class Ruleset(BaseModel):
     """Ruleset metadata and entries."""
 
@@ -236,6 +245,7 @@ class Ruleset(BaseModel):
     version: str
     min_firefox_major: int | None = None
     rules: list[RuleDefinition] = Field(default_factory=list)
+    bundle_provenance: BundleProvenance | None = None
 
 
 class ProfileEvidence(BaseModel):
@@ -288,6 +298,7 @@ class EvidenceBundle(BaseModel):
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
     suppressions: SuppressionEvidence = Field(default_factory=SuppressionEvidence)
+    bundle_provenance: BundleProvenance | None = None
 
 
 class FleetHostMetadata(BaseModel):

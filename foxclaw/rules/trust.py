@@ -67,6 +67,17 @@ class RulesetTrustManifest(BaseModel):
     rulesets: list[RulesetTrustEntry] = Field(default_factory=list)
 
 
+class RulesetBundleManifest(BaseModel):
+    """Manifest describing a distributed ruleset bundle envelope."""
+
+    schema_version: str = "1.0.0"
+    bundle_name: str
+    bundle_version: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    manifest_signature: RulesetTrustSignature
+    rulesets_manifest: RulesetTrustManifest
+
+
 def verify_ruleset_with_manifest(
     *,
     ruleset_path: Path,

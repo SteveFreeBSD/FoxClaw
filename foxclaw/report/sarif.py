@@ -48,22 +48,29 @@ def build_scan_sarif(bundle: EvidenceBundle, *, repo_root: Path | None = None) -
         for finding in findings
     ]
 
+    run_properties = {}
+    if bundle.bundle_provenance:
+        run_properties["bundleProvenance"] = bundle.bundle_provenance.model_dump(mode="json")
+        
+    run: dict[str, object] = {
+        "tool": {
+            "driver": {
+                "name": "FoxClaw",
+                "version": __version__,
+                "semanticVersion": __version__,
+                "rules": rules,
+            }
+        },
+        "results": results,
+    }
+    
+    if run_properties:
+        run["properties"] = run_properties
+
     return {
         "$schema": SARIF_SCHEMA_URL,
         "version": SARIF_VERSION,
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "FoxClaw",
-                        "version": __version__,
-                        "semanticVersion": __version__,
-                        "rules": rules,
-                    }
-                },
-                "results": results,
-            }
-        ],
+        "runs": [run],
     }
 
 
