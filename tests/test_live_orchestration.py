@@ -1,12 +1,17 @@
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.integration
 
 
 def test_live_orchestration_cli_success(tmp_path: Path):
     """Test that `foxclaw live` successfully fetches intel and scans."""
     result = subprocess.run(
         [
-            ".venv/bin/python",
+            sys.executable,
             "-m",
             "foxclaw",
             "live",
@@ -36,7 +41,7 @@ def test_live_orchestration_cli_sync_failure(tmp_path: Path):
     """Test that `foxclaw live` fails closed if sync fails."""
     result = subprocess.run(
         [
-            ".venv/bin/python",
+            sys.executable,
             "-m",
             "foxclaw",
             "live",

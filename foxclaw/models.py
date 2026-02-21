@@ -185,7 +185,7 @@ class SuppressionEntry(BaseModel):
 class SuppressionPolicy(BaseModel):
     """Suppression policy file contract."""
 
-    schema_version: str = "1.1.0"
+    schema_version: str = "1.0.0"
     suppressions: list[SuppressionEntry] = Field(default_factory=list)
 
 

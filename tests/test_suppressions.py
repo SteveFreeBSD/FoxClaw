@@ -320,7 +320,7 @@ def test_scan_governance_v1_1_0_fails_time_ordering(tmp_path: Path) -> None:
                     {
                         "rule_id": "SUP-HIGH-001",
                         "owner": "security-team",
-                        "reason": "Approval time > Explires time.",
+                        "reason": "Approval time > Expires time.",
                         "expires_at": "2026-01-01T00:00:00+00:00",
                         "scope": {"profile_glob": "*"},
                         "approval": {

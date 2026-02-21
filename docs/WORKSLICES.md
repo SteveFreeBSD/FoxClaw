@@ -431,6 +431,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Goal: upgrade suppressions to include approval workflow metadata and stronger tracking.
 - Delivered:
   - Bumped policy schema to `1.1.0` and introduced `SuppressionApproval` tracing struct.
+  - Preserved compatibility for `1.0.0` policy files (default when `schema_version` is omitted) while enforcing approval requirements for explicit `1.1.0` files.
   - Added tight fail-closed UTC validation boundary checks tracking timestamp chronologies (`requested_at` <= `approved_at` < `expires_at`).
   - Implemented `foxclaw suppression audit` CLI endpoint to scan policies without invoking the whole engine.
   - Aggregated reporting metrics dynamically to text outputs: expiring soon, legacy usage, active approvers.

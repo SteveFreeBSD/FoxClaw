@@ -40,6 +40,7 @@ suppressions:
 
 > [!NOTE] 
 > Schema `1.0.0` is still supported for backward compatibility but lacks the `approval` block governance checks. Migrate to `1.1.0` to enable robust audit trailing.
+> If `schema_version` is omitted, FoxClaw treats the file as `1.0.0`.
 
 ## CLI Usage
 

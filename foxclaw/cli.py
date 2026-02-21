@@ -1,8 +1,10 @@
 """CLI entrypoint for foxclaw."""
 
 import hashlib
-from datetime import datetime
+import json
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -284,9 +286,9 @@ def scan(
 def live(
     # Sync arguments
     source: list[str] = typer.Option(
-        ["foxclaw-amo=tests/fixtures/intel/amo_extension_intel.v1.json"],
+        ...,
         "--source",
-        help="Source mapping in name=origin format; repeatable (defaults to a built-in testbed origin).",
+        help="Source mapping in name=origin format; repeatable.",
     ),
     intel_store_dir: Path | None = typer.Option(
         None,
@@ -416,22 +418,40 @@ def live(
     json_payload = render_scan_json(evidence) if (json_output or output is not None) else None
     sarif_payload = render_scan_sarif(evidence) if (sarif_output or sarif_out is not None) else None
 
-    if output is not None and json_payload is not None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json_payload, encoding="utf-8")
-    if sarif_out is not None and sarif_payload is not None:
-        sarif_out.parent.mkdir(parents=True, exist_ok=True)
-        sarif_out.write_text(sarif_payload, encoding="utf-8")
+    if output is not None:
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if json_payload is None:
+                json_payload = render_scan_json(evidence)
+            output.write_text(json_payload, encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Operational error writing output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if sarif_out is not None:
+        try:
+            sarif_out.parent.mkdir(parents=True, exist_ok=True)
+            if sarif_payload is None:
+                sarif_payload = render_scan_sarif(evidence)
+            sarif_out.write_text(sarif_payload, encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
     if snapshot_out is not None:
-        snapshot_ruleset = load_ruleset(resolved_ruleset_path)
-        snapshot_payload = render_scan_snapshot(
-            evidence,
-            ruleset_path=resolved_ruleset_path,
-            ruleset_name=snapshot_ruleset.name,
-            ruleset_version=snapshot_ruleset.version,
-        )
-        snapshot_out.parent.mkdir(parents=True, exist_ok=True)
-        snapshot_out.write_text(snapshot_payload, encoding="utf-8")
+        try:
+            snapshot_ruleset = load_ruleset(resolved_ruleset_path)
+            snapshot_payload = render_scan_snapshot(
+                evidence,
+                ruleset_path=resolved_ruleset_path,
+                ruleset_name=snapshot_ruleset.name,
+                ruleset_version=snapshot_ruleset.version,
+            )
+            snapshot_out.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_out.write_text(snapshot_payload, encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            console.print(f"[red]Operational error writing snapshot output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     if json_output and output is None and json_payload is not None:
         typer.echo(json_payload)
@@ -733,15 +753,10 @@ def suppression_audit(
     ),
 ) -> None:
     """Audit suppression policies for governance violations and aging."""
-    import json
-    from datetime import UTC, datetime
-
     from foxclaw.rules.suppressions import _load_suppression_sources
-    
+
     now = datetime.now(UTC)
-    
-    from typing import Any
-    
+
     try:
         source_entries, legacy_count = _load_suppression_sources(suppression_path)
     except (OSError, ValueError) as exc:
@@ -782,8 +797,12 @@ def suppression_audit(
             results["expiring_soon"].append(info)
 
     if json_output:
-        typer.echo(json.dumps(results, indent=2))
-        raise typer.Exit(code=EXIT_HIGH_FINDINGS if results["expired"] else EXIT_OK)
+        typer.echo(json.dumps(results, indent=2, sort_keys=True))
+        raise typer.Exit(
+            code=EXIT_HIGH_FINDINGS
+            if (results["expired"] or results["duplicate_ids"])
+            else EXIT_OK
+        )
 
     table = Table(title="Suppression Governance Audit")
     table.add_column("Metric")
