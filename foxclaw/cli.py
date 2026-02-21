@@ -278,6 +278,178 @@ def scan(
     )
 
 
+@app.command("live")
+def live(
+    # Sync arguments
+    source: list[str] = typer.Option(
+        ["foxclaw-amo=tests/fixtures/intel/amo_extension_intel.v1.json"],
+        "--source",
+        help="Source mapping in name=origin format; repeatable (defaults to a built-in testbed origin).",
+    ),
+    intel_store_dir: Path | None = typer.Option(
+        None,
+        "--intel-store-dir",
+        help="Override intelligence store directory for both sync and scan.",
+    ),
+    allow_insecure_http: bool = typer.Option(
+        False,
+        "--allow-insecure-http",
+        help="Allow plaintext HTTP source URLs for explicit trusted lab mirrors.",
+    ),
+    # Scan arguments
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit JSON report to stdout."
+    ),
+    profile: Path | None = typer.Option(
+        None, "--profile", help="Scan this Firefox profile directory directly."
+    ),
+    require_quiet_profile: bool = typer.Option(
+        False,
+        "--require-quiet-profile",
+        help="Fail if the selected profile appears active (lock file or firefox process).",
+    ),
+    ruleset: Path | None = typer.Option(
+        None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
+    ),
+    ruleset_trust_manifest: Path | None = typer.Option(
+        None,
+        "--ruleset-trust-manifest",
+        help="Verify ruleset digest/signatures against this trust manifest (fail closed on mismatch).",
+    ),
+    require_ruleset_signatures: bool = typer.Option(
+        False,
+        "--require-ruleset-signatures",
+        help="Require at least one valid signature in ruleset trust manifest entry.",
+    ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help="Override enterprise policy discovery path(s); repeatable.",
+    ),
+    suppression_path: list[Path] | None = typer.Option(
+        None,
+        "--suppression-path",
+        help="Apply suppression policy file(s); repeatable.",
+    ),
+    sarif_output: bool = typer.Option(
+        False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
+    ),
+    output: Path | None = typer.Option(
+        None, "--output", help="Write JSON report to this path."
+    ),
+    sarif_out: Path | None = typer.Option(
+        None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
+    ),
+    snapshot_out: Path | None = typer.Option(
+        None,
+        "--snapshot-out",
+        help="Write deterministic snapshot JSON to this path.",
+    ),
+) -> None:
+    """Run an intelligence sync followed by a scan in one step."""
+    if json_output and sarif_output:
+        console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    console.print("[blue]Step 1/2: Synchronizing intelligence sources...[/blue]")
+    try:
+        sync_result = sync_sources(
+            source_specs=source,
+            store_dir=intel_store_dir,
+            normalize_json=True,
+            cwd=Path.cwd(),
+            allow_insecure_http=allow_insecure_http,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Sync failed: {exc}[/red]")
+        console.print("[red]Aborting scan due to sync failure (fail closed).[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    snapshot_id = sync_result.manifest.snapshot_id
+    console.print(f"[green]Sync successful. Snapshot pinned: {snapshot_id}[/green]")
+    console.print("[blue]Step 2/2: Executing deterministic scan...[/blue]")
+
+    # Pass the locked snapshot_id into the scan entrypoint manually to prevent duplication
+    # We call the scan function's internal logic directly but inject the ID.
+    
+    # We must replicate the active profile checks from scan() to keep the CLI clean
+    selected_profile: FirefoxProfile | None = None
+    if profile is not None:
+        selected_profile = _build_profile_override(profile)
+    else:
+        report = discover_profiles()
+        selected_profile = next((p for p in report.profiles if p.selected), None)
+        if selected_profile is None:
+            console.print("[red]Operational error: no Firefox profile selected.[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    if require_quiet_profile:
+        active_reason = detect_active_profile_reason(selected_profile.path)
+        if active_reason is not None:
+            console.print(f"[red]Operational error: quiet profile required; profile appears active ({active_reason}).[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    resolved_ruleset_path = resolve_ruleset_path(ruleset)
+
+    try:
+        if ruleset_trust_manifest is not None:
+            verify_ruleset_with_manifest(
+                ruleset_path=resolved_ruleset_path,
+                manifest_path=ruleset_trust_manifest.expanduser().resolve(strict=False),
+                require_signatures=require_ruleset_signatures,
+            )
+        evidence = run_scan(
+            selected_profile,
+            ruleset_path=resolved_ruleset_path,
+            policy_paths=policy_path,
+            suppression_paths=suppression_path,
+            intel_store_dir=intel_store_dir,
+            intel_snapshot_id=snapshot_id,  # The crucial deterministic pin!
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error during scan: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    # Reuse output rendering
+    json_payload = render_scan_json(evidence) if (json_output or output is not None) else None
+    sarif_payload = render_scan_sarif(evidence) if (sarif_output or sarif_out is not None) else None
+
+    if output is not None and json_payload is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json_payload, encoding="utf-8")
+    if sarif_out is not None and sarif_payload is not None:
+        sarif_out.parent.mkdir(parents=True, exist_ok=True)
+        sarif_out.write_text(sarif_payload, encoding="utf-8")
+    if snapshot_out is not None:
+        snapshot_ruleset = load_ruleset(resolved_ruleset_path)
+        snapshot_payload = render_scan_snapshot(
+            evidence,
+            ruleset_path=resolved_ruleset_path,
+            ruleset_name=snapshot_ruleset.name,
+            ruleset_version=snapshot_ruleset.version,
+        )
+        snapshot_out.parent.mkdir(parents=True, exist_ok=True)
+        snapshot_out.write_text(snapshot_payload, encoding="utf-8")
+
+    if json_output and output is None and json_payload is not None:
+        typer.echo(json_payload)
+    elif sarif_output and sarif_out is None and sarif_payload is not None:
+        typer.echo(sarif_payload)
+    elif not json_output and not sarif_output:
+        render_scan_summary(console, evidence)
+        if output is not None:
+            console.print(f"JSON report written to: {output}")
+        if sarif_out is not None:
+            console.print(f"SARIF report written to: {sarif_out}")
+        if snapshot_out is not None:
+            console.print(f"Snapshot report written to: {snapshot_out}")
+
+    raise typer.Exit(
+        code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
+    )
+
+
+
 @fleet_app.command("aggregate")
 def fleet_aggregate(
     profile: list[Path] | None = typer.Option(
