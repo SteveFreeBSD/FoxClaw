@@ -18,7 +18,8 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - `5` integration runs
 - `5` snapshot determinism runs + hash consistency check
 - `1` trust-manifest smoke stage (scan/fleet positive + fail-closed negatives)
-- `1` fuzz run (`500` random profiles)
+- `1` synth run (`50` realistic profiles; fidelity-gated)
+- `1` fuzz run (`500` realistic+mutated profiles; fidelity-gated)
 - `1` Firefox matrix run (`esr`, `beta`, `nightly`)
 
 ## Launch (overnight)
@@ -70,6 +71,14 @@ Notes:
 
 - `SOAK_SUDO_PASSWORD` is only needed when the current user cannot access Docker socket directly.
 - The password is not written to soak artifacts by the harness.
+- Synthetic and fuzz phases are deterministic by default (`synth-seed=424242`, `fuzz-seed=525252`).
+- Default fidelity thresholds are `synth=70`, `fuzz=50`.
+- Profile generation stays offline-by-default unless runner flags explicitly enable live AMO fetches.
+- Generated profiles include realistic NSS, HSTS, storage, and favicon layers:
+- `key4.db` / `cert9.db` / `pkcs11.txt`
+- `SiteSecurityServiceState.txt`
+- `storage/default/`
+- `favicons.sqlite`
 
 ## High-Memory Fuzz Mode (1000 Profiles)
 
@@ -108,6 +117,8 @@ Key files:
 - `summary.txt`: run outcome and aggregate counts.
 - `logs/*.log`: per-step raw logs.
 - `snapshots/cycle-*/`: deterministic snapshot outputs and `sha256.txt`.
+- `synth/cycle-*/fidelity-summary.json`: synth profile realism gate output.
+- `fuzz/cycle-*/fidelity-summary.json`: fuzz profile realism gate output.
 
 ## Monitoring
 
@@ -137,6 +148,7 @@ A run is considered stable when:
 - `steps_failed=0`
 - snapshot hash check steps report a single unique hash per cycle
 - no fuzz crash records are present in corresponding fuzz logs
+- synth/fuzz fidelity summaries report `below_min_count=0`
 
 ## Failure Triage
 

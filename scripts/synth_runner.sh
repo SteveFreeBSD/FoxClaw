@@ -1,45 +1,45 @@
 #!/usr/bin/env bash
 # --------------------------------------------------------------------------
-# fuzz_runner.sh — Generate randomized profiles and run FoxClaw against them.
+# synth_runner.sh — Generate realistic profiles and run FoxClaw against them.
 #
-# Generates realistic profiles plus controlled mutations, gates them with
-# fidelity checks, then scans to verify crash resistance.
+# Generates N realistic profiles, validates profile fidelity, and runs FoxClaw
+# scans to ensure parser/rule behavior remains crash-free.
 # --------------------------------------------------------------------------
 set -euo pipefail
 
 usage() {
   cat <<'EOF_HELP'
-Usage: scripts/fuzz_runner.sh [options]
+Usage: scripts/synth_runner.sh [options]
 
 Options:
-  --count <N>                    Number of profiles (default: 50)
+  --count <N>                    Number of profiles (default: 20)
   --output-dir <path>            Output directory
-  --mode <realistic|chaos>       Fuzz mode (default: chaos)
-  --scenario <name>              Force one scenario for all profiles
-  --seed <N>                     Deterministic seed (default: 525252)
-  --mutation-budget <N>          Base mutation budget (default: 3)
-  --max-mutation-severity <S>    Mutation severity cap (default: high)
+  --mode <realistic|bootstrap>   Generation mode (default: realistic)
+  --scenario <name>              Force one scenario for all generated profiles
+  --seed <N>                     Deterministic seed (default: 424242)
+  --mutation-budget <N>          Mutations per profile (default: 0)
+  --max-mutation-severity <S>    Mutation severity cap (low|medium|high; default: medium)
   --catalog-path <path>          Optional AMO catalog snapshot JSON
   --allow-network-fetch          Allow live AMO fetches for uncached extensions
-  --fidelity-min-score <N>       Minimum realism score (default: 50)
+  --fidelity-min-score <N>       Minimum realism score (default: 70)
 EOF_HELP
 }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
-FUZZ_PROFILES_SCRIPT="${ROOT_DIR}/scripts/fuzz_profiles.py"
+SYNTH_PROFILES_SCRIPT="${ROOT_DIR}/scripts/synth_profiles.py"
 FIDELITY_SCRIPT="${ROOT_DIR}/scripts/profile_fidelity_check.py"
-OUTPUT_DIR="/tmp/foxclaw-fuzzer-profiles"
+OUTPUT_DIR="/tmp/foxclaw-synth-profiles"
 RULESET_PATH="${ROOT_DIR}/foxclaw/rulesets/strict.yml"
-COUNT=50
-MODE="chaos"
+COUNT=20
+MODE="realistic"
 SCENARIO=""
-SEED=525252
-MUTATION_BUDGET=3
-MAX_MUTATION_SEVERITY="high"
+SEED=424242
+MUTATION_BUDGET=0
+MAX_MUTATION_SEVERITY="medium"
 CATALOG_PATH=""
 ALLOW_NETWORK_FETCH=0
-FIDELITY_MIN_SCORE=50
+FIDELITY_MIN_SCORE=70
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -70,8 +70,8 @@ for v in COUNT SEED MUTATION_BUDGET FIDELITY_MIN_SCORE; do
   fi
 done
 
-if [[ "${MODE}" != "realistic" && "${MODE}" != "chaos" ]]; then
-  echo "error: --mode must be realistic or chaos" >&2
+if [[ "${MODE}" != "realistic" && "${MODE}" != "bootstrap" ]]; then
+  echo "error: --mode must be realistic or bootstrap" >&2
   exit 2
 fi
 
@@ -80,13 +80,13 @@ if [[ "${MAX_MUTATION_SEVERITY}" != "low" && "${MAX_MUTATION_SEVERITY}" != "medi
   exit 2
 fi
 
-echo "[fuzzer] Cleaning up old profiles..."
+echo "[synth] Cleaning up old profiles..."
 rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
-echo "[fuzzer] Generating ${COUNT} fuzzed profiles..."
+echo "[synth] Generating ${COUNT} realistic profiles..."
 gen_cmd=(
-  "${PYTHON_BIN}" "${FUZZ_PROFILES_SCRIPT}"
+  "${PYTHON_BIN}" "${SYNTH_PROFILES_SCRIPT}"
   -n "${COUNT}"
   --output-dir "${OUTPUT_DIR}"
   --mode "${MODE}"
@@ -106,9 +106,9 @@ if [[ "${ALLOW_NETWORK_FETCH}" -eq 1 ]]; then
 fi
 "${gen_cmd[@]}"
 
-echo "[fuzzer] Running profile fidelity gate (min score ${FIDELITY_MIN_SCORE})..."
+echo "[synth] Running profile fidelity gate (min score ${FIDELITY_MIN_SCORE})..."
 "${PYTHON_BIN}" "${FIDELITY_SCRIPT}" "${OUTPUT_DIR}" \
-  --pattern "profile_*" \
+  --pattern "*.synth-*" \
   --min-score "${FIDELITY_MIN_SCORE}" \
   --enforce-min-score \
   --json-out "${OUTPUT_DIR}/fidelity-summary.json"
@@ -128,7 +128,7 @@ import json
 import pathlib
 import sys
 root = pathlib.Path(sys.argv[1])
-for profile in sorted(root.glob("profile_*/metadata.json")):
+for profile in sorted(root.glob("*.synth-*/metadata.json")):
     payload = json.loads(profile.read_text(encoding="utf-8"))
     print(payload.get("catalog_version", "unknown"))
     break
@@ -137,11 +137,11 @@ else:
 PY
 )"
 
-echo "[fuzzer] Starting FoxClaw scans..."
+echo "[synth] Starting FoxClaw scans..."
 failed=0
 passed=0
 
-for profile in "${OUTPUT_DIR}"/profile_*; do
+for profile in "${OUTPUT_DIR}"/*.synth-*; do
   if [[ ! -d "${profile}" ]]; then
     continue
   fi
@@ -168,7 +168,7 @@ for profile in "${OUTPUT_DIR}"/profile_*; do
 done
 
 echo ""
-echo "[fuzzer] Summary:"
+echo "[synth] Summary:"
 echo "  Passed (no crashes): ${passed}"
 echo "  Failed (crashed):    ${failed}"
 echo "  Avg realism score:   ${avg_score}"

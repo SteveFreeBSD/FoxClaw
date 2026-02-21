@@ -29,6 +29,13 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-14 | complete | WS-04, WS-07 | Extension reputation depth from AMO intelligence snapshots and policy signals. |
 | WS-15 | complete | WS-10 | Release SBOM generation, validation, and artifact publication controls. |
 | WS-16 | complete | WS-13 | Trust manifest key rotation and multi-signature threshold policy (`schema_version` `1.1.0`). |
+| WS-17 | complete | WS-16 | Source-backed profile fidelity spec and realism validator. |
+| WS-18 | complete | WS-17 | AMO-backed extension catalog pipeline with pinned snapshots. |
+| WS-19 | complete | WS-17 | Bootstrap-first profile generator from Firefox-created baselines. |
+| WS-20 | complete | WS-18, WS-19 | Real-world scenario library with weighted archetypes. |
+| WS-21 | complete | WS-20 | Controlled mutation engine with reproducible corruption operators. |
+| WS-22 | complete | WS-21 | Runtime fidelity gate and realism scoring for generated profiles. |
+| WS-23 | complete | WS-22 | Soak/CI integration with fixed-seed smoke and rotating-seed deep runs. |
 
 ## Slice Details
 
@@ -310,7 +317,92 @@ This plan converts the current review and research into sequenced, testable exec
     - `tests/test_ruleset_trust.py`
     - `tests/test_ruleset_trust_cli.py`
   - hardened trust-cli output checks to avoid false failures from wrapped console output.
-  - updated trust policy documentation in `docs/RULESET_TRUST.md`.
+- updated trust policy documentation in `docs/RULESET_TRUST.md`.
+- Acceptance: met.
+
+### WS-17 - Profile Fidelity Spec and Validator
+
+- Status: complete.
+- Delivered:
+  - added source-backed profile fidelity contract in `docs/PROFILE_FIDELITY_SPEC.md`.
+  - added executable realism gate `scripts/profile_fidelity_check.py`.
+  - added regression coverage in `tests/test_profile_fidelity_check_script.py`.
+- Acceptance: met.
+
+### WS-18 - AMO Extension Catalog Snapshot Pipeline
+
+- Status: complete.
+- Delivered:
+  - added catalog builder `scripts/build_extension_catalog.py`.
+  - added `make extension-catalog` target for pinned snapshot generation.
+  - catalog schema is consumed by profile generators via `--catalog-path`.
+- Acceptance: met.
+
+### WS-19 - Bootstrap-First Synth Generator
+
+- Status: complete.
+- Delivered:
+  - refactored synth generation into realistic artifact scaffolding using
+    `scripts/profile_generation_common.py`.
+  - added synth modes (`realistic`, `bootstrap`) and deterministic `--seed`.
+  - added advanced realism layers:
+    - NSS stores (`key4.db`, `cert9.db`, `pkcs11.txt`)
+    - HSTS state (`SiteSecurityServiceState.txt`)
+    - web storage footprints (`storage/default`)
+    - favicon store (`favicons.sqlite`)
+  - added metadata provenance per profile (`metadata.json`).
+- Acceptance: met.
+
+### WS-20 - Real-World Scenario Library
+
+- Status: complete.
+- Delivered:
+  - added weighted scenario model:
+    - `consumer_default`
+    - `privacy_hardened`
+    - `enterprise_managed`
+    - `developer_heavy`
+    - `compromised`
+  - scenario selection supports deterministic auto-weighting and forced scenario mode.
+  - scenario metadata is persisted in generated profile provenance.
+- Acceptance: met.
+
+### WS-21 - Controlled Mutation Engine
+
+- Status: complete.
+- Delivered:
+  - added bounded mutation operators with severity controls in
+    `scripts/profile_generation_common.py`.
+  - added mutation controls to both generators:
+    - `--mutation-budget`
+    - `--max-mutation-severity`
+  - fuzz `chaos` mode adds additional deterministic noise operators.
+- Acceptance: met.
+
+### WS-22 - Runtime Fidelity Gate
+
+- Status: complete.
+- Delivered:
+  - integrated fidelity gate into:
+    - `scripts/synth_runner.sh`
+    - `scripts/fuzz_runner.sh`
+  - added enforceable minimum score controls:
+    - `--fidelity-min-score`
+  - runners now emit average realism score and provenance details.
+- Acceptance: met.
+
+### WS-23 - Soak/CI Integration
+
+- Status: complete.
+- Delivered:
+  - expanded soak orchestration options in `scripts/soak_runner.sh` for
+    synth/fuzz mode, seeds, mutation budgets, and fidelity thresholds.
+  - updated soak make targets to use deterministic seeds and explicit realism controls.
+  - added docs and verification coverage:
+    - `docs/SOAK.md`
+    - `docs/DEVELOPMENT.md`
+    - `tests/test_profile_generation_scripts.py`
+    - `docs/PROFILE_FUZZ_ROADMAP.md`
 - Acceptance: met.
 
 ## Workslice Update Protocol

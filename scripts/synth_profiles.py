@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FoxClaw randomized Firefox profile fuzzer with reproducible mutation provenance."""
+"""FoxClaw realistic synthetic Firefox profile generator."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from profile_generation_common import (
     AMOFetcher,
     apply_mutations,
     choose_scenario,
-    fuzz_profile_name,
     generate_realistic_profile,
     load_catalog,
+    synth_profile_name,
     write_metadata,
 )
 
@@ -29,20 +29,20 @@ def parse_args() -> argparse.Namespace:
         "-n",
         "--count",
         type=int,
-        default=10,
-        help="Number of fuzzed profiles to generate (default: 10)",
+        default=5,
+        help="Number of synthetic profiles to generate (default: 5)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="/tmp/foxclaw-fuzzer-profiles",
+        default="/tmp/foxclaw-synth-profiles",
         help="Target directory for generated profiles",
     )
     parser.add_argument(
         "--mode",
-        choices=("realistic", "chaos"),
-        default="chaos",
-        help="Fuzz mode; chaos applies heavier mutation pressure",
+        choices=("realistic", "bootstrap"),
+        default="realistic",
+        help="Generation mode; bootstrap adds extra startup artifacts",
     )
     parser.add_argument(
         "--scenario",
@@ -70,42 +70,31 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mutation-budget",
         type=int,
-        default=3,
-        help="Base mutation budget per profile (default: 3)",
+        default=0,
+        help="Number of controlled mutations to apply per profile",
     )
     parser.add_argument(
         "--max-mutation-severity",
         choices=("low", "medium", "high"),
-        default="high",
+        default="medium",
         help="Highest mutation severity allowed",
     )
     parser.add_argument("--quiet", action="store_true", help="Suppress log output")
     return parser.parse_args()
 
 
-def _inject_chaos_noise(profile_dir: Path, rng: random.Random) -> list[dict[str, object]]:
-    operations: list[dict[str, object]] = []
-
-    if rng.random() < 0.35:
-        target = profile_dir / "extensions.json"
-        if target.exists():
-            content = target.read_text(encoding="utf-8", errors="replace")
-            target.write_text(content + "\n{BROKEN", encoding="utf-8")
-            operations.append({"operator": "append_garbage_json", "severity": "high", "target": "extensions.json"})
-
-    if rng.random() < 0.30:
-        target = profile_dir / "prefs.js"
-        if target.exists():
-            target.write_text(target.read_text(encoding="utf-8", errors="replace") + "\nuser_pref(\"broken\", ;\n", encoding="utf-8")
-            operations.append({"operator": "append_broken_pref", "severity": "medium", "target": "prefs.js"})
-
-    if rng.random() < 0.25:
-        crash = profile_dir / "crashes" / "events.log"
-        crash.parent.mkdir(parents=True, exist_ok=True)
-        crash.write_bytes(os.urandom(rng.randint(128, 2048)))
-        operations.append({"operator": "random_crash_blob", "severity": "low", "target": "crashes/events.log"})
-
-    return operations
+def _bootstrap_augment(profile_dir: Path) -> None:
+    # These are common profile-adjacent files produced by Firefox startup flows.
+    (profile_dir / "compatibility.ini").write_text(
+        "[Compatibility]\n"
+        "LastVersion=136.0_20260220000000/20260220000000\n"
+        "LastOSABI=Linux_x86_64-gcc3\n",
+        encoding="utf-8",
+    )
+    (profile_dir / "times.json").write_text(
+        '{"created": 1700000000000, "firstUse": 1700000000000}\n',
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
@@ -133,7 +122,7 @@ def main() -> int:
         allow_network=args.allow_network_fetch,
     )
 
-    logging.info("FoxClaw fuzz starting. target=%s", output_dir)
+    logging.info("FoxClaw synth starting. target=%s", output_dir)
     logging.info(
         "config mode=%s count=%s seed=%s scenario=%s mutation_budget=%s max_mutation_severity=%s catalog=%s",
         args.mode,
@@ -149,34 +138,29 @@ def main() -> int:
         profile_seed = base_seed + index
         rng = random.Random(profile_seed)
         scenario = choose_scenario(index=index, rng=rng, forced=args.scenario)
-        profile_dir = output_dir / fuzz_profile_name(index)
+        profile_dir = output_dir / synth_profile_name(index=index, rng=rng)
 
         metadata = generate_realistic_profile(
             profile_dir=profile_dir,
             scenario=scenario,
             rng=rng,
             fetcher=fetcher,
-            mode=f"fuzz-{args.mode}",
+            mode=args.mode,
         )
-
-        budget = args.mutation_budget
-        if args.mode == "chaos":
-            budget += rng.randint(1, 3)
+        if args.mode == "bootstrap":
+            _bootstrap_augment(profile_dir)
 
         mutations = apply_mutations(
             profile_dir=profile_dir,
             rng=rng,
-            mutation_budget=budget,
+            mutation_budget=args.mutation_budget,
             max_severity=args.max_mutation_severity,
         )
-        if args.mode == "chaos":
-            mutations.extend(_inject_chaos_noise(profile_dir, rng))
-
         metadata.update(
             {
                 "seed": profile_seed,
                 "catalog_version": catalog_version,
-                "mutation_budget": budget,
+                "mutation_budget": args.mutation_budget,
                 "max_mutation_severity": args.max_mutation_severity,
                 "mutations": mutations,
                 "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -184,7 +168,7 @@ def main() -> int:
         )
         write_metadata(profile_dir, metadata)
 
-    logging.info("Generated %s fuzzed profiles.", args.count)
+    logging.info("Generated %s synthetic profiles.", args.count)
     return 0
 
 

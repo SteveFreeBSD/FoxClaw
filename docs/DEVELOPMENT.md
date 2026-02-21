@@ -97,6 +97,11 @@ make test-integration
 make testbed-fixtures
 make testbed-fixtures-write
 make fixture-scan
+make synth-profiles
+make synth-profiles-bootstrap
+make fuzz-profiles
+make profile-fidelity
+make extension-catalog
 make verify
 make verify-full
 make dep-audit
@@ -133,6 +138,37 @@ Run trust-boundary CLI smoke checks:
 ```bash
 make trust-smoke
 ```
+
+Generate/update AMO extension catalog snapshot for realistic profile synthesis:
+
+```bash
+make extension-catalog
+```
+
+Run synth/fuzz runners directly with deterministic realism controls:
+
+```bash
+scripts/synth_runner.sh \
+  --count 20 \
+  --mode bootstrap \
+  --seed 424242 \
+  --mutation-budget 1 \
+  --fidelity-min-score 70
+
+scripts/fuzz_runner.sh \
+  --count 1000 \
+  --mode chaos \
+  --seed 525252 \
+  --mutation-budget 3 \
+  --fidelity-min-score 50
+```
+
+Generated profile realism baseline now includes:
+
+- Valid NSS stores (`key4.db`, `cert9.db`, `pkcs11.txt`)
+- HSTS state file (`SiteSecurityServiceState.txt`) derived from HTTPS history hosts
+- Web/app storage footprint under `storage/default/` (LocalStorage + IndexedDB)
+- `favicons.sqlite` entries aligned to `places.sqlite` URLs
 
 Packaging dry-run prior to release merges:
 
@@ -237,6 +273,7 @@ See `docs/QUALITY_GATES.md` for the full gate policy.
   - `docs/RESEARCH.md`
   - `docs/VULNERABILITY_INTEL.md`
   - `docs/QUALITY_GATES.md`.
+  - `docs/PROFILE_REVIEW_CHECKLIST.md` (when profile realism/fidelity behavior changes).
 
 ## Packaging Notes
 

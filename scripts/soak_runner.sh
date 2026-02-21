@@ -18,7 +18,16 @@ Options:
   --label <text>           Optional run label appended to run directory.
   --integration-runs <N>   Integration iterations per cycle (default: 5).
   --snapshot-runs <N>      Snapshot scans per cycle for determinism check (default: 5).
+  --synth-count <N>        Realistic synthetic profiles per cycle (default: 50).
+  --synth-seed <N>         Deterministic synth generator seed (default: 424242).
+  --synth-mode <name>      Synth mode: realistic|bootstrap (default: realistic).
+  --synth-mutation-budget <N> Mutations per synth profile (default: 0).
+  --synth-fidelity-min-score <N> Min realism score for synth profiles (default: 70).
   --fuzz-count <N>         Profiles per fuzz cycle (default: 500).
+  --fuzz-seed <N>          Deterministic fuzz generator seed (default: 525252).
+  --fuzz-mode <name>       Fuzz mode: realistic|chaos (default: chaos).
+  --fuzz-mutation-budget <N> Base mutations per fuzz profile (default: 3).
+  --fuzz-fidelity-min-score <N> Min realism score for fuzz profiles (default: 50).
   --matrix-runs <N>        Firefox matrix iterations per cycle (default: 1).
   --max-cycles <N>         Optional hard cap on cycle count (default: 0 = unlimited until deadline).
   -h, --help               Show this help.
@@ -44,7 +53,16 @@ OUTPUT_ROOT="/var/tmp/foxclaw-soak"
 LABEL=""
 INTEGRATION_RUNS=5
 SNAPSHOT_RUNS=5
+SYNTH_COUNT=50
+SYNTH_SEED=424242
+SYNTH_MODE="realistic"
+SYNTH_MUTATION_BUDGET=0
+SYNTH_FIDELITY_MIN_SCORE=70
 FUZZ_COUNT=500
+FUZZ_SEED=525252
+FUZZ_MODE="chaos"
+FUZZ_MUTATION_BUDGET=3
+FUZZ_FIDELITY_MIN_SCORE=50
 MATRIX_RUNS=1
 MAX_CYCLES=0
 
@@ -55,7 +73,16 @@ while [[ $# -gt 0 ]]; do
     --label)            LABEL="${2:-}"; shift 2 ;;
     --integration-runs) INTEGRATION_RUNS="${2:-}"; shift 2 ;;
     --snapshot-runs)    SNAPSHOT_RUNS="${2:-}"; shift 2 ;;
+    --synth-count)      SYNTH_COUNT="${2:-}"; shift 2 ;;
+    --synth-seed)       SYNTH_SEED="${2:-}"; shift 2 ;;
+    --synth-mode)       SYNTH_MODE="${2:-}"; shift 2 ;;
+    --synth-mutation-budget) SYNTH_MUTATION_BUDGET="${2:-}"; shift 2 ;;
+    --synth-fidelity-min-score) SYNTH_FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
     --fuzz-count)       FUZZ_COUNT="${2:-}"; shift 2 ;;
+    --fuzz-seed)        FUZZ_SEED="${2:-}"; shift 2 ;;
+    --fuzz-mode)        FUZZ_MODE="${2:-}"; shift 2 ;;
+    --fuzz-mutation-budget) FUZZ_MUTATION_BUDGET="${2:-}"; shift 2 ;;
+    --fuzz-fidelity-min-score) FUZZ_FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
     --matrix-runs)      MATRIX_RUNS="${2:-}"; shift 2 ;;
     --max-cycles)       MAX_CYCLES="${2:-}"; shift 2 ;;
     -h|--help)          usage; exit 0 ;;
@@ -68,7 +95,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS FUZZ_COUNT MATRIX_RUNS MAX_CYCLES; do
+for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE MATRIX_RUNS MAX_CYCLES; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
@@ -76,6 +103,14 @@ for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS FUZZ_COUNT MATRIX_RUNS MA
 done
 if [[ "${DURATION_HOURS}" -eq 0 ]]; then
   echo "error: --duration-hours must be greater than zero" >&2
+  exit 2
+fi
+if [[ "${SYNTH_MODE}" != "realistic" && "${SYNTH_MODE}" != "bootstrap" ]]; then
+  echo "error: --synth-mode must be realistic or bootstrap" >&2
+  exit 2
+fi
+if [[ "${FUZZ_MODE}" != "realistic" && "${FUZZ_MODE}" != "chaos" ]]; then
+  echo "error: --fuzz-mode must be realistic or chaos" >&2
   exit 2
 fi
 
@@ -136,7 +171,16 @@ git_dirty=${DIRTY_FLAG}
 duration_hours=${DURATION_HOURS}
 integration_runs_per_cycle=${INTEGRATION_RUNS}
 snapshot_runs_per_cycle=${SNAPSHOT_RUNS}
+synth_count_per_cycle=${SYNTH_COUNT}
+synth_seed=${SYNTH_SEED}
+synth_mode=${SYNTH_MODE}
+synth_mutation_budget=${SYNTH_MUTATION_BUDGET}
+synth_fidelity_min_score=${SYNTH_FIDELITY_MIN_SCORE}
 fuzz_count_per_cycle=${FUZZ_COUNT}
+fuzz_seed=${FUZZ_SEED}
+fuzz_mode=${FUZZ_MODE}
+fuzz_mutation_budget=${FUZZ_MUTATION_BUDGET}
+fuzz_fidelity_min_score=${FUZZ_FIDELITY_MIN_SCORE}
 matrix_runs_per_cycle=${MATRIX_RUNS}
 max_cycles=${MAX_CYCLES}
 host=$(hostname)
@@ -390,10 +434,31 @@ while true; do
     break
   fi
 
+  synth_cycle_dir="${RUN_DIR}/synth/cycle-${cycle}"
+  mkdir -p "${synth_cycle_dir}"
+  run_step_cmd "${cycle}" "synth" "1" "${LOG_DIR}/cycle-${cycle}-synth.log" \
+    "${ROOT_DIR}/scripts/synth_runner.sh" \
+    --count "${SYNTH_COUNT}" \
+    --output-dir "${synth_cycle_dir}" \
+    --mode "${SYNTH_MODE}" \
+    --seed "${SYNTH_SEED}" \
+    --mutation-budget "${SYNTH_MUTATION_BUDGET}" \
+    --fidelity-min-score "${SYNTH_FIDELITY_MIN_SCORE}" || overall_fail=1
+  if [[ "${stop_requested}" -eq 1 ]]; then
+    overall_fail=1
+    break
+  fi
+
   fuzz_cycle_dir="${RUN_DIR}/fuzz/cycle-${cycle}"
   mkdir -p "${fuzz_cycle_dir}"
   run_step_cmd "${cycle}" "fuzz" "1" "${LOG_DIR}/cycle-${cycle}-fuzz.log" \
-    "${ROOT_DIR}/scripts/fuzz_runner.sh" --count "${FUZZ_COUNT}" --output-dir "${fuzz_cycle_dir}" || overall_fail=1
+    "${ROOT_DIR}/scripts/fuzz_runner.sh" \
+    --count "${FUZZ_COUNT}" \
+    --output-dir "${fuzz_cycle_dir}" \
+    --mode "${FUZZ_MODE}" \
+    --seed "${FUZZ_SEED}" \
+    --mutation-budget "${FUZZ_MUTATION_BUDGET}" \
+    --fidelity-min-score "${FUZZ_FIDELITY_MIN_SCORE}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
     break
