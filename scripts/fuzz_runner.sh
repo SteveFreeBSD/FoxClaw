@@ -9,7 +9,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/fuzz_runner.sh [--count <N>]
+Usage: scripts/fuzz_runner.sh [--count <N>] [--output-dir <path>]
 EOF
 }
 
@@ -23,6 +23,7 @@ COUNT=50
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --count)   COUNT="${2:-}"; shift 2 ;;
+    --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *)         echo "error: unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac

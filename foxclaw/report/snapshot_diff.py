@@ -112,6 +112,7 @@ def _snapshot_metadata(snapshot: ScanSnapshot) -> SnapshotMetadata:
         evidence_schema_version=snapshot.evidence_schema_version,
         profile=snapshot.profile,
         ruleset=snapshot.ruleset,
+        intel_snapshot_id=snapshot.intel.snapshot_id,
     )
 
 

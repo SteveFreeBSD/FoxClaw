@@ -7,10 +7,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel, StrictBool, StrictInt, StrictStr
 
+from foxclaw.intel.models import IntelCorrelationEvidence
+
 PrefSource = Literal["prefs.js", "user.js", "unset"]
 PrefRawType = Literal["bool", "int", "string"]
 FindingSeverity = Literal["INFO", "MEDIUM", "HIGH"]
 FindingConfidence = Literal["low", "medium", "high"]
+RiskPriority = Literal["low", "medium", "high", "critical"]
 
 
 class PrefValue(BaseModel):
@@ -125,7 +128,54 @@ class Finding(BaseModel):
     rationale: str
     recommendation: str
     confidence: FindingConfidence
+    risk_priority: RiskPriority | None = None
+    risk_factors: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
+
+
+class SuppressionScope(BaseModel):
+    """Scope controls for suppression matching."""
+
+    profile_glob: str
+    evidence_contains: str | None = None
+
+
+class SuppressionEntry(BaseModel):
+    """One suppression declaration loaded from policy files."""
+
+    id: str | None = None
+    rule_id: str
+    owner: str
+    reason: str
+    expires_at: datetime
+    scope: SuppressionScope
+
+
+class SuppressionPolicy(BaseModel):
+    """Suppression policy file contract."""
+
+    schema_version: str = "1.0.0"
+    suppressions: list[SuppressionEntry] = Field(default_factory=list)
+
+
+class AppliedSuppression(BaseModel):
+    """One applied suppression mapped to a finding."""
+
+    id: str | None = None
+    rule_id: str
+    owner: str
+    reason: str
+    expires_at: datetime
+    source_path: str
+    evidence_match: str | None = None
+
+
+class SuppressionEvidence(BaseModel):
+    """Suppression loading/apply telemetry for the scan."""
+
+    source_paths: list[str] = Field(default_factory=list)
+    applied: list[AppliedSuppression] = Field(default_factory=list)
+    expired: list[AppliedSuppression] = Field(default_factory=list)
 
 
 class RuleDefinition(BaseModel):
@@ -176,10 +226,12 @@ class ScanSummary(BaseModel):
     extensions_debug_count: int = 0
     sqlite_checks_total: int
     sqlite_non_ok_count: int
+    intel_matches_count: int = 0
     findings_total: int = 0
     findings_high_count: int = 0
     findings_medium_count: int = 0
     findings_info_count: int = 0
+    findings_suppressed_count: int = 0
 
 
 class EvidenceBundle(BaseModel):
@@ -193,9 +245,89 @@ class EvidenceBundle(BaseModel):
     policies: PolicyEvidence
     extensions: ExtensionEvidence = Field(default_factory=ExtensionEvidence)
     sqlite: SqliteEvidence
+    intel: IntelCorrelationEvidence = Field(default_factory=IntelCorrelationEvidence)
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+    suppressions: SuppressionEvidence = Field(default_factory=SuppressionEvidence)
+
+
+class FleetHostMetadata(BaseModel):
+    """Deterministic host identity metadata for fleet aggregation outputs."""
+
+    host_id: str
+    hostname: str
+    fqdn: str
+    os_name: str
+    os_release: str
+    os_version: str
+    architecture: str
+    machine_id_sha256: str | None = None
+
+
+class FleetProfileIdentity(BaseModel):
+    """Deterministic profile identity used in fleet outputs."""
+
+    profile_uid: str
+    profile_id: str
+    name: str
+    path: str
+
+
+class FleetProfileReport(BaseModel):
+    """Normalized per-profile fleet output contract."""
+
+    identity: FleetProfileIdentity
+    evidence_schema_version: str
+    summary: ScanSummary
+    high_findings: list[str] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
+    intel_snapshot_id: str | None = None
+
+
+class FleetFindingRecord(BaseModel):
+    """Flattened finding record for downstream SIEM/fleet ingestion."""
+
+    host_id: str
+    profile_uid: str
+    profile_id: str
+    profile_name: str
+    profile_path: str
+    rule_id: str
+    title: str
+    severity: FindingSeverity
+    category: str
+    confidence: FindingConfidence
+    rationale: str
+    recommendation: str
+    risk_priority: RiskPriority | None = None
+    risk_factors: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    intel_snapshot_id: str | None = None
+
+
+class FleetAggregateSummary(BaseModel):
+    """Fleet-level aggregate counters for merged profile outputs."""
+
+    profiles_total: int
+    profiles_with_findings: int
+    profiles_with_high_findings: int
+    findings_total: int
+    findings_high_count: int
+    findings_medium_count: int
+    findings_info_count: int
+    findings_suppressed_count: int
+    unique_rule_ids: list[str] = Field(default_factory=list)
+
+
+class FleetAggregationReport(BaseModel):
+    """Top-level fleet aggregation report contract."""
+
+    fleet_schema_version: str = "1.0.0"
+    host: FleetHostMetadata
+    aggregate: FleetAggregateSummary
+    profiles: list[FleetProfileReport] = Field(default_factory=list)
+    finding_records: list[FleetFindingRecord] = Field(default_factory=list)
 
 
 class SnapshotRulesetMetadata(BaseModel):
@@ -214,6 +346,7 @@ class ScanSnapshot(BaseModel):
     evidence_schema_version: str
     profile: ProfileEvidence
     ruleset: SnapshotRulesetMetadata
+    intel: IntelCorrelationEvidence = Field(default_factory=IntelCorrelationEvidence)
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
@@ -226,6 +359,7 @@ class SnapshotMetadata(BaseModel):
     evidence_schema_version: str
     profile: ProfileEvidence
     ruleset: SnapshotRulesetMetadata
+    intel_snapshot_id: str | None = None
 
 
 class SnapshotDiffSummary(BaseModel):

@@ -1,0 +1,25 @@
+{
+  "schema_version": "foxclaw.mozilla.firefox_advisories.v1",
+  "product": "firefox",
+  "generated_at": "2026-02-20T00:00:00Z",
+  "advisories": [
+    {
+      "advisory_id": "MFSA-2026-01",
+      "cve_id": "CVE-2026-0001",
+      "affected_versions": "<136.0",
+      "fixed_version": "136.0",
+      "severity": "high",
+      "summary": "Memory safety issue in content process.",
+      "reference_url": "https://example.invalid/mfsa-2026-01"
+    },
+    {
+      "advisory_id": "MFSA-2026-02",
+      "cve_id": "CVE-2026-0002",
+      "affected_versions": ">=130.0,<135.0",
+      "fixed_version": "135.0",
+      "severity": "medium",
+      "summary": "Sandbox bypass issue.",
+      "reference_url": "https://example.invalid/mfsa-2026-02"
+    }
+  ]
+}

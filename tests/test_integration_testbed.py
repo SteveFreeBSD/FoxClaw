@@ -15,6 +15,7 @@ pytestmark = pytest.mark.integration
 TESTBED_ROOT = Path("tests/fixtures/testbed")
 TESTBED_RULESET = TESTBED_ROOT / "rulesets" / "integration.yml"
 TESTBED_POLICY = TESTBED_ROOT / "policies" / "disable_telemetry.json"
+_MISSING_POLICY_FINDINGS = {"TB-POL-001", "TB-POL-002", "TB-POL-003", "TB-POL-004"}
 
 
 def _load_official_sarif_schema() -> dict[str, object]:
@@ -34,12 +35,22 @@ def _refresh_testbed_fixtures() -> None:
 @pytest.mark.parametrize(
     ("scenario", "with_policy_path", "expected_exit_code", "expected_finding_ids"),
     [
-        ("profile_baseline", False, 0, {"TB-POL-001"}),
-        ("profile_weak_perms", False, 2, {"TB-FILE-001", "TB-POL-001"}),
-        ("profile_sqlite_error", False, 2, {"TB-SQL-001", "TB-POL-001"}),
+        ("profile_baseline", False, 0, _MISSING_POLICY_FINDINGS),
+        (
+            "profile_weak_perms",
+            False,
+            2,
+            {"TB-FILE-001", *_MISSING_POLICY_FINDINGS},
+        ),
+        (
+            "profile_sqlite_error",
+            False,
+            2,
+            {"TB-SQL-001", *_MISSING_POLICY_FINDINGS},
+        ),
         ("profile_policy_present", True, 0, set()),
-        ("profile_userjs_override", False, 0, {"TB-POL-001"}),
-        ("profile_third_party_xpi", False, 0, {"TB-POL-001"}),
+        ("profile_userjs_override", False, 0, _MISSING_POLICY_FINDINGS),
+        ("profile_third_party_xpi", False, 0, _MISSING_POLICY_FINDINGS),
     ],
 )
 def test_testbed_scenarios_emit_expected_findings(
@@ -124,6 +135,60 @@ def test_testbed_sarif_schema_and_snapshot_determinism(tmp_path: Path) -> None:
     assert sarif_payload["runs"][0]["tool"]["driver"]["name"] == "FoxClaw"
 
 
+def test_testbed_fleet_aggregate_multi_profile_contract() -> None:
+    profile_baseline = TESTBED_ROOT / "profile_baseline"
+    profile_weak_perms = TESTBED_ROOT / "profile_weak_perms"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "fleet",
+            "aggregate",
+            "--profile",
+            str(profile_baseline),
+            "--profile",
+            str(profile_weak_perms),
+            "--ruleset",
+            str(TESTBED_RULESET),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 2
+
+    payload = json.loads(result.stdout)
+    assert payload["fleet_schema_version"] == "1.0.0"
+    assert payload["aggregate"]["profiles_total"] == 2
+    assert payload["aggregate"]["profiles_with_findings"] == 2
+    assert payload["aggregate"]["profiles_with_high_findings"] == 1
+
+    profile_summaries = payload["profiles"]
+    assert len(profile_summaries) == 2
+    assert payload["aggregate"]["findings_total"] == sum(
+        item["summary"]["findings_total"] for item in profile_summaries
+    )
+    assert payload["aggregate"]["findings_high_count"] == sum(
+        item["summary"]["findings_high_count"] for item in profile_summaries
+    )
+    assert payload["aggregate"]["findings_medium_count"] == sum(
+        item["summary"]["findings_medium_count"] for item in profile_summaries
+    )
+    assert payload["aggregate"]["findings_info_count"] == sum(
+        item["summary"]["findings_info_count"] for item in profile_summaries
+    )
+    assert len(payload["finding_records"]) == payload["aggregate"]["findings_total"]
+
+    profile_paths = {item["identity"]["path"] for item in payload["profiles"]}
+    assert profile_paths == {
+        profile_baseline.resolve().as_posix(),
+        profile_weak_perms.resolve().as_posix(),
+    }
+
+    profile_uids = {item["identity"]["profile_uid"] for item in payload["profiles"]}
+    assert {item["profile_uid"] for item in payload["finding_records"]} <= profile_uids
+    assert {"TB-FILE-001", *_MISSING_POLICY_FINDINGS} <= set(payload["aggregate"]["unique_rule_ids"])
+
+
 def test_testbed_userjs_override_precedence_with_policy_path() -> None:
     profile = TESTBED_ROOT / "profile_userjs_override"
 
@@ -187,7 +252,7 @@ def test_testbed_third_party_xpi_manifest_parsed() -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["summary"]["extensions_found"] == 1
-    
+
     ext = payload["extensions"]["entries"][0]
     assert ext["addon_id"] == "third-party@example.com"
     assert ext["manifest_status"] == "parsed"

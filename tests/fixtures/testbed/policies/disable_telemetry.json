@@ -1,5 +1,12 @@
 {
   "policies": {
-    "DisableTelemetry": true
+    "DisableFirefoxStudies": true,
+    "DisableTelemetry": true,
+    "ExtensionSettings": {
+      "*": {
+        "installation_mode": "blocked"
+      }
+    },
+    "HTTPSOnlyMode": "enabled"
   }
 }

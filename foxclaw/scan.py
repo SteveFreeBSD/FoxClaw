@@ -10,6 +10,8 @@ from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.policies import collect_policies
 from foxclaw.collect.prefs import collect_prefs
 from foxclaw.collect.sqlite import collect_sqlite_quick_checks
+from foxclaw.intel.blocklist import apply_extension_blocklist_from_snapshot
+from foxclaw.intel.correlation import correlate_firefox_vulnerability_intel
 from foxclaw.models import (
     EvidenceBundle,
     FilePermEvidence,
@@ -18,7 +20,13 @@ from foxclaw.models import (
     ScanSummary,
 )
 from foxclaw.profiles import FirefoxProfile
-from foxclaw.rules.engine import DEFAULT_RULESET_PATH, evaluate_rules, load_ruleset
+from foxclaw.rules.engine import (
+    DEFAULT_RULESET_PATH,
+    evaluate_rules,
+    load_ruleset,
+    sort_findings,
+)
+from foxclaw.rules.suppressions import apply_suppressions
 
 _PROFILE_LOCK_FILES = ("parent.lock", "lock")
 
@@ -28,6 +36,9 @@ def run_scan(
     *,
     ruleset_path: Path | None = None,
     policy_paths: list[Path] | None = None,
+    suppression_paths: list[Path] | None = None,
+    intel_store_dir: Path | None = None,
+    intel_snapshot_id: str | None = None,
 ) -> EvidenceBundle:
     """Collect evidence for a selected profile and compute summary/high findings."""
     profile_dir = profile.path
@@ -39,8 +50,25 @@ def run_scan(
     prefs = collect_prefs(profile_dir)
     filesystem = collect_file_permissions(profile_dir)
     normalized_policy_paths = _normalize_policy_paths(policy_paths)
+    normalized_suppression_paths = _normalize_suppression_paths(suppression_paths)
     policies = collect_policies(policy_paths=normalized_policy_paths)
+    intel, intel_findings = correlate_firefox_vulnerability_intel(
+        profile_dir=profile_dir,
+        intel_store_dir=intel_store_dir,
+        intel_snapshot_id=intel_snapshot_id,
+    )
     extensions = collect_extensions(profile_dir)
+    if (
+        intel.enabled
+        and intel.error is None
+        and intel.store_dir is not None
+        and intel.snapshot_id is not None
+    ):
+        apply_extension_blocklist_from_snapshot(
+            extensions=extensions,
+            store_dir=Path(intel.store_dir),
+            snapshot_id=intel.snapshot_id,
+        )
     sqlite = collect_sqlite_quick_checks(profile_dir)
 
     high_risk_perms_count = _count_high_risk_permissions(filesystem)
@@ -90,6 +118,7 @@ def run_scan(
         extensions_debug_count=extensions_debug_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
+        intel_matches_count=len(intel.matched_advisories),
     )
     provisional_bundle = EvidenceBundle(
         profile=profile_evidence,
@@ -98,12 +127,19 @@ def run_scan(
         policies=policies,
         extensions=extensions,
         sqlite=sqlite,
+        intel=intel,
         summary=provisional_summary,
     )
 
     resolved_ruleset_path = resolve_ruleset_path(ruleset_path)
     ruleset = load_ruleset(resolved_ruleset_path)
     findings = evaluate_rules(provisional_bundle, ruleset)
+    findings = sort_findings([*findings, *intel_findings])
+    findings, suppression_evidence = apply_suppressions(
+        findings,
+        profile_path=profile_dir,
+        suppression_paths=normalized_suppression_paths,
+    )
     findings_by_severity = _count_findings_by_severity(findings)
     high_finding_ids = [item.id for item in findings if item.severity == "HIGH"]
     summary = ScanSummary(
@@ -118,10 +154,12 @@ def run_scan(
         extensions_debug_count=extensions_debug_count,
         sqlite_checks_total=len(sqlite.checks),
         sqlite_non_ok_count=sqlite_non_ok_count,
+        intel_matches_count=len(intel.matched_advisories),
         findings_total=len(findings),
         findings_high_count=findings_by_severity["HIGH"],
         findings_medium_count=findings_by_severity["MEDIUM"],
         findings_info_count=findings_by_severity["INFO"],
+        findings_suppressed_count=len(suppression_evidence.applied),
     )
 
     return EvidenceBundle(
@@ -131,9 +169,11 @@ def run_scan(
         policies=policies,
         extensions=extensions,
         sqlite=sqlite,
+        intel=intel,
         summary=summary,
         high_findings=high_finding_ids,
         findings=findings,
+        suppressions=suppression_evidence,
     )
 
 
@@ -150,6 +190,21 @@ def _normalize_policy_paths(policy_paths: list[Path] | None) -> list[Path] | Non
     normalized: list[Path] = []
     seen: set[Path] = set()
     for path in policy_paths:
+        resolved = path.expanduser().resolve(strict=False)
+        if resolved in seen:
+            continue
+        normalized.append(resolved)
+        seen.add(resolved)
+    return normalized
+
+
+def _normalize_suppression_paths(suppression_paths: list[Path] | None) -> list[Path] | None:
+    if suppression_paths is None:
+        return None
+
+    normalized: list[Path] = []
+    seen: set[Path] = set()
+    for path in suppression_paths:
         resolved = path.expanduser().resolve(strict=False)
         if resolved in seen:
             continue

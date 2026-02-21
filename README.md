@@ -12,8 +12,11 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
   - extension inventory and manifest permission posture (`extensions.json`, `extensions/`)
     - extensions are classified by source (`profile`, `system`, `builtin`, etc.)
     - unsigned/risk/debug checks default to profile-controlled extensions (system/builtin excluded)
+  - suppression lifecycle (`--suppression-path`) with required owner/reason/expiration and scoped rule matching
   - SQLite quick integrity checks (`PRAGMA quick_check`)
 - Declarative rule evaluation from versioned YAML rulesets.
+- Offline intel correlation with deterministic multi-source merge metadata and finding-level
+  risk priority fields (`risk_priority`, `risk_factors`).
 - Output renderers for terminal, JSON, and SARIF 2.1.0.
 
 ## Security Boundary
@@ -75,6 +78,47 @@ foxclaw snapshot diff \
   --json
 ```
 
+Aggregate multiple profiles into one normalized fleet contract:
+
+```bash
+foxclaw fleet aggregate \
+  --profile tests/fixtures/testbed/profile_baseline \
+  --profile tests/fixtures/testbed/profile_weak_perms \
+  --ruleset tests/fixtures/testbed/rulesets/integration.yml \
+  --json
+```
+
+Synchronize intelligence source materials into a local snapshot store:
+
+```bash
+foxclaw intel sync \
+  --source mozilla=./intel/mozilla_firefox_advisories.v1.json \
+  --source blocklist=./intel/blocklist.json \
+  --json
+```
+
+Remote URL sources are fetched over HTTPS by default.  
+Plain HTTP sources require explicit opt-in with `--allow-insecure-http`.
+
+Run an offline scan correlated to a pinned intel snapshot:
+
+```bash
+foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --intel-store-dir ~/.local/share/foxclaw/intel \
+  --intel-snapshot-id latest \
+  --json
+```
+
+Apply suppression policies (repeatable):
+
+```bash
+foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --suppression-path suppressions/team-baseline.yml \
+  --json
+```
+
 Override enterprise policy discovery paths (repeatable):
 
 ```bash
@@ -106,9 +150,16 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/ARCHITECTURE.md`: runtime boundaries and extension points.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
 - `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
+- `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
+- `docs/RESEARCH_2026-02-20.md`: dated ecosystem alignment checkpoint (2026 snapshot).
+- `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
+- `docs/WORKSLICES.md`: ordered implementation slices with dependencies and acceptance criteria.
+- `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
+- `docs/RELEASE_PROVENANCE.md`: release attestation and trusted-publishing verification runbook.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
+- `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
 - `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
 - `docs/DEVELOPMENT.md`: local setup and quality gates.
 - `docs/TESTBED.md`: deterministic Firefox testbed fixtures and container smoke lane.

@@ -11,17 +11,24 @@
 
 - `foxclaw/cli.py`.
   - CLI orchestration, flag validation, and exit-code contract.
+  - single-profile (`scan`) and multi-profile (`fleet aggregate`) workflow entrypoints.
 - `foxclaw/profiles.py`.
   - deterministic profile discovery and selection.
 - `foxclaw/collect/`.
   - read-only evidence acquisition from local profile/system paths, including extension inventory posture.
   - extension evidence classifies source kind (`profile`, `system`, `builtin`, `external`, `unknown`) and manifest status (`parsed`, `unavailable`, `error`).
+  - extension posture marks debug/dev install signals from temporary install metadata and volatile external source paths.
 - `foxclaw/rules/`.
   - ruleset parsing and constrained DSL evaluation.
+  - suppression policy parsing and deterministic finding suppression.
 - `foxclaw/report/`.
-  - pure renderers (`text`, `json`, `sarif`) with no collection logic.
+  - pure renderers (`text`, `json`, `sarif`, `fleet`) with no collection logic.
 - `foxclaw/models.py`.
   - pydantic schema contract for evidence, findings, and summaries.
+- `foxclaw/intel/`.
+  - explicit intelligence snapshot sync path (`intel sync`) with local checksumed source material storage.
+  - normalized source indexing (`source_indexes`, `mozilla_advisories`, `nvd_cves`,
+    `cve_list_records`, `kev_catalog`, `epss_scores`) for offline correlation.
 - `foxclaw/rulesets/`.
   - versioned policy packs (balanced, strict).
 
@@ -29,9 +36,11 @@
 
 1. Select profile (`profiles list` scoring or explicit `--profile`).
 2. Collect local evidence through read-only collectors.
-3. Build typed `EvidenceBundle` contract.
-4. Evaluate ruleset into finding set.
-5. Render deterministic output payloads.
+3. Optionally correlate local Firefox version against pinned local intel snapshot (`--intel-store-dir` / `--intel-snapshot-id`).
+4. Build typed `EvidenceBundle` contract.
+5. Evaluate ruleset into finding set.
+6. Render deterministic output payloads.
+7. Optional fleet path merges multiple profile scans into normalized host/profile/finding contracts.
 
 ## Trust Boundary Implementation
 
@@ -53,6 +62,7 @@
 - Stable rules and results ordering in SARIF.
 - Stable SARIF fingerprints from normalized evidence material.
 - Sorted JSON output keys.
+- Stable fleet aggregation ordering (profile identities + flattened finding records).
 - Stable relative artifact URIs when paths resolve under repo/profile roots.
 
 ## Planned Expansion Points
@@ -62,12 +72,13 @@ The next-level roadmap is designed as additive modules so current scan guarantee
 - `state/` (planned).
   - signed snapshot format and deterministic diff engine.
 - `suppression/` (planned).
-  - scoped suppressions with owner, reason, and expiration.
+  - additional suppression workflows beyond current runtime file-based lifecycle.
 - `policypacks/` (planned).
   - signed external rule bundles validated before load.
-- `intel/` (planned, non-scan path).
+- `intel/` (active expansion area).
   - explicit update command for offline-cached threat intelligence metadata.
-  - includes Mozilla CVE/advisory ingestion and extension threat-intel datasets.
+  - baseline Mozilla advisory normalization and offline CVE correlation in scan.
+  - extend with NVD/KEV enrichment and extension threat-intel datasets.
 - `attest/` (planned, release pipeline).
   - build provenance, signed releases, and artifact verification metadata.
 

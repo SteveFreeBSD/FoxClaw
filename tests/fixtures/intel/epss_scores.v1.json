@@ -1,0 +1,17 @@
+{
+  "schema_version": "foxclaw.epss.scores.v1",
+  "records": [
+    {
+      "cve_id": "CVE-2026-0001",
+      "score": 0.4200,
+      "percentile": 0.6500,
+      "reference_url": "https://example.invalid/epss/CVE-2026-0001"
+    },
+    {
+      "cve_id": "CVE-2026-0002",
+      "score": 0.9300,
+      "percentile": 0.9900,
+      "reference_url": "https://example.invalid/epss/CVE-2026-0002"
+    }
+  ]
+}

@@ -74,6 +74,7 @@ def build_scan_snapshot(
             path=_normalize_output_path(resolved_ruleset_path, repo_root=resolved_repo_root),
             sha256=ruleset_sha256,
         ),
+        intel=bundle.intel,
         summary=bundle.summary,
         high_findings=high_findings,
         findings=findings,

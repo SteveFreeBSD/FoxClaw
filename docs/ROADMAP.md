@@ -20,10 +20,12 @@ Target: near-term.
   - baseline extension inventory from profile metadata is available.
   - baseline permission-risk classification from extension manifests is available.
   - baseline unsigned extension detection is available.
+  - baseline debug/dev install detection is available (temporary install flags and volatile external source paths).
   - extend detection depth (debug/dev install states, richer risk model, suppression-aware workflows).
 - Add suppression lifecycle:
-  - suppress by rule id + scope.
-  - require owner, reason, and expiration timestamp.
+  - baseline suppression by rule id + scope is available.
+  - owner, reason, and expiration timestamp are required.
+  - extend toward approval workflows and stronger governance reporting.
 - Add stronger SARIF fidelity:
   - preserve stable fingerprints across runs.
   - keep path normalization rules strict.
@@ -39,21 +41,25 @@ Exit criteria:
 Target: after phase 1 stabilization.
 
 - Add explicit intelligence sync path (network-enabled by command, not by scan):
-  - `intel sync` command to fetch and normalize Mozilla/NVD/CVE/KEV data.
-  - local intelligence snapshot store with checksums and schema versioning.
+  - baseline `intel sync` command is available for deterministic source snapshot ingestion.
+  - baseline normalized source adapter/indexing is available for `foxclaw.mozilla.firefox_advisories.v1`.
+  - extend source adapters to fetch/normalize Mozilla/NVD/CVE/KEV datasets.
+  - baseline local intelligence snapshot store now includes schema/versioned source metadata indexing.
 - Add Mozilla CVE correlation:
-  - map local Firefox version to advisory/CVE affected ranges.
-  - include fixed-version and source provenance in findings.
+  - baseline local Firefox version correlation from `compatibility.ini` is available.
+  - baseline findings include fixed-version and source provenance with pinned snapshot id.
+  - extend with richer vendor/NVD merge logic and confidence scoring.
 - Add extension intelligence correlation:
   - correlate installed extension IDs/versions with AMO metadata and blocklist signals.
 - Signed policy packs:
   - external ruleset bundles with signature verification and manifest pinning.
 - CI provenance:
-  - artifact attestations for build outputs.
-  - provenance references linked from release artifacts.
+  - baseline artifact attestations for release build outputs are available.
+  - baseline provenance references are linked from release artifacts.
 - Release hardening:
-  - trusted publishing for package distribution.
-  - dependency review and vulnerability gates in CI.
+  - baseline trusted publishing for package distribution is available.
+  - baseline dependency review policy gate is enforced in CI pull requests.
+  - extend with scheduled dependency vulnerability sweeps.
 
 Exit criteria:
 
@@ -68,6 +74,7 @@ Exit criteria:
 Target: medium-term.
 
 - Offline intelligence cache ingestion (explicit update phase only):
+  - baseline KEV/EPSS-aware risk-priority metadata is available in correlated findings.
   - enrich findings with KEV/EPSS-aware prioritization metadata.
 - Optional comprehensive live workflow:
   - provide a wrapper command that runs sync + scan pinned to the new snapshot.
@@ -91,3 +98,8 @@ Exit criteria:
   - tests for new behavior.
   - deterministic output assertions.
   - rollback-safe feature flags when introducing new surfaces.
+
+Execution tracking:
+
+- Ordered implementation slices are tracked in `docs/WORKSLICES.md`.
+- Periodic technical and ecosystem checkpoints are recorded in date-stamped docs under `docs/`.

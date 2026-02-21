@@ -1,5 +1,5 @@
 name: strict
-version: 0.2.0
+version: 0.3.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -57,6 +57,39 @@ rules:
     rationale: Strict environments require explicit policy-level telemetry control.
     recommendation: Add DisableTelemetry under policies in policies.json.
     confidence: medium
+
+  - id: FC-STRICT-POLICY-002
+    title: Enterprise policy must disable Firefox Studies
+    severity: HIGH
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.DisableFirefoxStudies
+    rationale: Strict environments should disallow remote study enrollment paths.
+    recommendation: Add DisableFirefoxStudies under policies in policies.json.
+    confidence: high
+
+  - id: FC-STRICT-POLICY-003
+    title: Enterprise policy must define ExtensionSettings controls
+    severity: HIGH
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.ExtensionSettings
+    rationale: Strict environments require explicit extension allow/deny governance.
+    recommendation: Add ExtensionSettings policy controls in policies.json.
+    confidence: high
+
+  - id: FC-STRICT-POLICY-004
+    title: Enterprise policy must set HTTPS-only mode
+    severity: HIGH
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.HTTPSOnlyMode
+    rationale: Strict environments should enforce policy-controlled secure transport defaults.
+    recommendation: Add HTTPSOnlyMode policy in policies.json.
+    confidence: high
 
   - id: FC-STRICT-SQL-001
     title: places.sqlite quick_check must pass

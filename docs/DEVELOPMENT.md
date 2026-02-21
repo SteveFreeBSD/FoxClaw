@@ -55,12 +55,32 @@ python -m foxclaw scan \
   --snapshot-out foxclaw.snapshot.json
 ```
 
+Run with suppression policy overrides:
+
+```bash
+python -m foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --suppression-path suppressions/team-baseline.yml \
+  --json
+```
+
 Compare snapshots:
 
 ```bash
 python -m foxclaw snapshot diff \
   --before baseline.snapshot.json \
   --after current.snapshot.json \
+  --json
+```
+
+Aggregate multiple profiles into fleet JSON:
+
+```bash
+python -m foxclaw fleet aggregate \
+  --profile tests/fixtures/testbed/profile_baseline \
+  --profile tests/fixtures/testbed/profile_weak_perms \
+  --ruleset tests/fixtures/testbed/rulesets/integration.yml \
   --json
 ```
 
@@ -82,8 +102,19 @@ make verify-full
 make certify
 make certify-live
 make test-firefox-container
+make soak-smoke
+make soak-daytime
+make soak-daytime-detached
+make soak-status
+make soak-stop
 make hooks-install
 make clean
+```
+
+If Docker requires elevated access on your host:
+
+```bash
+make test-firefox-container DOCKER="sudo docker"
 ```
 
 ## Review-Ready Gate Sequence
@@ -99,6 +130,44 @@ For milestone sign-off before push:
 ```bash
 make certify-live
 ```
+
+## Long-Run Soak
+
+Run a local smoke soak (single cycle):
+
+```bash
+make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Run the daytime burn-in gate used for commit confidence:
+
+```bash
+make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Run the same daytime burn-in detached via user systemd:
+
+```bash
+make soak-daytime-detached SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-status
+make soak-stop
+```
+
+For overnight duration, run the harness directly:
+
+```bash
+systemd-run --user \
+  --unit foxclaw-soak-overnight \
+  --same-dir \
+  --collect \
+  --setenv=SOAK_SUDO_PASSWORD='<sudo-password>' \
+  scripts/soak_runner.sh \
+  --duration-hours 10 \
+  --label overnight-phase1 \
+  --output-root /var/tmp/foxclaw-soak
+```
+
+See `docs/SOAK.md` for artifact structure and failure triage workflow.
 
 ## Git Hook Setup
 

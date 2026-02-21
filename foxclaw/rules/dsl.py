@@ -76,13 +76,16 @@ def _check_pref_equals(bundle: EvidenceBundle, config: dict[str, object]) -> Che
         raise ValueError("pref_equals value must be bool, int, or string")
 
     pref = bundle.prefs.root[key]
-    if pref.value == expected:
+    if _pref_values_equal(pref.value, expected):
         return CheckResult(passed=True)
 
     return CheckResult(
         passed=False,
         evidence=[
-            f"{key}: expected={expected!r}, observed={pref.value!r}, source={pref.source}"
+            (
+                f"{key}: expected={expected!r} ({type(expected).__name__}), "
+                f"observed={pref.value!r} ({type(pref.value).__name__}), source={pref.source}"
+            )
         ],
     )
 
@@ -383,6 +386,16 @@ def _as_dict(config: object, check_name: str) -> dict[str, object]:
 def _required_str(data: dict[str, object], key: str) -> str:
     value = data.get(key)
     return _require_value_type(value, str, key)
+
+
+def _pref_values_equal(observed: bool | int | str, expected: bool | int | str) -> bool:
+    if isinstance(observed, bool) or isinstance(expected, bool):
+        return (
+            isinstance(observed, bool)
+            and isinstance(expected, bool)
+            and observed == expected
+        )
+    return type(observed) is type(expected) and observed == expected
 
 
 def _require_value_type(value: object, expected: type[str], field_name: str) -> str:

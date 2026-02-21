@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Literal
 
-from foxclaw.collect.blocklist import is_extension_blocklisted
 from foxclaw.models import ExtensionEntry, ExtensionEvidence, ExtensionPermissionRisk
 
 _EXTENSIONS_JSON_NAME = "extensions.json"
@@ -102,7 +103,12 @@ def _build_entry(profile_dir: Path, *, addon: dict[str, object], index: int) -> 
     location = _optional_str(addon.get("location"))
     source = _optional_str(addon.get("path"))
     source_kind = _classify_source_kind(profile_dir=profile_dir, location=location, source=source)
-    debug_install, debug_reason = _extract_debug_install(addon=addon, location=location)
+    debug_install, debug_reason = _extract_debug_install(
+        addon=addon,
+        location=location,
+        source=source,
+        profile_dir=profile_dir,
+    )
 
     signed_state_value = addon.get("signedState")
     signed_state = str(signed_state_value) if signed_state_value is not None else None
@@ -118,7 +124,7 @@ def _build_entry(profile_dir: Path, *, addon: dict[str, object], index: int) -> 
         source_kind=source_kind,
     )
 
-    blocklisted = is_extension_blocklisted(addon_id, version) if source_kind not in {"builtin", "system"} else False
+    blocklisted = False
     risky_permissions = _classify_risky_permissions(
         permissions=manifest.permissions,
         host_permissions=manifest.host_permissions,
@@ -365,7 +371,7 @@ def _coerce_bool(value: object) -> bool | None:
 
 
 def _extract_debug_install(
-    *, addon: dict[str, object], location: str | None
+    *, addon: dict[str, object], location: str | None, source: str | None, profile_dir: Path
 ) -> tuple[bool, str | None]:
     signals: list[str] = []
 
@@ -375,6 +381,14 @@ def _extract_debug_install(
 
     if location and "temporary" in location.lower():
         signals.append(f"location={location}")
+
+    source_path = _resolve_source_path(profile_dir=profile_dir, source=source)
+    if (
+        source_path is not None
+        and _is_volatile_source_path(source_path)
+        and not _is_under_profile(source_path, profile_dir)
+    ):
+        signals.append(f"source_path={source_path}")
 
     if not signals:
         return False, None
@@ -400,6 +414,8 @@ def _signed_status(signed_valid: bool | None) -> SignedStatus:
 def _classify_source_kind(
     *, profile_dir: Path, location: str | None, source: str | None
 ) -> SourceKind:
+    source_path = _resolve_source_path(profile_dir=profile_dir, source=source)
+
     if location:
         normalized_location = location.lower()
         if any(token in normalized_location for token in _SYSTEM_LOCATION_TOKENS):
@@ -407,26 +423,52 @@ def _classify_source_kind(
                 return "builtin"
             return "system"
         if "profile" in normalized_location:
+            if source_path is not None and not _is_under_profile(source_path, profile_dir):
+                return "external"
             return "profile"
 
-    if source:
-        normalized_source = source.lower()
+    if source_path is not None:
+        normalized_source = str(source_path).lower()
         if any(token in normalized_source for token in _BUILTIN_PATH_TOKENS):
             return "builtin"
 
-        candidate = Path(source).expanduser()
-        if not candidate.is_absolute():
-            candidate = (profile_dir / candidate).resolve(strict=False)
-        else:
-            candidate = candidate.resolve(strict=False)
-
-        try:
-            candidate.relative_to(profile_dir.resolve(strict=False))
+        if _is_under_profile(source_path, profile_dir):
             return "profile"
-        except ValueError:
-            pass
-
-        if candidate.parts and candidate.parts[0] == "/":
+        if source_path.is_absolute():
             return "external"
 
     return "unknown"
+
+
+def _resolve_source_path(*, profile_dir: Path, source: str | None) -> Path | None:
+    if not source:
+        return None
+
+    candidate = Path(source).expanduser()
+    if not candidate.is_absolute():
+        candidate = profile_dir / candidate
+    return candidate.resolve(strict=False)
+
+
+def _is_under_profile(candidate: Path, profile_dir: Path) -> bool:
+    profile_root = profile_dir.resolve(strict=False)
+    return _is_within_root(candidate, profile_root)
+
+
+def _is_volatile_source_path(path: Path) -> bool:
+    root = Path(os.sep)
+    volatile_roots = (
+        Path(tempfile.gettempdir()).resolve(strict=False),
+        (root / "var" / "tmp").resolve(strict=False),
+        (root / "dev" / "shm").resolve(strict=False),
+        (root / "run" / "user").resolve(strict=False),
+    )
+    return any(_is_within_root(path, volatile_root) for volatile_root in volatile_roots)
+
+
+def _is_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
