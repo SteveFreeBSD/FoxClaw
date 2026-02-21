@@ -99,6 +99,7 @@ make testbed-fixtures-write
 make fixture-scan
 make verify
 make verify-full
+make dep-audit
 make certify
 make certify-live
 make test-firefox-container
@@ -115,6 +116,12 @@ If Docker requires elevated access on your host:
 
 ```bash
 make test-firefox-container DOCKER="sudo docker"
+```
+
+Run on-demand dependency vulnerability audit:
+
+```bash
+make dep-audit
 ```
 
 ## Review-Ready Gate Sequence

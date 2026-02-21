@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-daytime soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan verify verify-full bandit vulture secrets certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-daytime soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -124,6 +124,10 @@ vulture:
 secrets:
 	@./scripts/check_secrets.sh
 
+dep-audit:
+	$(PIP_BIN) install --upgrade pip-audit
+	@./scripts/dependency_audit.sh --pip-audit-bin "$(VENV)/bin/pip-audit" --output dependency-audit.json
+
 verify-full: verify bandit vulture secrets
 
 certify:
@@ -136,7 +140,7 @@ hooks-install:
 	@./scripts/install_hooks.sh
 
 clean:
-	rm -f foxclaw.json foxclaw.sarif
+	rm -f foxclaw.json foxclaw.sarif dependency-audit.json
 	rm -rf .pytest_cache .mypy_cache .ruff_cache foxclaw.egg-info build dist
 	find foxclaw tests -type d -name "__pycache__" -prune -exec rm -rf {} +
 
