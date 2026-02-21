@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel, StrictBool, StrictInt, StrictStr
@@ -143,10 +144,30 @@ class Finding(BaseModel):
 
 
 class SuppressionScope(BaseModel):
-    """Scope controls for suppression matching."""
+    """Scope constraint for applying a suppression rule."""
 
-    profile_glob: str
+    profile_glob: str = "*"
     evidence_contains: str | None = None
+
+
+class ApprovalType(StrEnum):
+    """Allowed justification types for suppression governance."""
+
+    ACCEPTED_RISK = "accepted_risk"
+    MITIGATING_CONTROL = "mitigating_control"
+    FALSE_POSITIVE = "false_positive"
+    TEMPORARY_EXCEPTION = "temporary_exception"
+
+
+class SuppressionApproval(BaseModel):
+    """Governance block enforcing approval and audit trails."""
+
+    requested_by: str
+    requested_at: datetime
+    approved_by: str
+    approved_at: datetime
+    ticket: str
+    justification_type: ApprovalType
 
 
 class SuppressionEntry(BaseModel):
@@ -158,6 +179,7 @@ class SuppressionEntry(BaseModel):
     reason: str
     expires_at: datetime
     scope: SuppressionScope
+    approval: SuppressionApproval | None = None
 
 
 class SuppressionPolicy(BaseModel):
@@ -177,6 +199,7 @@ class AppliedSuppression(BaseModel):
     expires_at: datetime
     source_path: str
     evidence_match: str | None = None
+    approval: SuppressionApproval | None = None
 
 
 class SuppressionEvidence(BaseModel):
@@ -185,6 +208,12 @@ class SuppressionEvidence(BaseModel):
     source_paths: list[str] = Field(default_factory=list)
     applied: list[AppliedSuppression] = Field(default_factory=list)
     expired: list[AppliedSuppression] = Field(default_factory=list)
+    
+    # Governance tracing
+    applied_by_owner: dict[str, int] = Field(default_factory=dict)
+    applied_by_approver: dict[str, int] = Field(default_factory=dict)
+    expiring_within_30d: list[AppliedSuppression] = Field(default_factory=list)
+    legacy_schema_count: int = 0
 
 
 class RuleDefinition(BaseModel):
@@ -200,6 +229,15 @@ class RuleDefinition(BaseModel):
     confidence: FindingConfidence
 
 
+class BundleProvenance(BaseModel):
+    """Metadata about the external bundle this ruleset was loaded from."""
+
+    bundle_name: str
+    bundle_version: str
+    manifest_signature: str
+    verified_at: datetime
+
+
 class Ruleset(BaseModel):
     """Ruleset metadata and entries."""
 
@@ -207,6 +245,7 @@ class Ruleset(BaseModel):
     version: str
     min_firefox_major: int | None = None
     rules: list[RuleDefinition] = Field(default_factory=list)
+    bundle_provenance: BundleProvenance | None = None
 
 
 class ProfileEvidence(BaseModel):
@@ -259,6 +298,7 @@ class EvidenceBundle(BaseModel):
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
     suppressions: SuppressionEvidence = Field(default_factory=SuppressionEvidence)
+    bundle_provenance: BundleProvenance | None = None
 
 
 class FleetHostMetadata(BaseModel):

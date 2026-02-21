@@ -1,0 +1,16 @@
+schema_version: "1.1.0"
+suppressions:
+  - id: "governance-001"
+    rule_id: "FC-FILE-001"
+    owner: "security-team"
+    reason: "Accepted risk for development machines"
+    expires_at: "2099-12-31T00:00:00+00:00"
+    scope:
+      profile_glob: "*"
+    approval:
+      requested_by: "analyst@example.com"
+      requested_at: "2026-01-01T00:00:00+00:00"
+      approved_by: "lead@example.com"
+      approved_at: "2026-01-02T00:00:00+00:00"
+      ticket: "SEC-1234"
+      justification_type: "accepted_risk"

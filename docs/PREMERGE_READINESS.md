@@ -59,10 +59,10 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Immediate Planning Queue (Post-WS16)
+## Immediate Planning Queue (Post-WS26)
 
 Ordered next implementation targets:
 
-1. Optional live workflow wrapper (`intel sync` + `scan`) with deterministic snapshot pinning.
-2. Suppression governance extensions (approval workflow metadata and stronger reporting).
-3. External ruleset bundle distribution model with managed key delivery.
+1. **WS-27**: Policy language expansion spike (CEL/OPA behind strict interface).
+2. **WS-28**: Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines).
+3. **WS-29**: Refresh planning docs with post-WS26 queue (complete).

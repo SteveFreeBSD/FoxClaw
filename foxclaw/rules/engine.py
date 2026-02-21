@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 
 import yaml
@@ -12,6 +14,7 @@ from foxclaw.rules.dsl import evaluate_check
 
 DEFAULT_RULESET_PATH = Path(__file__).resolve().parents[1] / "rulesets" / "balanced.yml"
 _SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
+_LOG = logging.getLogger(__name__)
 
 
 def load_ruleset(path: Path) -> Ruleset:
@@ -37,6 +40,27 @@ def load_ruleset(path: Path) -> Ruleset:
         raise ValueError(f"Ruleset validation failed: {path}: {exc}") from exc
 
     _validate_unique_rule_ids(ruleset)
+    
+    # Bundle provenance extraction
+    manifest_path = path.parent / "__manifest__.json"
+    if manifest_path.exists():
+        from foxclaw.models import BundleProvenance
+        from foxclaw.rules.trust import RulesetBundleManifest
+        
+        try:
+            raw_manifest = json.loads(manifest_path.read_bytes().decode("utf-8"))
+            bundle_manifest = RulesetBundleManifest.model_validate(raw_manifest)
+            ruleset.bundle_provenance = BundleProvenance(
+                bundle_name=bundle_manifest.bundle_name,
+                bundle_version=bundle_manifest.bundle_version,
+                manifest_signature=bundle_manifest.manifest_signature.signature,
+                verified_at=bundle_manifest.created_at, # This uses the bundle's creation time, could be verified time if we stored it
+            )
+        except (OSError, ValueError, ValidationError, json.JSONDecodeError) as exc:
+            # Runtime scan stays fail-open for provenance metadata parsing;
+            # authenticity checks happen during bundle install/verify commands.
+            _LOG.debug("ignoring bundle provenance metadata at %s: %s", manifest_path, exc)
+
     return ruleset
 
 

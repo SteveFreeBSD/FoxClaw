@@ -240,3 +240,104 @@ def test_scan_applies_evidence_contains_scope(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["summary"]["findings_suppressed_count"] == 1
     assert payload["suppressions"]["applied"][0]["evidence_match"] == "missing.pref"
+
+
+def test_scan_governance_v1_1_0_success(tmp_path: Path) -> None:
+    runner = CliRunner()
+    profile = tmp_path / "profile"
+    _write_profile(profile)
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    suppressions = tmp_path / "suppressions.yml"
+    suppressions.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.1.0",
+                "suppressions": [
+                    {
+                        "rule_id": "SUP-HIGH-001",
+                        "owner": "security-team",
+                        "reason": "Governance test.",
+                        "expires_at": "2099-01-01T00:00:00+00:00",
+                        "scope": {"profile_glob": "*"},
+                        "approval": {
+                            "requested_by": "analyst@example.com",
+                            "requested_at": "2026-01-01T00:00:00+00:00",
+                            "approved_by": "lead@example.com",
+                            "approved_at": "2026-01-02T00:00:00+00:00",
+                            "ticket": "SEC-1234",
+                            "justification_type": "accepted_risk"
+                        }
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["scan", "--profile", str(profile), "--ruleset", str(ruleset), "--suppression-path", str(suppressions), "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["summary"]["findings_suppressed_count"] == 1
+    assert payload["suppressions"]["legacy_schema_count"] == 0
+    assert payload["suppressions"]["applied_by_approver"]["lead@example.com"] == 1
+
+
+def test_scan_governance_v1_1_0_fails_without_approval(tmp_path: Path) -> None:
+    runner = CliRunner()
+    suppressions = tmp_path / "suppressions.yml"
+    suppressions.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.1.0",
+                "suppressions": [
+                    {
+                        "rule_id": "SUP-HIGH-001",
+                        "owner": "security-team",
+                        "reason": "Missing approval block triggers error in 1.1.0.",
+                        "expires_at": "2099-01-01T00:00:00+00:00",
+                        "scope": {"profile_glob": "*"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["suppression", "audit", "--suppression-path", str(suppressions)])
+    assert result.exit_code == 1
+    assert "approval is required for schema_version 1.1.0" in result.stdout
+
+
+def test_scan_governance_v1_1_0_fails_time_ordering(tmp_path: Path) -> None:
+    runner = CliRunner()
+    suppressions = tmp_path / "suppressions.yml"
+    suppressions.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.1.0",
+                "suppressions": [
+                    {
+                        "rule_id": "SUP-HIGH-001",
+                        "owner": "security-team",
+                        "reason": "Approval time > Expires time.",
+                        "expires_at": "2026-01-01T00:00:00+00:00",
+                        "scope": {"profile_glob": "*"},
+                        "approval": {
+                            "requested_by": "analyst@example.com",
+                            "requested_at": "2026-01-01T00:00:00+00:00",
+                            "approved_by": "lead@example.com",
+                            "approved_at": "2026-01-05T00:00:00+00:00", # later than expires!
+                            "ticket": "SEC-1234",
+                            "justification_type": "accepted_risk"
+                        }
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["suppression", "audit", "--suppression-path", str(suppressions)])
+    assert result.exit_code == 1
+    assert "approved_at" in result.stdout
+    assert "must be < expires_at" in result.stdout

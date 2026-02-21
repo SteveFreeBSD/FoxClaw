@@ -1,8 +1,10 @@
 """CLI entrypoint for foxclaw."""
 
 import hashlib
-from datetime import datetime
+import json
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -34,6 +36,8 @@ profiles_app = typer.Typer(help="Firefox profile discovery commands.")
 snapshot_app = typer.Typer(help="Snapshot baseline and drift commands.")
 intel_app = typer.Typer(help="Threat intelligence synchronization commands.")
 fleet_app = typer.Typer(help="Fleet and multi-profile aggregation commands.")
+suppression_app = typer.Typer(help="Suppression governance commands.")
+bundle_app = typer.Typer(help="External ruleset bundle distribution commands.")
 console = Console()
 
 
@@ -278,6 +282,196 @@ def scan(
     )
 
 
+@app.command("live")
+def live(
+    # Sync arguments
+    source: list[str] = typer.Option(
+        ...,
+        "--source",
+        help="Source mapping in name=origin format; repeatable.",
+    ),
+    intel_store_dir: Path | None = typer.Option(
+        None,
+        "--intel-store-dir",
+        help="Override intelligence store directory for both sync and scan.",
+    ),
+    allow_insecure_http: bool = typer.Option(
+        False,
+        "--allow-insecure-http",
+        help="Allow plaintext HTTP source URLs for explicit trusted lab mirrors.",
+    ),
+    # Scan arguments
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit JSON report to stdout."
+    ),
+    profile: Path | None = typer.Option(
+        None, "--profile", help="Scan this Firefox profile directory directly."
+    ),
+    require_quiet_profile: bool = typer.Option(
+        False,
+        "--require-quiet-profile",
+        help="Fail if the selected profile appears active (lock file or firefox process).",
+    ),
+    ruleset: Path | None = typer.Option(
+        None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
+    ),
+    ruleset_trust_manifest: Path | None = typer.Option(
+        None,
+        "--ruleset-trust-manifest",
+        help="Verify ruleset digest/signatures against this trust manifest (fail closed on mismatch).",
+    ),
+    require_ruleset_signatures: bool = typer.Option(
+        False,
+        "--require-ruleset-signatures",
+        help="Require at least one valid signature in ruleset trust manifest entry.",
+    ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help="Override enterprise policy discovery path(s); repeatable.",
+    ),
+    suppression_path: list[Path] | None = typer.Option(
+        None,
+        "--suppression-path",
+        help="Apply suppression policy file(s); repeatable.",
+    ),
+    sarif_output: bool = typer.Option(
+        False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
+    ),
+    output: Path | None = typer.Option(
+        None, "--output", help="Write JSON report to this path."
+    ),
+    sarif_out: Path | None = typer.Option(
+        None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
+    ),
+    snapshot_out: Path | None = typer.Option(
+        None,
+        "--snapshot-out",
+        help="Write deterministic snapshot JSON to this path.",
+    ),
+) -> None:
+    """Run an intelligence sync followed by a scan in one step."""
+    if json_output and sarif_output:
+        console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    console.print("[blue]Step 1/2: Synchronizing intelligence sources...[/blue]")
+    try:
+        sync_result = sync_sources(
+            source_specs=source,
+            store_dir=intel_store_dir,
+            normalize_json=True,
+            cwd=Path.cwd(),
+            allow_insecure_http=allow_insecure_http,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Sync failed: {exc}[/red]")
+        console.print("[red]Aborting scan due to sync failure (fail closed).[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    snapshot_id = sync_result.manifest.snapshot_id
+    console.print(f"[green]Sync successful. Snapshot pinned: {snapshot_id}[/green]")
+    console.print("[blue]Step 2/2: Executing deterministic scan...[/blue]")
+
+    # Pass the locked snapshot_id into the scan entrypoint manually to prevent duplication
+    # We call the scan function's internal logic directly but inject the ID.
+    
+    # We must replicate the active profile checks from scan() to keep the CLI clean
+    selected_profile: FirefoxProfile | None = None
+    if profile is not None:
+        selected_profile = _build_profile_override(profile)
+    else:
+        report = discover_profiles()
+        selected_profile = next((p for p in report.profiles if p.selected), None)
+        if selected_profile is None:
+            console.print("[red]Operational error: no Firefox profile selected.[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    if require_quiet_profile:
+        active_reason = detect_active_profile_reason(selected_profile.path)
+        if active_reason is not None:
+            console.print(f"[red]Operational error: quiet profile required; profile appears active ({active_reason}).[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    resolved_ruleset_path = resolve_ruleset_path(ruleset)
+
+    try:
+        if ruleset_trust_manifest is not None:
+            verify_ruleset_with_manifest(
+                ruleset_path=resolved_ruleset_path,
+                manifest_path=ruleset_trust_manifest.expanduser().resolve(strict=False),
+                require_signatures=require_ruleset_signatures,
+            )
+        evidence = run_scan(
+            selected_profile,
+            ruleset_path=resolved_ruleset_path,
+            policy_paths=policy_path,
+            suppression_paths=suppression_path,
+            intel_store_dir=intel_store_dir,
+            intel_snapshot_id=snapshot_id,  # The crucial deterministic pin!
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error during scan: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    # Reuse output rendering
+    json_payload = render_scan_json(evidence) if (json_output or output is not None) else None
+    sarif_payload = render_scan_sarif(evidence) if (sarif_output or sarif_out is not None) else None
+
+    if output is not None:
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if json_payload is None:
+                json_payload = render_scan_json(evidence)
+            output.write_text(json_payload, encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Operational error writing output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if sarif_out is not None:
+        try:
+            sarif_out.parent.mkdir(parents=True, exist_ok=True)
+            if sarif_payload is None:
+                sarif_payload = render_scan_sarif(evidence)
+            sarif_out.write_text(sarif_payload, encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if snapshot_out is not None:
+        try:
+            snapshot_ruleset = load_ruleset(resolved_ruleset_path)
+            snapshot_payload = render_scan_snapshot(
+                evidence,
+                ruleset_path=resolved_ruleset_path,
+                ruleset_name=snapshot_ruleset.name,
+                ruleset_version=snapshot_ruleset.version,
+            )
+            snapshot_out.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_out.write_text(snapshot_payload, encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            console.print(f"[red]Operational error writing snapshot output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    if json_output and output is None and json_payload is not None:
+        typer.echo(json_payload)
+    elif sarif_output and sarif_out is None and sarif_payload is not None:
+        typer.echo(sarif_payload)
+    elif not json_output and not sarif_output:
+        render_scan_summary(console, evidence)
+        if output is not None:
+            console.print(f"JSON report written to: {output}")
+        if sarif_out is not None:
+            console.print(f"SARIF report written to: {sarif_out}")
+        if snapshot_out is not None:
+            console.print(f"Snapshot report written to: {snapshot_out}")
+
+    raise typer.Exit(
+        code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
+    )
+
+
+
 @fleet_app.command("aggregate")
 def fleet_aggregate(
     profile: list[Path] | None = typer.Option(
@@ -410,6 +604,8 @@ app.add_typer(profiles_app, name="profiles")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(intel_app, name="intel")
 app.add_typer(fleet_app, name="fleet")
+app.add_typer(suppression_app, name="suppression")
+app.add_typer(bundle_app, name="bundle")
 
 
 @snapshot_app.command("diff")
@@ -544,6 +740,160 @@ def intel_sync(
     console.print(table)
     raise typer.Exit(code=EXIT_OK)
 
+
+@suppression_app.command("audit")
+def suppression_audit(
+    suppression_path: list[Path] = typer.Option(
+        ...,
+        "--suppression-path",
+        help="Apply suppression policy file(s); repeatable.",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit JSON audit report to stdout."
+    ),
+) -> None:
+    """Audit suppression policies for governance violations and aging."""
+    from foxclaw.rules.suppressions import _load_suppression_sources
+
+    now = datetime.now(UTC)
+
+    try:
+        source_entries, legacy_count = _load_suppression_sources(suppression_path)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Audit failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    results: dict[str, Any] = {
+        "files_scanned": len(set(path.expanduser().resolve().as_posix() for path in suppression_path)),
+        "total_entries": len(source_entries),
+        "legacy_schema_count": legacy_count,
+        "expired": [],
+        "expiring_soon": [],
+        "duplicate_ids": [],
+    }
+
+    seen_ids = set()
+    for source in source_entries:
+        entry = source.entry
+        if entry.id:
+            if entry.id in seen_ids:
+                results["duplicate_ids"].append({"id": entry.id, "source": source.source_path.as_posix()})
+            seen_ids.add(entry.id)
+            
+        delta = entry.expires_at.astimezone(UTC) - now
+        
+        info: dict[str, Any] = {
+            "id": entry.id,
+            "rule_id": entry.rule_id,
+            "owner": entry.owner,
+            "expires_at": entry.expires_at.isoformat(),
+            "source": source.source_path.as_posix()
+        }
+        
+        if delta.total_seconds() < 0:
+            results["expired"].append(info)
+        elif delta.days <= 30:
+            info["days_remaining"] = delta.days
+            results["expiring_soon"].append(info)
+
+    if json_output:
+        typer.echo(json.dumps(results, indent=2, sort_keys=True))
+        raise typer.Exit(
+            code=EXIT_HIGH_FINDINGS
+            if (results["expired"] or results["duplicate_ids"])
+            else EXIT_OK
+        )
+
+    table = Table(title="Suppression Governance Audit")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("Files scanned", str(results["files_scanned"]))
+    table.add_row("Total entries", str(results["total_entries"]))
+    table.add_row("Legacy v1.0.0 schemas", str(results["legacy_schema_count"]))
+    table.add_row("Expired entries", f"[red]{len(results['expired'])}[/red]" if results["expired"] else "0")
+    table.add_row("Expiring <= 30d", f"[yellow]{len(results['expiring_soon'])}[/yellow]" if results["expiring_soon"] else "0")
+    table.add_row("Duplicate IDs", f"[red]{len(results['duplicate_ids'])}[/red]" if results["duplicate_ids"] else "0")
+    console.print(table)
+    
+    if results["expired"] or results["duplicate_ids"]:
+        raise typer.Exit(code=EXIT_HIGH_FINDINGS)
+    raise typer.Exit(code=EXIT_OK)
+
+
+@bundle_app.command("fetch")
+def bundle_fetch(
+    url: str = typer.Argument(..., help="Remote URL of the signed ruleset bundle archive."),
+    output_path: Path = typer.Option(
+        ..., "--output", "-o", help="Path to write the bundle tarball."
+    ),
+    allow_insecure_http: bool = typer.Option(
+        False, "--allow-insecure-http", help="Allow unsafe HTTP transport."
+    ),
+) -> None:
+    """Download a ruleset bundle archive without verification or extraction."""
+    from foxclaw.rules.bundle import fetch_bundle
+    
+    console.print(f"[blue]Fetching bundle from: {url}[/blue]")
+    try:
+        fetch_bundle(url=url, dest_path=output_path, allow_insecure_http=allow_insecure_http)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Fetch failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        
+    console.print(f"[green]Successfully downloaded bundle to {output_path}[/green]")
+
+
+@bundle_app.command("install")
+def bundle_install(
+    archive: Path = typer.Argument(..., help="Path to the downloaded bundle tarball."),
+    keyring: Path = typer.Option(..., "--keyring", help="Path to the trusted keyring manifest."),
+    key_id: str = typer.Option(..., "--key-id", help="Required keyring key_id to verify the manifest signature."),
+    dest: Path = typer.Option(..., "--dest", help="Directory to unpack the validated bundle into."),
+) -> None:
+    """Verify an external bundle's signatures and unpack it locally."""
+    from foxclaw.rules.bundle import verify_and_unpack_bundle
+    
+    console.print("[blue]Verifying and unpacking external ruleset bundle...[/blue]")
+    try:
+        manifest = verify_and_unpack_bundle(
+            archive_path=archive,
+            install_dir=dest,
+            key_id=key_id,
+            keyring_path=keyring,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Bundle installation failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        
+    console.print(f"[green]Successfully installed '{manifest.bundle_name}' (v{manifest.bundle_version}) to {dest}[/green]")
+
+
+@bundle_app.command("verify")
+def bundle_verify(
+    archive: Path = typer.Argument(..., help="Path to the downloaded bundle tarball."),
+    keyring: Path = typer.Option(..., "--keyring", help="Path to the trusted keyring manifest."),
+    key_id: str = typer.Option(..., "--key-id", help="Required keyring key_id to verify the manifest signature."),
+) -> None:
+    """Verify an external bundle's signature strictly without unpacking it."""
+    import shutil
+    import tempfile
+
+    from foxclaw.rules.bundle import verify_and_unpack_bundle
+    
+    tmp_path = Path(tempfile.mkdtemp())
+    try:
+        manifest = verify_and_unpack_bundle(
+            archive_path=archive,
+            install_dir=tmp_path,
+            key_id=key_id,
+            keyring_path=keyring,
+        )
+        console.print(f"[green]Bundle '{manifest.bundle_name}' (v{manifest.bundle_version}) signature verification passed.[/green]")
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Bundle verification failed: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxProfile]:
     if profile_paths:

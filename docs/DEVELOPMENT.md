@@ -84,6 +84,26 @@ python -m foxclaw fleet aggregate \
   --json
 ```
 
+Orchestrate a live sync and deterministic scan wrapper:
+
+```bash
+python -m foxclaw live \
+  --source foxclaw-amo=tests/fixtures/intel/amo_extension_intel.v1.json \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml
+```
+
+Download and install a signed external ruleset bundle:
+
+```bash
+python -m foxclaw bundle fetch https://example.com/bundle.tar.gz --output bundle.tar.gz
+
+python -m foxclaw bundle install bundle.tar.gz \
+  --keyring policies/ruleset-keyring.yml \
+  --key-id release-key-2026-a \
+  --dest ~/.local/share/foxclaw/rulesets/custom-pack
+```
+
 ## Makefile Targets
 
 Equivalent shortcuts.

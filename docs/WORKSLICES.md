@@ -36,6 +36,12 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-21 | complete | WS-20 | Controlled mutation engine with reproducible corruption operators. |
 | WS-22 | complete | WS-21 | Runtime fidelity gate and realism scoring for generated profiles. |
 | WS-23 | complete | WS-22 | Soak/CI integration with fixed-seed smoke and rotating-seed deep runs. |
+| WS-24 | complete | none | Optional `live` workflow wrapper orchestrating `sync` and pinned `scan`. |
+| WS-25 | complete | none | Suppression governance (approval workflow metadata + stronger reporting). |
+| WS-26 | complete | WS-16 | External ruleset bundle distribution model with managed key delivery. |
+| WS-27 | pending | none | Policy language expansion spike (CEL/OPA behind strict interface). |
+| WS-28 | pending | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
+| WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
 
 ## Slice Details
 
@@ -404,6 +410,62 @@ This plan converts the current review and research into sequenced, testable exec
     - `tests/test_profile_generation_scripts.py`
     - `docs/PROFILE_HANDOFF.md`
     - `docs/PROFILE_REVIEW_CHECKLIST.md`
+- Acceptance: met.
+
+### WS-24 - Optional Live Workflow Wrapper
+
+- Status: complete.
+- Goal: provide a one-click orchestrated sync-then-scan workflow without breaking offline-by-default isolation.
+- Delivered:
+  - Added public architecture spec to `docs/WS24_LIVE_WORKFLOW_ARCHITECTURE.md`.
+  - Added new `live` Typer command in `foxclaw/cli.py` that sequences `sync_sources()` and `run_scan()`.
+  - The live wrapper captures the exact `snapshot_id` generated during the sync and passes it to the scan phase for deterministic replayability.
+  - Generates explicit `[green]Sync successful. Snapshot pinned: <hash>[/green]` provenance in stdout.
+  - Fails safely closed without scanning if the network fetch fails.
+  - Added integration tests covering successful execution and fallback abort paths in `tests/test_live_orchestration.py`.
+- Acceptance: met.
+
+### WS-25 - Suppression Governance
+
+- Status: complete.
+- Goal: upgrade suppressions to include approval workflow metadata and stronger tracking.
+- Delivered:
+  - Bumped policy schema to `1.1.0` and introduced `SuppressionApproval` tracing struct.
+  - Preserved compatibility for `1.0.0` policy files (default when `schema_version` is omitted) while enforcing approval requirements for explicit `1.1.0` files.
+  - Added tight fail-closed UTC validation boundary checks tracking timestamp chronologies (`requested_at` <= `approved_at` < `expires_at`).
+  - Implemented `foxclaw suppression audit` CLI endpoint to scan policies without invoking the whole engine.
+  - Aggregated reporting metrics dynamically to text outputs: expiring soon, legacy usage, active approvers.
+  - Upgraded docs (`SUPPRESSIONS.md`) safely.
+- Acceptance: met.
+
+### WS-26 - External Ruleset Bundle Distribution
+
+- Status: complete.
+- Goal: fetch external ruleset bundles from the network safely utilizing offline-by-default runtime boundaries.
+- Delivered:
+  - Modeled `RulesetBundleManifest` linking a trusted `KeyringManifest` system (`foxclaw.rules.keyring`).
+  - Added network-fetching operations strictly confined to `foxclaw bundle fetch/install/verify` commands.
+  - Runtime extraction injects `BundleProvenance` to the local scanner, propagating transparently into SARIF and JSON artifacts.
+  - Built full downgrade attack and invalid signature protections natively into the bundle manifest parsing.
+- Acceptance: met.
+
+### WS-27 - Policy Language Expansion Spike
+
+- Status: pending.
+- Goal: explore CEL/OPA behind strict engine interfaces for flexible rule authoring.
+
+### WS-28 - Profile Realism Deferred Hardening
+
+- Status: pending.
+- Goal: implement the deferred Firefox launch sanity gate and expand cross-OS baseline supports.
+
+### WS-29 - Refresh Planning Docs with Post-WS26 Queue
+
+- Status: complete.
+- Goal: update runbooks and work tracking to align with newest roadmap stops.
+- Delivered:
+  - Updated `docs/PREMERGE_READINESS.md`.
+  - Added WS-27, WS-28, WS-29 to `docs/WORKSLICES.md`.
 - Acceptance: met.
 
 ## Workslice Update Protocol

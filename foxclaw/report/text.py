@@ -40,6 +40,10 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
     table.add_row("Intel advisory matches", str(bundle.summary.intel_matches_count))
     table.add_row("Findings suppressed", str(bundle.summary.findings_suppressed_count))
     table.add_row("Total HIGH findings", str(bundle.summary.findings_high_count))
+    
+    if bundle.bundle_provenance:
+        table.add_row("Bundle loaded", f"{bundle.bundle_provenance.bundle_name}@{bundle.bundle_provenance.bundle_version}")
+        
     console.print(table)
     _render_extension_posture(console, bundle)
     _render_intel_summary(console, bundle)
@@ -175,4 +179,9 @@ def _render_suppression_summary(console: Console, bundle: EvidenceBundle) -> Non
     table.add_row("Suppression files", str(len(bundle.suppressions.source_paths)))
     table.add_row("Applied suppressions", str(len(bundle.suppressions.applied)))
     table.add_row("Expired suppressions", str(len(bundle.suppressions.expired)))
+    table.add_row("Expiring <= 30d", str(len(bundle.suppressions.expiring_within_30d)))
+    table.add_row("Legacy v1.0.0 schemas", str(bundle.suppressions.legacy_schema_count))
+    table.add_row("Unique active owners", str(len(bundle.suppressions.applied_by_owner)))
+    table.add_row("Unique active approvers", str(len(bundle.suppressions.applied_by_approver)))
+
     console.print(table)

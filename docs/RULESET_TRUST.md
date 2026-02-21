@@ -92,3 +92,21 @@ rulesets:
 - Keep trust manifests in source control and review them like code.
 - Update manifest digest/signatures atomically with intended ruleset changes.
 - Prefer `--require-ruleset-signatures` in release or CI enforcement paths.
+
+## External Bundle Distribution
+
+FoxClaw supports distributing signed ruleset bundles (TAR archives) for fleet usage. A bundle contains ruleset YAMLs and a `__manifest__.json` defining a `RulesetBundleManifest`. The bundle manifest signs the embedded `RulesetTrustManifest`, allowing you to fetch rulesets from the internet and verify them completely offline before execution.
+
+Bundle commands allow fetching, verifying, and installing bundles independent of the `scan` engine:
+```bash
+# Safely fetch an untrusted ruleset bundle
+foxclaw bundle fetch https://example.com/foxclaw-bundle.tar.gz --output bundle.tar.gz
+
+# Verify the root signature and unpack into your local fleet
+foxclaw bundle install bundle.tar.gz \
+  --keyring policies/ruleset-keyring.yml \
+  --key-id release-key-2026-a \
+  --dest ~/.local/share/foxclaw/rulesets/premium-pack
+```
+
+The runtime `foxclaw scan` engine automatically reads the unpacked `__manifest__.json` bounding the installed bundle and outputs `BundleProvenance` telemetry on all generated JSON/SARIF reports.
