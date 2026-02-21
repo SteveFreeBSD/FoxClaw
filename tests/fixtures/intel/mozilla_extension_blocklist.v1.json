@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "addon_id": "blocked-all-versions@example.com",
+      "block_state": "blocked",
+      "reason": "Known malicious extension family",
+      "reference_url": "https://example.invalid/blocklist/blocked-all-versions"
+    },
+    {
+      "addon_id": "blocked-versioned@example.com",
+      "block_state": "soft_blocked",
+      "reason": "Version-specific security issue",
+      "reference_url": "https://example.invalid/blocklist/blocked-versioned",
+      "version": "2.5.0"
+    }
+  ],
+  "schema_version": "foxclaw.mozilla.extension_blocklist.v1"
+}

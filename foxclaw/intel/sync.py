@@ -8,7 +8,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 from foxclaw.intel.adapters import build_source_index
@@ -37,6 +37,7 @@ def sync_sources(
     store_dir: Path | None,
     normalize_json: bool,
     cwd: Path,
+    allow_insecure_http: bool = False,
 ) -> IntelSyncResult:
     """Synchronize configured source materials into local storage."""
     parsed_specs = _parse_source_specs(source_specs)
@@ -45,7 +46,12 @@ def sync_sources(
     source_payloads: list[tuple[IntelSourceMaterial, bytes]] = []
     source_indexes: dict[str, IntelSourceIndex] = {}
     for spec in parsed_specs:
-        payload = _read_source_payload(origin=spec.origin, cwd=cwd)
+        transport = _classify_origin_transport(spec.origin)
+        payload = _read_source_payload(
+            origin=spec.origin,
+            cwd=cwd,
+            allow_insecure_http=allow_insecure_http,
+        )
         payload = _normalize_payload_if_json(payload, normalize_json=normalize_json)
         source_index = build_source_index(source_name=spec.name, payload=payload)
         source_indexes[spec.name] = source_index
@@ -58,6 +64,8 @@ def sync_sources(
                     size_bytes=len(payload),
                     fetched_at=datetime.now(UTC),
                     artifact_path="",
+                    transport=transport,
+                    insecure_transport=(transport == "http"),
                     schema_version=source_index.schema_version,
                     adapter=source_index.adapter,
                     records_indexed=source_index.record_count,
@@ -103,9 +111,22 @@ def _parse_source_specs(specs: list[str]) -> list[_SourceSpec]:
     return parsed
 
 
-def _read_source_payload(*, origin: str, cwd: Path) -> bytes:
-    if origin.startswith("https://") or origin.startswith("http://"):
-        return _read_http_payload(origin)
+def _classify_origin_transport(origin: str) -> Literal["file", "https", "http"]:
+    scheme = urlparse(origin).scheme.lower()
+    if scheme == "https":
+        return "https"
+    if scheme == "http":
+        return "http"
+    return "file"
+
+
+def _read_source_payload(*, origin: str, cwd: Path, allow_insecure_http: bool) -> bytes:
+    parsed = urlparse(origin)
+    scheme = parsed.scheme.lower()
+    if scheme in {"http", "https"}:
+        return _read_http_payload(origin, allow_insecure_http=allow_insecure_http)
+    if scheme not in {"", "file"}:
+        raise OSError(f"unsupported URL scheme for source '{origin}'")
 
     source_path = Path(origin).expanduser()
     if not source_path.is_absolute():
@@ -128,11 +149,16 @@ def _normalize_payload_if_json(payload: bytes, *, normalize_json: bool) -> bytes
     return (json.dumps(parsed, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
 
 
-def _read_http_payload(origin: str) -> bytes:
+def _read_http_payload(origin: str, *, allow_insecure_http: bool) -> bytes:
     parsed = urlparse(origin)
     scheme = parsed.scheme.lower()
     if scheme not in {"http", "https"}:
         raise OSError(f"unsupported URL scheme for source '{origin}'")
+    if scheme == "http" and not allow_insecure_http:
+        raise OSError(
+            "insecure HTTP source blocked by default; "
+            "re-run with --allow-insecure-http for trusted lab mirrors"
+        )
     if not parsed.hostname:
         raise OSError(f"missing host in source URL '{origin}'")
 

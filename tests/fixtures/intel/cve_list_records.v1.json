@@ -1,0 +1,17 @@
+{
+  "schema_version": "foxclaw.cve.list_records.v1",
+  "records": [
+    {
+      "cve_id": "CVE-2026-0001",
+      "severity": "low",
+      "summary": "CVE list severity for CVE-2026-0001.",
+      "reference_url": "https://example.invalid/cvelist/CVE-2026-0001"
+    },
+    {
+      "cve_id": "CVE-2026-0002",
+      "severity": "medium",
+      "summary": "CVE list severity for CVE-2026-0002.",
+      "reference_url": "https://example.invalid/cvelist/CVE-2026-0002"
+    }
+  ]
+}

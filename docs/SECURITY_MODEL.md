@@ -12,6 +12,7 @@ These are non-negotiable for the scan runtime:
   - Collection, rule evaluation, and reporting remain isolated concerns.
 - Deterministic contracts.
   - Stable sorting and schemas for machine consumers and CI.
+  - Fleet aggregation identities are deterministic hashes over local host/profile metadata.
 
 ## Trust Boundaries
 
@@ -48,11 +49,14 @@ These are non-negotiable for the scan runtime:
   - Control: deterministic ordering and versioned rulesets.
 - CI token misuse for SARIF upload.
   - Control: job-scoped `security-events: write` and fork PR upload skip logic.
+- Release publishing misuse.
+  - Control: OIDC trusted publishing + environment-scoped release workflow + provenance attestation.
 
 ## Data Handling
 
 - Inputs are local machine artifacts only.
 - Output payloads may contain local file paths and evidence text.
+- Fleet aggregation payloads include host/profile identity hashes for downstream joins.
 - Operators should treat JSON/SARIF artifacts as potentially sensitive operational telemetry.
 
 ## Operational Assumptions
@@ -60,14 +64,16 @@ These are non-negotiable for the scan runtime:
 - Scan may run against active profiles unless `--require-quiet-profile` is set.
 - SQLite integrity checks use read-only URI mode.
 - Runtime does not persist hidden state beyond explicit output files.
+- Network-backed intel updates run only through explicit `intel sync`; HTTPS is default,
+  and plaintext HTTP requires explicit `--allow-insecure-http` opt-in.
 
 ## Forward Security Backlog
 
 - Signed policy packs and manifest verification.
 - Snapshot/diff integrity with hash-bound baselines.
 - Suppression governance extensions (approval workflows and tighter scope controls).
-- Release provenance and artifact attestation in CI.
-- Optional Mozilla CVE and extension intelligence cache ingestion as a separate explicit phase.
+- Continuous verification of release attestations in downstream deployment pipelines.
+- Ongoing hardening for multi-source CVE/KEV/EPSS ingestion integrity and provenance policy.
 - Any network-backed intelligence refresh must run in explicit update commands, never scan runtime.
 
 ## References

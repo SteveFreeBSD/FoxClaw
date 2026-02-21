@@ -35,7 +35,9 @@ pytest -q -m integration
 - `profile_baseline`: valid prefs and SQLite, strict file modes, no policy override.
 - `profile_weak_perms`: relaxed `key4.db` permissions to trigger filesystem HIGH findings.
 - `profile_sqlite_error`: corrupted `places.sqlite` to trigger SQLite HIGH findings.
-- `profile_policy_present`: policy override path includes `policies.DisableTelemetry`.
+- `profile_policy_present`: policy override path includes deterministic enterprise hardening keys
+  (`policies.DisableTelemetry`, `policies.DisableFirefoxStudies`, `policies.ExtensionSettings`,
+  `policies.HTTPSOnlyMode`).
 - `profile_active_lock`: `parent.lock` present for `--require-quiet-profile` validation.
 - `profile_userjs_override`: `prefs.js` + `user.js` overlap to validate user.js precedence.
 - `profile_third_party_xpi`: synthetic third-party XPI for extension add-on collection coverage.

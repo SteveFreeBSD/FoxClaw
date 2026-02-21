@@ -1,0 +1,15 @@
+{
+  "schema_version": "foxclaw.cisa.known_exploited_vulnerabilities.v1",
+  "entries": [
+    {
+      "cve_id": "CVE-2026-0001",
+      "vendor_project": "Mozilla",
+      "product": "Firefox",
+      "date_added": "2026-02-15",
+      "due_date": "2026-03-07",
+      "known_ransomware_campaign_use": "Unknown",
+      "short_description": "Observed exploitation in the wild.",
+      "reference_url": "https://example.invalid/kev/CVE-2026-0001"
+    }
+  ]
+}

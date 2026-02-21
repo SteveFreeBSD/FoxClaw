@@ -78,3 +78,9 @@ When adding or removing checks, update:
 - `scripts/certify.sh`
 - `.github/workflows/foxclaw-security.yml`
 - this document.
+
+CI-only dependency policy gate:
+
+- Pull requests enforce dependency review in `dependency-policy` job
+  (`actions/dependency-review-action` with high-severity failure policy).
+  This gate has no exact local offline equivalent and is enforced in GitHub Actions.

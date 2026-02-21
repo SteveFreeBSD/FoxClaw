@@ -16,6 +16,9 @@ def test_collect_policies_parses_top_level_and_nested_key_paths(tmp_path: Path) 
             {
                 "policies": {
                     "DisableTelemetry": True,
+                    "DisableFirefoxStudies": True,
+                    "ExtensionSettings": {"*": {"installation_mode": "blocked"}},
+                    "HTTPSOnlyMode": "enabled",
                     "Homepage": {"URL": "https://example.invalid"},
                 }
             },
@@ -33,6 +36,9 @@ def test_collect_policies_parses_top_level_and_nested_key_paths(tmp_path: Path) 
     assert summary.parse_error is None
     assert "policies" in summary.top_level_keys
     assert "policies.DisableTelemetry" in summary.key_paths
+    assert "policies.DisableFirefoxStudies" in summary.key_paths
+    assert "policies.ExtensionSettings" in summary.key_paths
+    assert "policies.HTTPSOnlyMode" in summary.key_paths
     assert "policies.Homepage.URL" in summary.key_paths
 
 
@@ -61,6 +67,26 @@ def test_scan_policy_path_override_uses_only_explicit_paths(tmp_path: Path) -> N
                 "    rationale: deterministic policy coverage",
                 "    recommendation: set policies.DisableTelemetry",
                 "    confidence: low",
+                "  - id: POLICY-INFO-002",
+                "    title: firefox studies disable policy should exist",
+                "    severity: INFO",
+                "    category: policy",
+                "    check:",
+                "      policy_key_exists:",
+                "        path: policies.DisableFirefoxStudies",
+                "    rationale: deterministic policy coverage",
+                "    recommendation: set policies.DisableFirefoxStudies",
+                "    confidence: low",
+                "  - id: POLICY-INFO-003",
+                "    title: extension settings policy should exist",
+                "    severity: INFO",
+                "    category: policy",
+                "    check:",
+                "      policy_key_exists:",
+                "        path: policies.ExtensionSettings",
+                "    rationale: deterministic policy coverage",
+                "    recommendation: set policies.ExtensionSettings",
+                "    confidence: low",
             ]
         ),
         encoding="utf-8",
@@ -70,7 +96,17 @@ def test_scan_policy_path_override_uses_only_explicit_paths(tmp_path: Path) -> N
     present_policy = tmp_path / "enterprise" / "policies.json"
     present_policy.parent.mkdir(parents=True, exist_ok=True)
     present_policy.write_text(
-        json.dumps({"policies": {"DisableTelemetry": True}}, indent=2, sort_keys=True),
+        json.dumps(
+            {
+                "policies": {
+                    "DisableTelemetry": True,
+                    "DisableFirefoxStudies": True,
+                    "ExtensionSettings": {"*": {"installation_mode": "blocked"}},
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        ),
         encoding="utf-8",
     )
 
@@ -93,7 +129,11 @@ def test_scan_policy_path_override_uses_only_explicit_paths(tmp_path: Path) -> N
     missing_payload = json.loads(missing_result.stdout)
     assert missing_payload["policies"]["searched_paths"] == [str(missing_policy.resolve())]
     assert missing_payload["summary"]["policies_found"] == 0
-    assert {item["id"] for item in missing_payload["findings"]} == {"POLICY-INFO-001"}
+    assert {item["id"] for item in missing_payload["findings"]} == {
+        "POLICY-INFO-001",
+        "POLICY-INFO-002",
+        "POLICY-INFO-003",
+    }
 
     present_result = runner.invoke(
         app,

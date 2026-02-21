@@ -116,6 +116,19 @@ def _finding_to_result(
         evidence_lines = ["No additional evidence."]
     evidence_text = " | ".join(evidence_lines)
 
+    properties: dict[str, object] = {
+        "category": finding.category,
+        "confidence": finding.confidence,
+        "foxclawSeverity": finding.severity,
+        "security-severity": _SEVERITY_TO_SECURITY_SCORE[finding.severity],
+        "tags": _rule_tags(finding),
+        "evidence": evidence_lines,
+    }
+    if finding.risk_priority is not None:
+        properties["riskPriority"] = finding.risk_priority
+    if finding.risk_factors:
+        properties["riskFactors"] = finding.risk_factors
+
     return {
         "ruleId": finding.id,
         "ruleIndex": rule_index,
@@ -130,14 +143,7 @@ def _finding_to_result(
                 }
             }
         ],
-        "properties": {
-            "category": finding.category,
-            "confidence": finding.confidence,
-            "foxclawSeverity": finding.severity,
-            "security-severity": _SEVERITY_TO_SECURITY_SCORE[finding.severity],
-            "tags": _rule_tags(finding),
-            "evidence": evidence_lines,
-        },
+        "properties": properties,
         "partialFingerprints": _build_partial_fingerprints(
             finding=finding,
             artifact_uri=artifact_uri,

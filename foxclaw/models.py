@@ -13,6 +13,7 @@ PrefSource = Literal["prefs.js", "user.js", "unset"]
 PrefRawType = Literal["bool", "int", "string"]
 FindingSeverity = Literal["INFO", "MEDIUM", "HIGH"]
 FindingConfidence = Literal["low", "medium", "high"]
+RiskPriority = Literal["low", "medium", "high", "critical"]
 
 
 class PrefValue(BaseModel):
@@ -127,6 +128,8 @@ class Finding(BaseModel):
     rationale: str
     recommendation: str
     confidence: FindingConfidence
+    risk_priority: RiskPriority | None = None
+    risk_factors: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
 
 
@@ -247,6 +250,84 @@ class EvidenceBundle(BaseModel):
     high_findings: list[str] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
     suppressions: SuppressionEvidence = Field(default_factory=SuppressionEvidence)
+
+
+class FleetHostMetadata(BaseModel):
+    """Deterministic host identity metadata for fleet aggregation outputs."""
+
+    host_id: str
+    hostname: str
+    fqdn: str
+    os_name: str
+    os_release: str
+    os_version: str
+    architecture: str
+    machine_id_sha256: str | None = None
+
+
+class FleetProfileIdentity(BaseModel):
+    """Deterministic profile identity used in fleet outputs."""
+
+    profile_uid: str
+    profile_id: str
+    name: str
+    path: str
+
+
+class FleetProfileReport(BaseModel):
+    """Normalized per-profile fleet output contract."""
+
+    identity: FleetProfileIdentity
+    evidence_schema_version: str
+    summary: ScanSummary
+    high_findings: list[str] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
+    intel_snapshot_id: str | None = None
+
+
+class FleetFindingRecord(BaseModel):
+    """Flattened finding record for downstream SIEM/fleet ingestion."""
+
+    host_id: str
+    profile_uid: str
+    profile_id: str
+    profile_name: str
+    profile_path: str
+    rule_id: str
+    title: str
+    severity: FindingSeverity
+    category: str
+    confidence: FindingConfidence
+    rationale: str
+    recommendation: str
+    risk_priority: RiskPriority | None = None
+    risk_factors: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    intel_snapshot_id: str | None = None
+
+
+class FleetAggregateSummary(BaseModel):
+    """Fleet-level aggregate counters for merged profile outputs."""
+
+    profiles_total: int
+    profiles_with_findings: int
+    profiles_with_high_findings: int
+    findings_total: int
+    findings_high_count: int
+    findings_medium_count: int
+    findings_info_count: int
+    findings_suppressed_count: int
+    unique_rule_ids: list[str] = Field(default_factory=list)
+
+
+class FleetAggregationReport(BaseModel):
+    """Top-level fleet aggregation report contract."""
+
+    fleet_schema_version: str = "1.0.0"
+    host: FleetHostMetadata
+    aggregate: FleetAggregateSummary
+    profiles: list[FleetProfileReport] = Field(default_factory=list)
+    finding_records: list[FleetFindingRecord] = Field(default_factory=list)
 
 
 class SnapshotRulesetMetadata(BaseModel):

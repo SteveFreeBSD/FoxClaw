@@ -3,8 +3,8 @@
     {
       "mode": "0644",
       "path": "policies/disable_telemetry.json",
-      "sha256": "844eb0a1fb2626a2b89d4000f6f9a37228d370d1f725f28e3f117089f1e9c48b",
-      "size": 53
+      "sha256": "898664d101d882cb28b6d9add31a36af1d88152cf45edbd292fd7d4984121092",
+      "size": 214
     },
     {
       "mode": "0600",
@@ -201,8 +201,8 @@
     {
       "mode": "0644",
       "path": "rulesets/integration.yml",
-      "sha256": "166ce8a4fef8e9991203392263d4b72692f1fef7532f7dcf4a3c12203e2a4046",
-      "size": 1705
+      "sha256": "8bfc6cb21a4dd329ce746a34ff7f62a1bfbc273dd577889a25c8e96ba6db85b8",
+      "size": 2775
     }
   ],
   "generator_version": "1.0.0",

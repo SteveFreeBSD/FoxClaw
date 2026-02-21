@@ -7,7 +7,7 @@ name = "foxclaw"
 version = "0.1.0"
 description = "Deterministic, read-only Firefox security posture scanner"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
   "typer",

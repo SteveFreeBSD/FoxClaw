@@ -83,6 +83,28 @@ def test_dsl_pref_equals_and_pref_unset_semantics() -> None:
     assert unset.passed is True
 
 
+def test_dsl_pref_equals_requires_type_stable_matches() -> None:
+    bundle = _empty_bundle()
+    bundle.prefs = PrefEvidence(
+        root={
+            "bool.pref": PrefValue(value=True, source="prefs.js", raw_type="bool"),
+            "int.pref": PrefValue(value=1, source="prefs.js", raw_type="int"),
+        }
+    )
+
+    bool_vs_int = evaluate_check(
+        bundle, {"pref_equals": {"key": "bool.pref", "value": 1}}
+    )
+    assert bool_vs_int.passed is False
+    assert "expected=1 (int), observed=True (bool)" in bool_vs_int.evidence[0]
+
+    int_vs_bool = evaluate_check(
+        bundle, {"pref_equals": {"key": "int.pref", "value": True}}
+    )
+    assert int_vs_bool.passed is False
+    assert "expected=True (bool), observed=1 (int)" in int_vs_bool.evidence[0]
+
+
 def test_dsl_pref_exists() -> None:
     bundle = _empty_bundle()
 

@@ -10,6 +10,7 @@ from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.policies import collect_policies
 from foxclaw.collect.prefs import collect_prefs
 from foxclaw.collect.sqlite import collect_sqlite_quick_checks
+from foxclaw.intel.blocklist import apply_extension_blocklist_from_snapshot
 from foxclaw.intel.correlation import correlate_firefox_vulnerability_intel
 from foxclaw.models import (
     EvidenceBundle,
@@ -51,13 +52,24 @@ def run_scan(
     normalized_policy_paths = _normalize_policy_paths(policy_paths)
     normalized_suppression_paths = _normalize_suppression_paths(suppression_paths)
     policies = collect_policies(policy_paths=normalized_policy_paths)
-    extensions = collect_extensions(profile_dir)
-    sqlite = collect_sqlite_quick_checks(profile_dir)
     intel, intel_findings = correlate_firefox_vulnerability_intel(
         profile_dir=profile_dir,
         intel_store_dir=intel_store_dir,
         intel_snapshot_id=intel_snapshot_id,
     )
+    extensions = collect_extensions(profile_dir)
+    if (
+        intel.enabled
+        and intel.error is None
+        and intel.store_dir is not None
+        and intel.snapshot_id is not None
+    ):
+        apply_extension_blocklist_from_snapshot(
+            extensions=extensions,
+            store_dir=Path(intel.store_dir),
+            snapshot_id=intel.snapshot_id,
+        )
+    sqlite = collect_sqlite_quick_checks(profile_dir)
 
     high_risk_perms_count = _count_high_risk_permissions(filesystem)
     extensions_high_risk_count = sum(

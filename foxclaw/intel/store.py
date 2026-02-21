@@ -175,6 +175,96 @@ def _upsert_sqlite_index(
             );
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS extension_blocklist (
+                snapshot_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                addon_id TEXT NOT NULL,
+                version TEXT,
+                block_state TEXT NOT NULL,
+                reason TEXT,
+                reference_url TEXT,
+                PRIMARY KEY (snapshot_id, source_name, addon_id, version, block_state),
+                FOREIGN KEY (snapshot_id, source_name)
+                    REFERENCES source_materials(snapshot_id, source_name) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS nvd_cves (
+                snapshot_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                cve_id TEXT NOT NULL,
+                severity TEXT,
+                summary TEXT,
+                reference_url TEXT,
+                PRIMARY KEY (snapshot_id, source_name, cve_id, severity, reference_url),
+                FOREIGN KEY (snapshot_id, source_name)
+                    REFERENCES source_materials(snapshot_id, source_name) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cve_list_records (
+                snapshot_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                cve_id TEXT NOT NULL,
+                severity TEXT,
+                summary TEXT,
+                reference_url TEXT,
+                PRIMARY KEY (snapshot_id, source_name, cve_id, severity, reference_url),
+                FOREIGN KEY (snapshot_id, source_name)
+                    REFERENCES source_materials(snapshot_id, source_name) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS kev_catalog (
+                snapshot_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                cve_id TEXT NOT NULL,
+                vendor_project TEXT,
+                product TEXT,
+                date_added TEXT,
+                due_date TEXT,
+                known_ransomware_campaign_use TEXT,
+                short_description TEXT,
+                reference_url TEXT,
+                PRIMARY KEY (
+                    snapshot_id,
+                    source_name,
+                    cve_id,
+                    vendor_project,
+                    product,
+                    date_added,
+                    due_date,
+                    known_ransomware_campaign_use,
+                    reference_url
+                ),
+                FOREIGN KEY (snapshot_id, source_name)
+                    REFERENCES source_materials(snapshot_id, source_name) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS epss_scores (
+                snapshot_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                cve_id TEXT NOT NULL,
+                score REAL NOT NULL,
+                percentile REAL,
+                reference_url TEXT,
+                PRIMARY KEY (snapshot_id, source_name, cve_id, score, percentile, reference_url),
+                FOREIGN KEY (snapshot_id, source_name)
+                    REFERENCES source_materials(snapshot_id, source_name) ON DELETE CASCADE
+            );
+            """
+        )
 
         connection.execute(
             """
@@ -252,6 +342,121 @@ def _upsert_sqlite_index(
                         advisory.severity,
                         advisory.summary,
                         advisory.reference_url,
+                    ),
+                )
+            for entry in source_index.extension_blocklist:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO extension_blocklist (
+                        snapshot_id,
+                        source_name,
+                        addon_id,
+                        version,
+                        block_state,
+                        reason,
+                        reference_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        manifest.snapshot_id,
+                        source.name,
+                        entry.addon_id,
+                        entry.version,
+                        entry.block_state,
+                        entry.reason,
+                        entry.reference_url,
+                    ),
+                )
+            for nvd_cve in source_index.nvd_cves:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO nvd_cves (
+                        snapshot_id,
+                        source_name,
+                        cve_id,
+                        severity,
+                        summary,
+                        reference_url
+                    ) VALUES (?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        manifest.snapshot_id,
+                        source.name,
+                        nvd_cve.cve_id,
+                        nvd_cve.severity,
+                        nvd_cve.summary,
+                        nvd_cve.reference_url,
+                    ),
+                )
+            for cve_list_record in source_index.cve_list_records:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO cve_list_records (
+                        snapshot_id,
+                        source_name,
+                        cve_id,
+                        severity,
+                        summary,
+                        reference_url
+                    ) VALUES (?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        manifest.snapshot_id,
+                        source.name,
+                        cve_list_record.cve_id,
+                        cve_list_record.severity,
+                        cve_list_record.summary,
+                        cve_list_record.reference_url,
+                    ),
+                )
+            for kev in source_index.kev_records:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO kev_catalog (
+                        snapshot_id,
+                        source_name,
+                        cve_id,
+                        vendor_project,
+                        product,
+                        date_added,
+                        due_date,
+                        known_ransomware_campaign_use,
+                        short_description,
+                        reference_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        manifest.snapshot_id,
+                        source.name,
+                        kev.cve_id,
+                        kev.vendor_project,
+                        kev.product,
+                        kev.date_added,
+                        kev.due_date,
+                        kev.known_ransomware_campaign_use,
+                        kev.short_description,
+                        kev.reference_url,
+                    ),
+                )
+            for epss in source_index.epss_records:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO epss_scores (
+                        snapshot_id,
+                        source_name,
+                        cve_id,
+                        score,
+                        percentile,
+                        reference_url
+                    ) VALUES (?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        manifest.snapshot_id,
+                        source.name,
+                        epss.cve_id,
+                        epss.score,
+                        epss.percentile,
+                        epss.reference_url,
                     ),
                 )
 

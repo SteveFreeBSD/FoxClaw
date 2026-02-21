@@ -1,5 +1,5 @@
 name: balanced
-version: 0.4.0
+version: 0.5.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -57,6 +57,39 @@ rules:
     rationale: Managed environments often require explicit telemetry disablement.
     recommendation: Configure DisableTelemetry in policies.json when enterprise policy is used.
     confidence: low
+
+  - id: FC-POLICY-002
+    title: Enterprise policy disables Firefox Studies
+    severity: INFO
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.DisableFirefoxStudies
+    rationale: Disabling studies reduces unmanaged configuration experiments in managed fleets.
+    recommendation: Configure DisableFirefoxStudies in policies.json for deterministic posture control.
+    confidence: medium
+
+  - id: FC-POLICY-003
+    title: Enterprise policy defines ExtensionSettings baseline
+    severity: MEDIUM
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.ExtensionSettings
+    rationale: Extension policy baselines reduce unmanaged add-on install and permission drift.
+    recommendation: Define ExtensionSettings policy controls for allowed/blocked extension behavior.
+    confidence: medium
+
+  - id: FC-POLICY-004
+    title: Enterprise policy enables HTTPS-only mode governance
+    severity: INFO
+    category: policy
+    check:
+      policy_key_exists:
+        path: policies.HTTPSOnlyMode
+    rationale: HTTPS-only policy controls reduce cleartext navigation exposure in managed environments.
+    recommendation: Configure HTTPSOnlyMode in policies.json to align browser transport posture.
+    confidence: medium
 
   - id: FC-SQL-001
     title: places.sqlite integrity quick_check must pass

@@ -54,11 +54,12 @@ Target: after phase 1 stabilization.
 - Signed policy packs:
   - external ruleset bundles with signature verification and manifest pinning.
 - CI provenance:
-  - artifact attestations for build outputs.
-  - provenance references linked from release artifacts.
+  - baseline artifact attestations for release build outputs are available.
+  - baseline provenance references are linked from release artifacts.
 - Release hardening:
-  - trusted publishing for package distribution.
-  - dependency review and vulnerability gates in CI.
+  - baseline trusted publishing for package distribution is available.
+  - baseline dependency review policy gate is enforced in CI pull requests.
+  - extend with scheduled dependency vulnerability sweeps.
 
 Exit criteria:
 
@@ -73,6 +74,7 @@ Exit criteria:
 Target: medium-term.
 
 - Offline intelligence cache ingestion (explicit update phase only):
+  - baseline KEV/EPSS-aware risk-priority metadata is available in correlated findings.
   - enrich findings with KEV/EPSS-aware prioritization metadata.
 - Optional comprehensive live workflow:
   - provide a wrapper command that runs sync + scan pinned to the new snapshot.
@@ -96,3 +98,8 @@ Exit criteria:
   - tests for new behavior.
   - deterministic output assertions.
   - rollback-safe feature flags when introducing new surfaces.
+
+Execution tracking:
+
+- Ordered implementation slices are tracked in `docs/WORKSLICES.md`.
+- Periodic technical and ecosystem checkpoints are recorded in date-stamped docs under `docs/`.

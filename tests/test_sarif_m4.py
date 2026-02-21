@@ -164,6 +164,28 @@ def test_render_sarif_validates_against_official_schema() -> None:
     Draft4Validator(_load_official_sarif_schema()).validate(payload)
 
 
+def test_render_sarif_includes_risk_priority_properties() -> None:
+    findings = [
+        Finding(
+            id="R-RISK-001",
+            title="Risk metadata check",
+            severity="HIGH",
+            category="vulnerability_intel",
+            rationale="Risk metadata should be emitted for downstream triage.",
+            recommendation="Upgrade immediately.",
+            confidence="high",
+            risk_priority="critical",
+            risk_factors=["kev_listed", "severity:high"],
+            evidence=["intel evidence"],
+        )
+    ]
+
+    payload = json.loads(render_scan_sarif(_bundle_with_findings(findings)))
+    result_properties = payload["runs"][0]["results"][0]["properties"]
+    assert result_properties["riskPriority"] == "critical"
+    assert result_properties["riskFactors"] == ["kev_listed", "severity:high"]
+
+
 def test_build_scan_sarif_accepts_explicit_repo_root_for_path_normalization(
     tmp_path: Path,
 ) -> None:

@@ -74,7 +74,14 @@ def main() -> int:
 
 def build_fixture_files() -> list[FixtureFile]:
     policy_present = json.dumps(
-        {"policies": {"DisableTelemetry": True}},
+        {
+            "policies": {
+                "DisableTelemetry": True,
+                "DisableFirefoxStudies": True,
+                "ExtensionSettings": {"*": {"installation_mode": "blocked"}},
+                "HTTPSOnlyMode": "enabled",
+            }
+        },
         indent=2,
         sort_keys=True,
     ) + "\n"
@@ -134,6 +141,36 @@ def build_fixture_files() -> list[FixtureFile]:
             "        path: policies.DisableTelemetry",
             "    rationale: integration tests need deterministic policy evidence",
             "    recommendation: define policies.DisableTelemetry in policies.json",
+            "    confidence: low",
+            "  - id: TB-POL-002",
+            "    title: enterprise firefox studies disable policy should exist",
+            "    severity: INFO",
+            "    category: policy",
+            "    check:",
+            "      policy_key_exists:",
+            "        path: policies.DisableFirefoxStudies",
+            "    rationale: integration tests need deterministic policy evidence",
+            "    recommendation: define policies.DisableFirefoxStudies in policies.json",
+            "    confidence: low",
+            "  - id: TB-POL-003",
+            "    title: enterprise extension settings policy should exist",
+            "    severity: INFO",
+            "    category: policy",
+            "    check:",
+            "      policy_key_exists:",
+            "        path: policies.ExtensionSettings",
+            "    rationale: integration tests need deterministic policy evidence",
+            "    recommendation: define policies.ExtensionSettings in policies.json",
+            "    confidence: low",
+            "  - id: TB-POL-004",
+            "    title: enterprise https-only mode policy should exist",
+            "    severity: INFO",
+            "    category: policy",
+            "    check:",
+            "      policy_key_exists:",
+            "        path: policies.HTTPSOnlyMode",
+            "    rationale: integration tests need deterministic policy evidence",
+            "    recommendation: define policies.HTTPSOnlyMode in policies.json",
             "    confidence: low",
         ]
     ) + "\n"

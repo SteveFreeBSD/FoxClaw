@@ -74,6 +74,16 @@ python -m foxclaw snapshot diff \
   --json
 ```
 
+Aggregate multiple profiles into fleet JSON:
+
+```bash
+python -m foxclaw fleet aggregate \
+  --profile tests/fixtures/testbed/profile_baseline \
+  --profile tests/fixtures/testbed/profile_weak_perms \
+  --ruleset tests/fixtures/testbed/rulesets/integration.yml \
+  --json
+```
+
 ## Makefile Targets
 
 Equivalent shortcuts.

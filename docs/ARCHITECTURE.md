@@ -11,6 +11,7 @@
 
 - `foxclaw/cli.py`.
   - CLI orchestration, flag validation, and exit-code contract.
+  - single-profile (`scan`) and multi-profile (`fleet aggregate`) workflow entrypoints.
 - `foxclaw/profiles.py`.
   - deterministic profile discovery and selection.
 - `foxclaw/collect/`.
@@ -21,12 +22,13 @@
   - ruleset parsing and constrained DSL evaluation.
   - suppression policy parsing and deterministic finding suppression.
 - `foxclaw/report/`.
-  - pure renderers (`text`, `json`, `sarif`) with no collection logic.
+  - pure renderers (`text`, `json`, `sarif`, `fleet`) with no collection logic.
 - `foxclaw/models.py`.
   - pydantic schema contract for evidence, findings, and summaries.
 - `foxclaw/intel/`.
   - explicit intelligence snapshot sync path (`intel sync`) with local checksumed source material storage.
-  - normalized source indexing (`source_indexes`, `mozilla_advisories`) for offline correlation.
+  - normalized source indexing (`source_indexes`, `mozilla_advisories`, `nvd_cves`,
+    `cve_list_records`, `kev_catalog`, `epss_scores`) for offline correlation.
 - `foxclaw/rulesets/`.
   - versioned policy packs (balanced, strict).
 
@@ -38,6 +40,7 @@
 4. Build typed `EvidenceBundle` contract.
 5. Evaluate ruleset into finding set.
 6. Render deterministic output payloads.
+7. Optional fleet path merges multiple profile scans into normalized host/profile/finding contracts.
 
 ## Trust Boundary Implementation
 
@@ -59,6 +62,7 @@
 - Stable rules and results ordering in SARIF.
 - Stable SARIF fingerprints from normalized evidence material.
 - Sorted JSON output keys.
+- Stable fleet aggregation ordering (profile identities + flattened finding records).
 - Stable relative artifact URIs when paths resolve under repo/profile roots.
 
 ## Planned Expansion Points

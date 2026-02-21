@@ -1,0 +1,17 @@
+{
+  "schema_version": "foxclaw.nvd.cve_records.v1",
+  "records": [
+    {
+      "cve_id": "CVE-2026-0001",
+      "severity": "medium",
+      "summary": "NVD enrichment severity for CVE-2026-0001.",
+      "reference_url": "https://example.invalid/nvd/CVE-2026-0001"
+    },
+    {
+      "cve_id": "CVE-2026-1234",
+      "severity": "high",
+      "summary": "NVD enrichment for unrelated CVE.",
+      "reference_url": "https://example.invalid/nvd/CVE-2026-1234"
+    }
+  ]
+}
