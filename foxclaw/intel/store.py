@@ -193,6 +193,35 @@ def _upsert_sqlite_index(
         )
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS amo_extension_intel (
+                snapshot_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                addon_id TEXT NOT NULL,
+                version TEXT,
+                listed INTEGER NOT NULL,
+                reputation TEXT NOT NULL,
+                review_rating REAL,
+                review_count INTEGER,
+                average_daily_users INTEGER,
+                recommended INTEGER,
+                reason TEXT,
+                reference_url TEXT,
+                PRIMARY KEY (
+                    snapshot_id,
+                    source_name,
+                    addon_id,
+                    version,
+                    listed,
+                    reputation,
+                    reference_url
+                ),
+                FOREIGN KEY (snapshot_id, source_name)
+                    REFERENCES source_materials(snapshot_id, source_name) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS nvd_cves (
                 snapshot_id TEXT NOT NULL,
                 source_name TEXT NOT NULL,
@@ -365,6 +394,43 @@ def _upsert_sqlite_index(
                         entry.block_state,
                         entry.reason,
                         entry.reference_url,
+                    ),
+                )
+            for intel_record in source_index.amo_extension_intel:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO amo_extension_intel (
+                        snapshot_id,
+                        source_name,
+                        addon_id,
+                        version,
+                        listed,
+                        reputation,
+                        review_rating,
+                        review_count,
+                        average_daily_users,
+                        recommended,
+                        reason,
+                        reference_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        manifest.snapshot_id,
+                        source.name,
+                        intel_record.addon_id,
+                        intel_record.version,
+                        int(intel_record.listed),
+                        intel_record.reputation,
+                        intel_record.review_rating,
+                        intel_record.review_count,
+                        intel_record.average_daily_users,
+                        (
+                            None
+                            if intel_record.recommended is None
+                            else int(intel_record.recommended)
+                        ),
+                        intel_record.reason,
+                        intel_record.reference_url,
                     ),
                 )
             for nvd_cve in source_index.nvd_cves:

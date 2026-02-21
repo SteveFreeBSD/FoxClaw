@@ -1,5 +1,5 @@
 name: balanced
-version: 0.5.0
+version: 0.6.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -145,4 +145,17 @@ rules:
         include_system: false
     rationale: Temporary debug extension installs bypass normal signing/release controls.
     recommendation: Remove temporary installs and use vetted signed extension releases.
+    confidence: medium
+
+  - id: FC-EXT-004
+    title: Active extensions should not match high-risk extension intel reputation
+    severity: MEDIUM
+    category: extensions
+    check:
+      extension_intel_reputation_absent:
+        min_level: high
+        include_unlisted: true
+        include_system: false
+    rationale: Extension intelligence snapshots can flag known risky or delisted addons.
+    recommendation: Remove or replace extensions flagged with high-risk intel reputation.
     confidence: medium

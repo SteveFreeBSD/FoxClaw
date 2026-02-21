@@ -70,6 +70,7 @@ The pre-push hook runs `./scripts/certify.sh` automatically.
   - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
   - `make dep-audit`
   - packaging dry-run (`python -m build` + `twine check dist/*`)
+  - SBOM rehearsal (`make sbom` + `make sbom-verify`)
 - `git status --short` is clean.
 - Docs updated for any CLI, schema, or trust-boundary change.
 - Commit messages are scoped and auditable.

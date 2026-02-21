@@ -15,9 +15,11 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
   - suppression lifecycle (`--suppression-path`) with required owner/reason/expiration and scoped rule matching
   - SQLite quick integrity checks (`PRAGMA quick_check`)
 - Declarative rule evaluation from versioned YAML rulesets.
-- Optional ruleset trust verification via digest-pinned manifest entries and Ed25519 signatures.
+- Optional ruleset trust verification via digest-pinned manifest entries, Ed25519 signatures,
+  and multi-signature threshold/key-lifecycle policy.
 - Offline intel correlation with deterministic multi-source merge metadata and finding-level
   risk priority fields (`risk_priority`, `risk_factors`).
+- Offline extension reputation correlation from pinned AMO intelligence snapshots.
 - Output renderers for terminal, JSON, and SARIF 2.1.0.
 
 ## Security Boundary
@@ -171,6 +173,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
 - `docs/RULESET_TRUST.md`: ruleset trust-manifest schema, signature policy, and CLI usage.
 - `docs/RELEASE_PROVENANCE.md`: release attestation and trusted-publishing verification runbook.
+- `docs/SBOM.md`: CycloneDX SBOM generation/verification runbook for local and release workflows.
 - `docs/DEPENDENCY_AUDIT.md`: scheduled dependency-vulnerability sweep workflow and triage runbook.
 - `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and immediate planning queue.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.

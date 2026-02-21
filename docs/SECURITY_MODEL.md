@@ -33,7 +33,8 @@ These are non-negotiable for the scan runtime:
 ### Ruleset Trust Boundary (`foxclaw/rules/trust.py`, `foxclaw/cli.py`)
 
 - Inputs: local ruleset file + local trust manifest.
-- Allowed: schema validation, SHA256 digest verification, and optional Ed25519 signature validation.
+- Allowed: schema validation, SHA256 digest verification, optional Ed25519 signature validation,
+  signature-threshold enforcement, and key lifecycle window/status checks.
 - Disallowed: remote key fetch, network trust bootstrap, or implicit trust bypass on verification failure.
 
 ### Reporting Boundary (`foxclaw/report/*`)
@@ -80,7 +81,7 @@ These are non-negotiable for the scan runtime:
 
 ## Forward Security Backlog
 
-- Signed external policy-pack distribution, key rotation, and quorum signature policy.
+- Signed external policy-pack distribution with managed key distribution channels.
 - Snapshot/diff integrity with hash-bound baselines.
 - Suppression governance extensions (approval workflows and tighter scope controls).
 - Continuous verification of release attestations in downstream deployment pipelines.

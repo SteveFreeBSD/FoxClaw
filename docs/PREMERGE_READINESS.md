@@ -43,6 +43,13 @@ python3 -m venv "${tmp_venv}/venv"
 rm -rf "${tmp_venv}"
 ```
 
+5. SBOM generation and verification:
+
+```bash
+make sbom
+make sbom-verify
+```
+
 ## Merge Hold Criteria
 
 Do not merge when any of the following is true:
@@ -52,10 +59,10 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Immediate Planning Queue (Post-WS13)
+## Immediate Planning Queue (Post-WS16)
 
 Ordered next implementation targets:
 
-1. Extension intelligence correlation depth (AMO/reputation expansion).
-2. Release SBOM artifact generation and verification guidance.
-3. Ruleset trust key-rotation and multi-signature threshold policy.
+1. Optional live workflow wrapper (`intel sync` + `scan`) with deterministic snapshot pinning.
+2. Suppression governance extensions (approval workflow metadata and stronger reporting).
+3. External ruleset bundle distribution model with managed key delivery.

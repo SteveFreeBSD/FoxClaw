@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import zipfile
 from pathlib import Path
 
 from foxclaw.cli import app
@@ -10,6 +11,7 @@ from typer.testing import CliRunner
 
 INTEL_FIXTURE = Path("tests/fixtures/intel/mozilla_firefox_advisories.v1.json")
 BLOCKLIST_FIXTURE = Path("tests/fixtures/intel/mozilla_extension_blocklist.v1.json")
+AMO_EXTENSION_FIXTURE = Path("tests/fixtures/intel/amo_extension_intel.v1.json")
 NVD_FIXTURE = Path("tests/fixtures/intel/nvd_cve_records.v1.json")
 CVE_LIST_FIXTURE = Path("tests/fixtures/intel/cve_list_records.v1.json")
 KEV_FIXTURE = Path("tests/fixtures/intel/cisa_kev.v1.json")
@@ -22,6 +24,12 @@ def _create_sqlite_db(path: Path) -> None:
     connection.execute("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)")
     connection.commit()
     connection.close()
+
+
+def _write_xpi_manifest(path: Path, manifest: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps(manifest, sort_keys=True))
 
 
 def _prepare_profile(profile_dir: Path, *, last_version: str) -> None:
@@ -440,3 +448,99 @@ def test_scan_with_blocklist_snapshot_flags_blocklisted_extension(tmp_path: Path
     payload = json.loads(result.stdout)
     assert payload["findings"][0]["id"] == "EXT-BLOCK-001"
     assert payload["extensions"]["entries"][0]["blocklisted"] is True
+
+
+def test_scan_with_amo_extension_intel_flags_risky_extension(tmp_path: Path) -> None:
+    store_dir = tmp_path / "intel-store"
+    sync_sources(
+        source_specs=[
+            f"mozilla={INTEL_FIXTURE}",
+            f"amo={AMO_EXTENSION_FIXTURE}",
+        ],
+        store_dir=store_dir,
+        normalize_json=True,
+        cwd=Path.cwd(),
+    )
+
+    profile_dir = tmp_path / "profile"
+    _prepare_profile(profile_dir, last_version="136.0_20260201000000/20260201000000")
+
+    extension_id = "risky-addon@example.com"
+    xpi_path = profile_dir / "extensions" / f"{extension_id}.xpi"
+    _write_xpi_manifest(
+        xpi_path,
+        {
+            "manifest_version": 2,
+            "name": "Risky Addon",
+            "version": "1.0.0",
+        },
+    )
+    (profile_dir / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": extension_id,
+                        "type": "extension",
+                        "active": True,
+                        "version": "1.0.0",
+                        "signedState": 2,
+                        "path": str(xpi_path),
+                    }
+                ]
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    ruleset = tmp_path / "rules.yml"
+    ruleset.write_text(
+        "\n".join(
+            [
+                "name: extension-intel-risk",
+                "version: 1.0.0",
+                "rules:",
+                "  - id: EXT-INTEL-001",
+                "    title: extension intel risk should be absent",
+                "    severity: HIGH",
+                "    category: extensions",
+                "    check:",
+                "      extension_intel_reputation_absent:",
+                "        min_level: high",
+                "        include_unlisted: true",
+                "    rationale: extension intel risk control",
+                "    recommendation: remove risky extension",
+                "    confidence: high",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--ruleset",
+            str(ruleset),
+            "--intel-store-dir",
+            str(store_dir),
+            "--intel-snapshot-id",
+            "latest",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    extension_entry = payload["extensions"]["entries"][0]
+    assert extension_entry["intel_reputation_level"] == "high"
+    assert extension_entry["intel_listed"] is False
+    assert extension_entry["intel_source"] == "amo"
+    assert extension_entry["intel_reason"] == "removed_for_policy_violation"
+    assert payload["findings"][0]["id"] == "EXT-INTEL-001"
