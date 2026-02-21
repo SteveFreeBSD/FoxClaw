@@ -103,3 +103,4 @@ Execution tracking:
 
 - Ordered implementation slices are tracked in `docs/WORKSLICES.md`.
 - Periodic technical and ecosystem checkpoints are recorded in date-stamped docs under `docs/`.
+- Expanded pre-merge gate and planning runbook: `docs/PREMERGE_READINESS.md`.

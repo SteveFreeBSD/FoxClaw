@@ -159,6 +159,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
 - `docs/RELEASE_PROVENANCE.md`: release attestation and trusted-publishing verification runbook.
 - `docs/DEPENDENCY_AUDIT.md`: scheduled dependency-vulnerability sweep workflow and triage runbook.
+- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and immediate planning queue.
 - `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
 - `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
 - `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.

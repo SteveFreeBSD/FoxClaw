@@ -24,6 +24,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-09 | complete | WS-06, WS-08 | Multi-profile/fleet output contracts and aggregation schema. |
 | WS-10 | complete | WS-05 | Release provenance, attestations, and trusted publishing controls. |
 | WS-11 | complete | WS-10 | Scheduled dependency vulnerability sweeps and triage workflow. |
+| WS-12 | complete | WS-11 | Pre-merge readiness expansion and immediate roadmap planning runbook. |
 
 ## Slice Details
 
@@ -184,6 +185,22 @@ This plan converts the current review and research into sequenced, testable exec
     - `docs/GITHUB_ACTIONS.md`
     - `docs/QUALITY_GATES.md`
     - `docs/ROADMAP.md`
+- Acceptance: met.
+
+### WS-12 - Pre-Merge Readiness Expansion
+
+- Status: complete.
+- Goal: enforce merge-hold discipline with explicit expanded checks and near-term execution planning.
+- Delivered:
+  - added pre-merge runbook `docs/PREMERGE_READINESS.md` including:
+    - required extended gate sequence (`certify`, `certify-live`, `dep-audit`, packaging dry-run).
+    - merge hold criteria.
+    - immediate ordered planning queue.
+  - updated gate/development docs to reference expanded merge checks:
+    - `docs/QUALITY_GATES.md`
+    - `docs/DEVELOPMENT.md`
+    - `docs/ROADMAP.md`
+    - `README.md` docs map.
 - Acceptance: met.
 
 ## Workslice Update Protocol
