@@ -21,6 +21,7 @@
 - `foxclaw/rules/`.
   - ruleset parsing and constrained DSL evaluation.
   - suppression policy parsing and deterministic finding suppression.
+  - optional ruleset trust verification (manifest-pinned digests + Ed25519 signatures).
 - `foxclaw/report/`.
   - pure renderers (`text`, `json`, `sarif`, `fleet`) with no collection logic.
 - `foxclaw/models.py`.
@@ -35,12 +36,13 @@
 ## Data Flow (Current)
 
 1. Select profile (`profiles list` scoring or explicit `--profile`).
-2. Collect local evidence through read-only collectors.
-3. Optionally correlate local Firefox version against pinned local intel snapshot (`--intel-store-dir` / `--intel-snapshot-id`).
-4. Build typed `EvidenceBundle` contract.
-5. Evaluate ruleset into finding set.
-6. Render deterministic output payloads.
-7. Optional fleet path merges multiple profile scans into normalized host/profile/finding contracts.
+2. Resolve ruleset and optionally verify trust policy (`--ruleset-trust-manifest`, `--require-ruleset-signatures`).
+3. Collect local evidence through read-only collectors.
+4. Optionally correlate local Firefox version against pinned local intel snapshot (`--intel-store-dir` / `--intel-snapshot-id`).
+5. Build typed `EvidenceBundle` contract.
+6. Evaluate ruleset into finding set.
+7. Render deterministic output payloads.
+8. Optional fleet path merges multiple profile scans into normalized host/profile/finding contracts.
 
 ## Trust Boundary Implementation
 
@@ -50,6 +52,9 @@
 - Evaluation boundary (`foxclaw/rules/*`).
   - Consumes evidence, emits findings only.
   - No host mutation or network I/O.
+- Ruleset trust boundary (`foxclaw/rules/trust.py`).
+  - Validates manifest schema, pinned digest, and optional signatures before scan evaluation.
+  - Fails closed on manifest, digest, key, or signature mismatch.
 - Reporting boundary (`foxclaw/report/*`).
   - Formats evidence/findings only.
   - No collection side effects.
@@ -73,8 +78,9 @@ The next-level roadmap is designed as additive modules so current scan guarantee
   - signed snapshot format and deterministic diff engine.
 - `suppression/` (planned).
   - additional suppression workflows beyond current runtime file-based lifecycle.
-- `policypacks/` (planned).
-  - signed external rule bundles validated before load.
+- `policypacks/` (active expansion area).
+  - baseline trust manifest pinning and optional Ed25519 signature checks are available.
+  - extend toward external bundle distribution, key-rotation policy, and multi-signature thresholds.
 - `intel/` (active expansion area).
   - explicit update command for offline-cached threat intelligence metadata.
   - baseline Mozilla advisory normalization and offline CVE correlation in scan.

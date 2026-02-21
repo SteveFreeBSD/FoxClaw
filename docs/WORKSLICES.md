@@ -25,6 +25,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-10 | complete | WS-05 | Release provenance, attestations, and trusted publishing controls. |
 | WS-11 | complete | WS-10 | Scheduled dependency vulnerability sweeps and triage workflow. |
 | WS-12 | complete | WS-11 | Pre-merge readiness expansion and immediate roadmap planning runbook. |
+| WS-13 | complete | WS-12 | Ruleset trust boundary with manifest pinning and signature verification. |
 
 ## Slice Details
 
@@ -201,6 +202,33 @@ This plan converts the current review and research into sequenced, testable exec
     - `docs/DEVELOPMENT.md`
     - `docs/ROADMAP.md`
     - `README.md` docs map.
+- Acceptance: met.
+
+### WS-13 - Ruleset Trust Boundary
+
+- Status: complete.
+- Goal: fail closed when the configured ruleset does not match expected trusted material.
+- Delivered:
+  - added trust verification module `foxclaw/rules/trust.py` with:
+    - schema-validated trust manifests (`schema_version` `1.0.0`).
+    - SHA256 ruleset digest pin validation.
+    - optional Ed25519 detached signature verification.
+    - explicit fail-closed errors for manifest/digest/signature/key mismatch.
+  - added CLI trust controls for both single-profile and fleet workflows:
+    - `scan --ruleset-trust-manifest`
+    - `scan --require-ruleset-signatures`
+    - `fleet aggregate --ruleset-trust-manifest`
+    - `fleet aggregate --require-ruleset-signatures`
+  - added regression coverage in:
+    - `tests/test_ruleset_trust.py`
+    - `tests/test_ruleset_trust_cli.py`
+  - updated architecture/security/roadmap/operator docs:
+    - `README.md`
+    - `docs/ARCHITECTURE.md`
+    - `docs/SECURITY_MODEL.md`
+    - `docs/ROADMAP.md`
+    - `docs/PREMERGE_READINESS.md`
+    - `docs/RULESET_TRUST.md`
 - Acceptance: met.
 
 ## Workslice Update Protocol
