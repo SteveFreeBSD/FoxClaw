@@ -124,6 +124,15 @@ Run on-demand dependency vulnerability audit:
 make dep-audit
 ```
 
+Packaging dry-run prior to release merges:
+
+```bash
+python -m pip install --upgrade build twine
+rm -rf build dist
+python -m build
+python -m twine check dist/*
+```
+
 ## Review-Ready Gate Sequence
 
 Use this exact sequence before pushing.

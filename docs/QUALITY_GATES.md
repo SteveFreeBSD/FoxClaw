@@ -65,9 +65,17 @@ The pre-push hook runs `./scripts/certify.sh` automatically.
 
 - `make certify` passes.
 - `make certify-live` passes for release/milestone branches.
+- extended pre-merge rehearsal passes when used:
+  - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
+  - `make dep-audit`
+  - packaging dry-run (`python -m build` + `twine check dist/*`)
 - `git status --short` is clean.
 - Docs updated for any CLI, schema, or trust-boundary change.
 - Commit messages are scoped and auditable.
+
+For full merge-hold workflow and immediate planning queue, see:
+
+- `docs/PREMERGE_READINESS.md`
 
 ## CI Parity
 
