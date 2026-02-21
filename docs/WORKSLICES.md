@@ -39,6 +39,9 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-24 | complete | none | Optional `live` workflow wrapper orchestrating `sync` and pinned `scan`. |
 | WS-25 | complete | none | Suppression governance (approval workflow metadata + stronger reporting). |
 | WS-26 | complete | WS-16 | External ruleset bundle distribution model with managed key delivery. |
+| WS-27 | pending | none | Policy language expansion spike (CEL/OPA behind strict interface). |
+| WS-28 | pending | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
+| WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
 
 ## Slice Details
 
@@ -443,6 +446,25 @@ This plan converts the current review and research into sequenced, testable exec
   - Added network-fetching operations strictly confined to `foxclaw bundle fetch/install/verify` commands.
   - Runtime extraction injects `BundleProvenance` to the local scanner, propagating transparently into SARIF and JSON artifacts.
   - Built full downgrade attack and invalid signature protections natively into the bundle manifest parsing.
+- Acceptance: met.
+
+### WS-27 - Policy Language Expansion Spike
+
+- Status: pending.
+- Goal: explore CEL/OPA behind strict engine interfaces for flexible rule authoring.
+
+### WS-28 - Profile Realism Deferred Hardening
+
+- Status: pending.
+- Goal: implement the deferred Firefox launch sanity gate and expand cross-OS baseline supports.
+
+### WS-29 - Refresh Planning Docs with Post-WS26 Queue
+
+- Status: complete.
+- Goal: update runbooks and work tracking to align with newest roadmap stops.
+- Delivered:
+  - Updated `docs/PREMERGE_READINESS.md`.
+  - Added WS-27, WS-28, WS-29 to `docs/WORKSLICES.md`.
 - Acceptance: met.
 
 ## Workslice Update Protocol

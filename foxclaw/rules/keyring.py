@@ -60,6 +60,7 @@ def verify_bundle_manifest(
     *,
     bundle_manifest: RulesetBundleManifest,
     keyring: KeyringManifest,
+    expected_key_id: str,
     verification_time: datetime | None = None,
 ) -> None:
     """Verify a downloaded bundle manifest envelope against the trusted keyring."""
@@ -70,6 +71,11 @@ def verify_bundle_manifest(
     )
 
     signature_entry = bundle_manifest.manifest_signature
+    if signature_entry.key_id != expected_key_id:
+        raise ValueError(
+            f"bundle verification failed: manifest signed by '{signature_entry.key_id}', "
+            f"but expected '{expected_key_id}'"
+        )
     
     # We verify the signature over the strict JSON representation of the rulesets_manifest
     # This ensures deterministic byte comparison.

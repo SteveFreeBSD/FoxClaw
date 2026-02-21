@@ -187,3 +187,33 @@ def test_verify_and_unpack_bundle_invalid_signature(test_keypair: tuple[str, str
         verify_and_unpack_bundle(
             archive_path=archive_path, install_dir=install_dir, key_id="test-root", keyring_path=valid_keyring,
         )
+
+
+def test_verify_and_unpack_bundle_wrong_expected_key(test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path) -> None:
+    _pub_key, priv_key = test_keypair
+    private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
+    
+    rulesets_manifest = RulesetTrustManifest(schema_version="1.0.0", keys=[], rulesets=[])
+    payload_bytes = json.dumps(rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    sig_b64 = base64.b64encode(private_key.sign(payload_bytes)).decode("ascii")
+    
+    bundle_manifest = {
+        "schema_version": "1.0.0",
+        "bundle_name": "foxclaw-test",
+        "bundle_version": "1.0.0",
+        "manifest_signature": {
+            "key_id": "test-root",
+            "algorithm": "ed25519",
+            "signature": sig_b64,
+        },
+        "rulesets_manifest": rulesets_manifest.model_dump(mode="json"),
+    }
+    
+    archive_path = tmp_path / "bundle.tar.gz"
+    _create_bundle_tarball(archive_path, bundle_manifest)
+    
+    install_dir = tmp_path / "installed"
+    with pytest.raises(ValueError, match="manifest signed by 'test-root', but expected 'wrong-key'"):
+        verify_and_unpack_bundle(
+            archive_path=archive_path, install_dir=install_dir, key_id="wrong-key", keyring_path=valid_keyring,
+        )

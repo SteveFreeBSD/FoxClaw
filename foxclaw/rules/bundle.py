@@ -68,6 +68,7 @@ def verify_and_unpack_bundle(
             verify_bundle_manifest(
                 bundle_manifest=bundle_manifest,
                 keyring=keyring,
+                expected_key_id=key_id,
             )
 
             # If execution reaches here, the bundle is fully authentic. Extract it.
