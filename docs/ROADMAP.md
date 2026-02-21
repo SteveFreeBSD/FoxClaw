@@ -59,7 +59,7 @@ Target: after phase 1 stabilization.
 - Release hardening:
   - baseline trusted publishing for package distribution is available.
   - baseline dependency review policy gate is enforced in CI pull requests.
-  - extend with scheduled dependency vulnerability sweeps.
+  - baseline scheduled dependency vulnerability sweeps are available.
 
 Exit criteria:
 

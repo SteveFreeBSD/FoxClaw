@@ -91,6 +91,27 @@ Workflow file: `.github/workflows/foxclaw-firefox-container.yml`
   - `foxclaw.snapshot.json`
   - `firefox-headless.log`
 
+## Scheduled Dependency Vulnerability Sweep
+
+Workflow file: `.github/workflows/foxclaw-dependency-audit.yml`
+
+Trigger:
+
+- weekly schedule.
+- `workflow_dispatch`.
+
+Job:
+
+1. `dependency-vulnerability-sweep`
+- installs project dependencies plus `pip-audit`.
+- runs `scripts/dependency_audit.sh` to generate `pip-audit.json`.
+- uploads `pip-audit.json` as artifact.
+- fails when vulnerabilities are detected.
+
+Runbook:
+
+- see `docs/DEPENDENCY_AUDIT.md`.
+
 ## Release Provenance and Trusted Publishing Workflow
 
 Workflow file: `.github/workflows/foxclaw-release.yml`

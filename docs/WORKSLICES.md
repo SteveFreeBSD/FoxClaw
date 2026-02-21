@@ -23,6 +23,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-08 | complete | WS-07 | Risk prioritization metadata (KEV-aware baseline, optional EPSS). |
 | WS-09 | complete | WS-06, WS-08 | Multi-profile/fleet output contracts and aggregation schema. |
 | WS-10 | complete | WS-05 | Release provenance, attestations, and trusted publishing controls. |
+| WS-11 | complete | WS-10 | Scheduled dependency vulnerability sweeps and triage workflow. |
 
 ## Slice Details
 
@@ -163,6 +164,26 @@ This plan converts the current review and research into sequenced, testable exec
     - release assets include built distributions plus `provenance.txt` pointers.
   - published verification runbook in `docs/RELEASE_PROVENANCE.md`.
   - documented workflow behavior updates in `docs/GITHUB_ACTIONS.md`.
+- Acceptance: met.
+
+### WS-11 - Scheduled Dependency Vulnerability Sweeps
+
+- Status: complete.
+- Goal: continuously detect vulnerable dependency versions between release cycles.
+- Delivered:
+  - added scheduled dependency-audit workflow in
+    `.github/workflows/foxclaw-dependency-audit.yml`:
+    - weekly + manual triggers.
+    - installs `pip-audit` and runs environment audit.
+    - emits `pip-audit.json` artifact.
+    - fails on vulnerability findings.
+  - added local audit script `scripts/dependency_audit.sh`.
+  - added local Make shortcut `make dep-audit`.
+  - published runbook in `docs/DEPENDENCY_AUDIT.md`.
+  - updated CI/roadmap docs in:
+    - `docs/GITHUB_ACTIONS.md`
+    - `docs/QUALITY_GATES.md`
+    - `docs/ROADMAP.md`
 - Acceptance: met.
 
 ## Workslice Update Protocol

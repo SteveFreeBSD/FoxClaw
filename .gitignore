@@ -41,5 +41,6 @@ agents/
 # Scan outputs and CI artifacts.
 *.sarif
 foxclaw*.json
+dependency-audit.json
 firefox-container-artifacts/
 demo-insecure-artifacts/

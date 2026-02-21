@@ -1,0 +1,99 @@
+name: FoxClaw Dependency Audit
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foxclaw-dependency-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-vulnerability-sweep:
+    name: dependency-vulnerability-sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies and audit tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m pip install pip-audit
+
+      - name: Run dependency vulnerability audit
+        id: audit
+        run: |
+          audit_exit=0
+          scripts/dependency_audit.sh --output pip-audit.json || audit_exit=$?
+          echo "audit_exit=${audit_exit}" >> "${GITHUB_OUTPUT}"
+
+      - name: Summarize audit results
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(Path("pip-audit.json").read_text(encoding="utf-8"))
+          dependencies: list[dict[str, object]] = []
+          if isinstance(payload, list):
+              dependencies = [item for item in payload if isinstance(item, dict)]
+          elif isinstance(payload, dict):
+              raw_dependencies = payload.get("dependencies", [])
+              if isinstance(raw_dependencies, list):
+                  dependencies = [item for item in raw_dependencies if isinstance(item, dict)]
+
+          packages_with_vulns = 0
+          vulnerabilities_total = 0
+          for dependency in dependencies:
+              vulns = dependency.get("vulns", [])
+              if not isinstance(vulns, list):
+                  continue
+              if vulns:
+                  packages_with_vulns += 1
+                  vulnerabilities_total += len(vulns)
+
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          summary.write_text(
+              "\n".join(
+                  [
+                      "## Dependency Audit Summary",
+                      f"- packages_with_vulns: {packages_with_vulns}",
+                      f"- vulnerabilities_total: {vulnerabilities_total}",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          print(f"packages_with_vulns={packages_with_vulns}")
+          print(f"vulnerabilities_total={vulnerabilities_total}")
+          PY
+
+      - name: Upload dependency audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxclaw-dependency-audit
+          if-no-files-found: error
+          retention-days: 30
+          path: pip-audit.json
+
+      - name: Fail when vulnerabilities are detected
+        if: ${{ steps.audit.outputs.audit_exit != '0' }}
+        run: |
+          echo "dependency vulnerabilities detected; review pip-audit.json artifact." >&2
+          exit 1
