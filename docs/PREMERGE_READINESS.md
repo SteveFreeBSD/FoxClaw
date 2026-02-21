@@ -52,10 +52,10 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Immediate Planning Queue (Post-WS11)
+## Immediate Planning Queue (Post-WS13)
 
 Ordered next implementation targets:
 
-1. Signed policy-pack verification boundary (Phase 2).
-2. Extension intelligence correlation depth (AMO/reputation expansion).
-3. Release SBOM artifact generation and verification guidance.
+1. Extension intelligence correlation depth (AMO/reputation expansion).
+2. Release SBOM artifact generation and verification guidance.
+3. Ruleset trust key-rotation and multi-signature threshold policy.

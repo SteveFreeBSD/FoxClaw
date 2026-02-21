@@ -52,7 +52,9 @@ Target: after phase 1 stabilization.
 - Add extension intelligence correlation:
   - correlate installed extension IDs/versions with AMO metadata and blocklist signals.
 - Signed policy packs:
-  - external ruleset bundles with signature verification and manifest pinning.
+  - baseline manifest pinning and optional Ed25519 signature verification are available
+    via `--ruleset-trust-manifest` and `--require-ruleset-signatures`.
+  - extend toward externally distributed ruleset bundles, key rotation, and signature-threshold policy.
 - CI provenance:
   - baseline artifact attestations for release build outputs are available.
   - baseline provenance references are linked from release artifacts.

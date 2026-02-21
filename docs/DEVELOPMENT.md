@@ -204,6 +204,7 @@ See `docs/QUALITY_GATES.md` for the full gate policy.
   - `README.md`
   - `docs/ARCHITECTURE.md`
   - `docs/SECURITY_MODEL.md`
+  - `docs/RULESET_TRUST.md` (when ruleset trust controls or manifest contract changes).
   - `docs/GITHUB_ACTIONS.md` (if CI behavior changed).
   - `docs/TESTBED.md` (if fixture or container testbed flows changed).
 - For roadmap or strategic changes, update:
