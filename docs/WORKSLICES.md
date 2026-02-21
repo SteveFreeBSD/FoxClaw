@@ -402,7 +402,8 @@ This plan converts the current review and research into sequenced, testable exec
     - `docs/SOAK.md`
     - `docs/DEVELOPMENT.md`
     - `tests/test_profile_generation_scripts.py`
-    - `docs/PROFILE_FUZZ_ROADMAP.md`
+    - `docs/PROFILE_HANDOFF.md`
+    - `docs/PROFILE_REVIEW_CHECKLIST.md`
 - Acceptance: met.
 
 ## Workslice Update Protocol

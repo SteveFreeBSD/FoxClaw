@@ -165,6 +165,10 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
 - `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
 - `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
+- `docs/PROFILE_HANDOFF.md`: canonical profile-system onboarding, status memory, and anti-loop guardrails.
+- `docs/PROFILE_SYNTHESIS.md`: profile generation architecture and runtime usage.
+- `docs/PROFILE_FIDELITY_SPEC.md`: profile realism scoring contract and fidelity gate behavior.
+- `docs/PROFILE_REVIEW_CHECKLIST.md`: merge/CTO review checklist for profile realism changes.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
 - `docs/RESEARCH_2026-02-20.md`: dated ecosystem alignment checkpoint (2026 snapshot).
