@@ -19,6 +19,21 @@ RULESET_PATH="${ROOT_DIR}/foxclaw/rulesets/balanced.yml"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
+normalize_log_text() {
+  local path="$1"
+  sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' "${path}" \
+    | tr '\r\n' '  ' \
+    | sed -E 's/[[:space:]]+/ /g'
+}
+
+log_contains_phrase() {
+  local path="$1"
+  local phrase="$2"
+  local normalized
+  normalized="$(normalize_log_text "${path}")"
+  [[ "${normalized}" == *"${phrase}"* ]]
+}
+
 digest="$(sha256sum "${RULESET_PATH}" | awk '{print $1}')"
 manifest_ok="${tmpdir}/ruleset-trust-ok.json"
 manifest_bad="${tmpdir}/ruleset-trust-bad.json"
@@ -86,7 +101,7 @@ if [[ "${mismatch_exit}" -ne 1 ]]; then
   cat "${tmpdir}/mismatch.log" >&2 || true
   exit 1
 fi
-if ! grep -q "sha256 mismatch" "${tmpdir}/mismatch.log"; then
+if ! log_contains_phrase "${tmpdir}/mismatch.log" "sha256 mismatch"; then
   echo "error: mismatch trust-manifest scan missing sha256 mismatch message" >&2
   cat "${tmpdir}/mismatch.log" >&2 || true
   exit 1
@@ -105,7 +120,7 @@ if [[ "${signature_exit}" -ne 1 ]]; then
   cat "${tmpdir}/signature-required.log" >&2 || true
   exit 1
 fi
-if ! grep -q "signatures are required" "${tmpdir}/signature-required.log"; then
+if ! log_contains_phrase "${tmpdir}/signature-required.log" "signatures are required"; then
   echo "error: signature-required trust scan missing required-signatures message" >&2
   cat "${tmpdir}/signature-required.log" >&2 || true
   exit 1
@@ -150,7 +165,7 @@ if [[ "${fleet_mismatch_exit}" -ne 1 ]]; then
   cat "${tmpdir}/fleet-mismatch.log" >&2 || true
   exit 1
 fi
-if ! grep -q "sha256 mismatch" "${tmpdir}/fleet-mismatch.log"; then
+if ! log_contains_phrase "${tmpdir}/fleet-mismatch.log" "sha256 mismatch"; then
   echo "error: mismatch trust-manifest fleet missing sha256 mismatch message" >&2
   cat "${tmpdir}/fleet-mismatch.log" >&2 || true
   exit 1
