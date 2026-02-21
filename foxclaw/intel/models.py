@@ -56,6 +56,21 @@ class IntelExtensionBlocklistRecord(BaseModel):
     reference_url: str | None = None
 
 
+class IntelAmoExtensionRecord(BaseModel):
+    """Normalized AMO extension intelligence record for local correlation."""
+
+    addon_id: str
+    version: str | None = None
+    listed: bool = True
+    reputation: Literal["low", "medium", "high"] = "low"
+    review_rating: float | None = None
+    review_count: int | None = None
+    average_daily_users: int | None = None
+    recommended: bool | None = None
+    reason: str | None = None
+    reference_url: str | None = None
+
+
 class IntelNvdCveRecord(BaseModel):
     """Normalized NVD CVE metadata for deterministic enrichment."""
 
@@ -105,6 +120,7 @@ class IntelSourceIndex(BaseModel):
     record_count: int = 0
     mozilla_advisories: list[IntelMozillaAdvisoryRecord] = Field(default_factory=list)
     extension_blocklist: list[IntelExtensionBlocklistRecord] = Field(default_factory=list)
+    amo_extension_intel: list[IntelAmoExtensionRecord] = Field(default_factory=list)
     nvd_cves: list[IntelNvdCveRecord] = Field(default_factory=list)
     cve_list_records: list[IntelCveListRecord] = Field(default_factory=list)
     kev_records: list[IntelKevRecord] = Field(default_factory=list)
@@ -148,6 +164,13 @@ class MozillaExtensionBlocklistBundle(BaseModel):
 
     schema_version: Literal["foxclaw.mozilla.extension_blocklist.v1"]
     entries: list[IntelExtensionBlocklistRecord] = Field(default_factory=list)
+
+
+class AmoExtensionIntelBundle(BaseModel):
+    """Canonical source payload schema for AMO extension intelligence data."""
+
+    schema_version: Literal["foxclaw.amo.extension_intel.v1"]
+    records: list[IntelAmoExtensionRecord] = Field(default_factory=list)
 
 
 class NvdCveRecordBundle(BaseModel):

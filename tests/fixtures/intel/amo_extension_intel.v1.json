@@ -1,0 +1,27 @@
+{
+  "schema_version": "foxclaw.amo.extension_intel.v1",
+  "records": [
+    {
+      "addon_id": "third-party@example.com",
+      "version": "1.0.0",
+      "listed": true,
+      "reputation": "low",
+      "review_rating": 4.8,
+      "review_count": 128,
+      "average_daily_users": 15320,
+      "recommended": true,
+      "reference_url": "https://addons.mozilla.org/addon/third-party-example/"
+    },
+    {
+      "addon_id": "risky-addon@example.com",
+      "listed": false,
+      "reputation": "high",
+      "review_rating": 1.2,
+      "review_count": 3,
+      "average_daily_users": 17,
+      "recommended": false,
+      "reason": "removed_for_policy_violation",
+      "reference_url": "https://addons.mozilla.org/addon/risky-addon-example/"
+    }
+  ]
+}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -309,4 +310,230 @@ def test_verify_ruleset_manifest_unsupported_schema_version_fails(tmp_path: Path
             ruleset_path=ruleset,
             manifest_path=manifest,
             require_signatures=False,
+        )
+
+
+def test_verify_ruleset_manifest_signature_threshold_with_rotated_keys_passes(
+    tmp_path: Path,
+) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    ruleset_bytes = ruleset.read_bytes()
+    sha256 = hashlib.sha256(ruleset_bytes).hexdigest()
+
+    private_a = Ed25519PrivateKey.generate()
+    public_a = private_a.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    signature_a = private_a.sign(ruleset_bytes)
+
+    private_b = Ed25519PrivateKey.generate()
+    public_b = private_b.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    signature_b = private_b.sign(ruleset_bytes)
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.1.0",
+            "keys": [
+                {
+                    "key_id": "release-key-1",
+                    "algorithm": "ed25519",
+                    "public_key": base64.b64encode(public_a).decode("ascii"),
+                    "status": "deprecated",
+                    "valid_to": "2030-01-01T00:00:00+00:00",
+                },
+                {
+                    "key_id": "release-key-2",
+                    "algorithm": "ed25519",
+                    "public_key": base64.b64encode(public_b).decode("ascii"),
+                    "status": "active",
+                    "valid_from": "2025-01-01T00:00:00+00:00",
+                },
+            ],
+            "rulesets": [
+                {
+                    "path": str(ruleset),
+                    "sha256": sha256,
+                    "min_valid_signatures": 2,
+                    "signatures": [
+                        {
+                            "key_id": "release-key-1",
+                            "algorithm": "ed25519",
+                            "signature": base64.b64encode(signature_a).decode("ascii"),
+                        },
+                        {
+                            "key_id": "release-key-2",
+                            "algorithm": "ed25519",
+                            "signature": base64.b64encode(signature_b).decode("ascii"),
+                        },
+                    ],
+                }
+            ],
+        },
+    )
+
+    verify_ruleset_with_manifest(
+        ruleset_path=ruleset,
+        manifest_path=manifest,
+        require_signatures=True,
+        verification_time=datetime(2026, 2, 21, tzinfo=UTC),
+    )
+
+
+def test_verify_ruleset_manifest_signature_threshold_fails_when_not_met(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    ruleset_bytes = ruleset.read_bytes()
+    sha256 = hashlib.sha256(ruleset_bytes).hexdigest()
+
+    private_a = Ed25519PrivateKey.generate()
+    public_a = private_a.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    signature_a = private_a.sign(ruleset_bytes)
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.1.0",
+            "keys": [
+                {
+                    "key_id": "release-key-1",
+                    "algorithm": "ed25519",
+                    "public_key": base64.b64encode(public_a).decode("ascii"),
+                }
+            ],
+            "rulesets": [
+                {
+                    "path": str(ruleset),
+                    "sha256": sha256,
+                    "min_valid_signatures": 2,
+                    "signatures": [
+                        {
+                            "key_id": "release-key-1",
+                            "algorithm": "ed25519",
+                            "signature": base64.b64encode(signature_a).decode("ascii"),
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="signature threshold not met"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=True,
+        )
+
+
+def test_verify_ruleset_manifest_revoked_key_rejected(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    ruleset_bytes = ruleset.read_bytes()
+    sha256 = hashlib.sha256(ruleset_bytes).hexdigest()
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    signature = private_key.sign(ruleset_bytes)
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.1.0",
+            "keys": [
+                {
+                    "key_id": "revoked-key",
+                    "algorithm": "ed25519",
+                    "public_key": base64.b64encode(public_key).decode("ascii"),
+                    "status": "revoked",
+                }
+            ],
+            "rulesets": [
+                {
+                    "path": str(ruleset),
+                    "sha256": sha256,
+                    "signatures": [
+                        {
+                            "key_id": "revoked-key",
+                            "algorithm": "ed25519",
+                            "signature": base64.b64encode(signature).decode("ascii"),
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="key is revoked"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=True,
+        )
+
+
+def test_verify_ruleset_manifest_expired_key_rejected(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    ruleset_bytes = ruleset.read_bytes()
+    sha256 = hashlib.sha256(ruleset_bytes).hexdigest()
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    signature = private_key.sign(ruleset_bytes)
+    past = datetime.now(UTC) - timedelta(days=1)
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.1.0",
+            "keys": [
+                {
+                    "key_id": "expired-key",
+                    "algorithm": "ed25519",
+                    "public_key": base64.b64encode(public_key).decode("ascii"),
+                    "status": "active",
+                    "valid_to": past.isoformat(),
+                }
+            ],
+            "rulesets": [
+                {
+                    "path": str(ruleset),
+                    "sha256": sha256,
+                    "signatures": [
+                        {
+                            "key_id": "expired-key",
+                            "algorithm": "ed25519",
+                            "signature": base64.b64encode(signature).decode("ascii"),
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="key validity window expired"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=True,
+            verification_time=datetime.now(UTC),
         )

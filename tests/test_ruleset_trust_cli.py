@@ -9,6 +9,10 @@ from foxclaw.cli import app
 from typer.testing import CliRunner
 
 
+def _normalized_output(text: str) -> str:
+    return " ".join(text.split())
+
+
 def _create_sqlite_db(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path)
@@ -139,7 +143,7 @@ def test_scan_with_trust_manifest_sha256_mismatch_fails_closed(tmp_path: Path) -
     )
 
     assert result.exit_code == 1
-    assert "sha256 mismatch" in result.stdout
+    assert "sha256 mismatch" in _normalized_output(result.stdout)
 
 
 def test_scan_with_required_signatures_without_signatures_fails_closed(
@@ -175,7 +179,7 @@ def test_scan_with_required_signatures_without_signatures_fails_closed(
     )
 
     assert result.exit_code == 1
-    assert "signatures are required" in result.stdout
+    assert "signatures are required" in _normalized_output(result.stdout)
 
 
 def test_fleet_aggregate_with_trust_manifest_mismatch_fails_closed(tmp_path: Path) -> None:
@@ -209,4 +213,55 @@ def test_fleet_aggregate_with_trust_manifest_mismatch_fails_closed(tmp_path: Pat
     )
 
     assert result.exit_code == 1
-    assert "sha256 mismatch" in result.stdout
+    assert "sha256 mismatch" in _normalized_output(result.stdout)
+
+
+def test_scan_with_trust_manifest_signature_threshold_fail_is_operational_error(
+    tmp_path: Path,
+) -> None:
+    profile_dir = tmp_path / "profile"
+    _prepare_profile(profile_dir)
+
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    sha256 = hashlib.sha256(ruleset.read_bytes()).hexdigest()
+
+    manifest = tmp_path / "ruleset-trust.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.1.0",
+                "keys": [],
+                "rulesets": [
+                    {
+                        "path": str(ruleset),
+                        "sha256": sha256,
+                        "min_valid_signatures": 2,
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--ruleset",
+            str(ruleset),
+            "--ruleset-trust-manifest",
+            str(manifest),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        "min_valid_signatures is configured as 2"
+        in _normalized_output(result.stdout)
+    )

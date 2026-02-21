@@ -7,6 +7,7 @@ import json
 from pydantic import ValidationError
 
 from foxclaw.intel.models import (
+    AmoExtensionIntelBundle,
     CisaKevBundle,
     CveListRecordBundle,
     EpssScoreBundle,
@@ -21,6 +22,8 @@ MOZILLA_FIREFOX_ADVISORY_SCHEMA = "foxclaw.mozilla.firefox_advisories.v1"
 MOZILLA_FIREFOX_ADVISORY_ADAPTER = "mozilla_firefox_advisories_v1"
 MOZILLA_EXTENSION_BLOCKLIST_SCHEMA = "foxclaw.mozilla.extension_blocklist.v1"
 MOZILLA_EXTENSION_BLOCKLIST_ADAPTER = "mozilla_extension_blocklist_v1"
+AMO_EXTENSION_INTEL_SCHEMA = "foxclaw.amo.extension_intel.v1"
+AMO_EXTENSION_INTEL_ADAPTER = "amo_extension_intel_v1"
 NVD_CVE_RECORD_SCHEMA = "foxclaw.nvd.cve_records.v1"
 NVD_CVE_RECORD_ADAPTER = "nvd_cve_records_v1"
 CVE_LIST_RECORD_SCHEMA = "foxclaw.cve.list_records.v1"
@@ -91,6 +94,33 @@ def build_source_index(*, source_name: str, payload: bytes) -> IntelSourceIndex:
             adapter=MOZILLA_EXTENSION_BLOCKLIST_ADAPTER,
             record_count=len(entries),
             extension_blocklist=entries,
+        )
+
+    if schema_version == AMO_EXTENSION_INTEL_SCHEMA:
+        try:
+            amo_bundle = AmoExtensionIntelBundle.model_validate(decoded)
+        except ValidationError as exc:
+            raise ValueError(
+                f"source '{source_name}' failed schema validation for {schema_version}: {exc}"
+            ) from exc
+
+        records = sorted(
+            amo_bundle.records,
+            key=lambda item: (
+                item.addon_id.lower(),
+                item.version or "",
+                item.reputation,
+                int(item.listed),
+                item.reference_url or "",
+                item.reason or "",
+            ),
+        )
+        return IntelSourceIndex(
+            source_name=source_name,
+            schema_version=schema_version,
+            adapter=AMO_EXTENSION_INTEL_ADAPTER,
+            record_count=len(records),
+            amo_extension_intel=records,
         )
 
     if schema_version == NVD_CVE_RECORD_SCHEMA:

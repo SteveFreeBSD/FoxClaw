@@ -6,8 +6,9 @@ This document defines how FoxClaw verifies a ruleset before evaluation.
 
 Ruleset trust verification prevents silent ruleset swaps or tampering by enforcing:
 
-- a pinned SHA256 digest for the selected ruleset file.
+- pinned SHA256 digest validation for the selected ruleset file.
 - optional Ed25519 detached signature validation.
+- optional multi-signature threshold policy and key lifecycle windows.
 
 Verification is fail-closed. Any trust mismatch returns an operational error (CLI exit code `1`).
 
@@ -29,33 +30,62 @@ foxclaw scan \
   --json
 ```
 
-## Manifest Contract (`schema_version: 1.0.0`)
+## Manifest Contract (`schema_version: 1.1.0`)
+
+FoxClaw supports `schema_version` `1.0.0` and `1.1.0`.  
+`1.1.0` adds key lifecycle and signature-threshold controls:
 
 ```yaml
-schema_version: "1.0.0"
+schema_version: "1.1.0"
 keys:
-  - key_id: release-key-1
+  - key_id: release-key-2026-a
     algorithm: ed25519
     public_key: "<base64-encoded-32-byte-ed25519-public-key>"
+    status: active
+    valid_from: "2026-01-01T00:00:00Z"
+    valid_to: "2027-01-01T00:00:00Z"
+  - key_id: release-key-2025-b
+    algorithm: ed25519
+    public_key: "<base64-encoded-32-byte-ed25519-public-key>"
+    status: deprecated
 rulesets:
   - path: foxclaw/rulesets/balanced.yml
     sha256: "<64-char-lowercase-hex-digest>"
+    min_valid_signatures: 2
     signatures:
-      - key_id: release-key-1
+      - key_id: release-key-2026-a
+        algorithm: ed25519
+        signature: "<base64-encoded-ed25519-signature>"
+      - key_id: release-key-2025-b
         algorithm: ed25519
         signature: "<base64-encoded-ed25519-signature>"
 ```
 
 ## Verification Rules
 
-- `schema_version` must be `1.0.0`.
-- A ruleset entry must match exactly one path after path resolution:
+- `schema_version` must be one of `1.0.0` or `1.1.0`.
+- A ruleset entry must match exactly one path after resolution:
   - absolute paths are used directly.
   - relative paths are resolved relative to the manifest file directory.
 - `sha256` must match the ruleset file bytes exactly.
-- If signatures are present, at least one valid signature must verify.
-- If `--require-ruleset-signatures` is set and the matching entry has no signatures, verification fails.
 - Duplicate `key_id` values in `keys` are rejected.
+- If signatures are present:
+  - required valid signatures are `max(1, min_valid_signatures)`.
+  - only unique verified `key_id` values count toward the threshold.
+  - keys with `status: revoked` are rejected.
+  - keys outside `valid_from`/`valid_to` windows are rejected.
+- If `--require-ruleset-signatures` is set and the matching entry has no signatures, verification fails.
+- If `min_valid_signatures > 0` and the entry has no signatures, verification fails.
+
+## Key Rotation Guidance
+
+- Rotate by overlap:
+  - publish new key as `active`,
+  - keep previous key `deprecated` during rollout,
+  - set `min_valid_signatures: 2` while both keys are expected.
+- After rollout:
+  - reduce threshold if desired,
+  - mark old key `revoked` once no longer valid.
 
 ## Operational Guidance
 

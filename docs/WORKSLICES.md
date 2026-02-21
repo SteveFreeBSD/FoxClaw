@@ -26,6 +26,9 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-11 | complete | WS-10 | Scheduled dependency vulnerability sweeps and triage workflow. |
 | WS-12 | complete | WS-11 | Pre-merge readiness expansion and immediate roadmap planning runbook. |
 | WS-13 | complete | WS-12 | Ruleset trust boundary with manifest pinning and signature verification. |
+| WS-14 | complete | WS-04, WS-07 | Extension reputation depth from AMO intelligence snapshots and policy signals. |
+| WS-15 | complete | WS-10 | Release SBOM generation, validation, and artifact publication controls. |
+| WS-16 | complete | WS-13 | Trust manifest key rotation and multi-signature threshold policy (`schema_version` `1.1.0`). |
 
 ## Slice Details
 
@@ -88,7 +91,7 @@ This plan converts the current review and research into sequenced, testable exec
   - expanded `balanced` ruleset policy checks for `DisableFirefoxStudies`,
     `ExtensionSettings`, and `HTTPSOnlyMode`.
   - expanded `strict` ruleset with high-severity parity policy checks for the same keys.
-  - bumped ruleset versions (`balanced` `0.5.0`, `strict` `0.3.0`).
+  - bumped ruleset versions (`balanced` `0.6.0`, `strict` `0.4.0`).
   - expanded deterministic policy fixtures and integration rules in the testbed generator.
   - added policy-path regression assertions in `tests/test_policies.py` and updated
     integration expected findings in `tests/test_integration_testbed.py`.
@@ -237,6 +240,77 @@ This plan converts the current review and research into sequenced, testable exec
     - `docs/ROADMAP.md`
     - `docs/PREMERGE_READINESS.md`
     - `docs/RULESET_TRUST.md`
+- Acceptance: met.
+
+### WS-14 - Extension Intelligence Reputation Depth
+
+- Status: complete.
+- Goal: extend extension posture checks with deterministic AMO reputation intelligence.
+- Delivered:
+  - added source schema support for `foxclaw.amo.extension_intel.v1`.
+  - added SQLite indexing table `amo_extension_intel` during `intel sync`.
+  - added offline scan-time extension reputation annotation from pinned snapshots:
+    - source/reference metadata.
+    - reputation level and AMO listing/review/user counts.
+  - expanded extension data/report surfaces:
+    - new extension intel fields in `foxclaw/models.py`.
+    - text report posture column for intel reputation/listed status.
+  - added deterministic DSL operator `extension_intel_reputation_absent`.
+  - added ruleset coverage:
+    - `balanced` rule `FC-EXT-004`.
+    - `strict` rule `FC-STRICT-EXT-005`.
+  - added regression coverage:
+    - `tests/test_intel_sync.py`
+    - `tests/test_intel_correlation.py`
+    - `tests/test_extensions.py`
+    - fixture `tests/fixtures/intel/amo_extension_intel.v1.json`
+- Acceptance: met.
+
+### WS-15 - Release SBOM Contract
+
+- Status: complete.
+- Goal: publish verifiable SBOM artifacts with release outputs.
+- Delivered:
+  - added SBOM validation helpers in `foxclaw/release/sbom.py`.
+  - added operational scripts:
+    - `scripts/generate_sbom.sh`
+    - `scripts/verify_sbom.py`
+  - added Make targets:
+    - `make sbom`
+    - `make sbom-verify`
+  - updated release workflow `.github/workflows/foxclaw-release.yml`:
+    - generate and verify `sbom.cyclonedx.json`.
+    - include SBOM in artifact bundle, attest subject paths, and release uploads.
+    - include SBOM pointer in `provenance.txt`.
+  - added regression coverage in `tests/test_sbom.py`.
+  - documented operator workflow in:
+    - `docs/SBOM.md`
+    - `docs/GITHUB_ACTIONS.md`
+    - `docs/RELEASE_PROVENANCE.md`
+- Acceptance: met.
+
+### WS-16 - Trust Rotation and Signature Threshold Policy
+
+- Status: complete.
+- Goal: support key rollover and explicit signature quorum policy while remaining fail-closed.
+- Delivered:
+  - extended trust manifest support to `schema_version` `1.1.0` while preserving `1.0.0`.
+  - added key lifecycle fields:
+    - `status` (`active`, `deprecated`, `revoked`)
+    - `valid_from`
+    - `valid_to`
+  - added per-ruleset threshold control:
+    - `min_valid_signatures`
+    - required valid signatures computed as `max(1, min_valid_signatures)` when signatures exist.
+  - added validation and fail-closed checks for:
+    - revoked keys,
+    - keys outside validity windows,
+    - threshold mismatch and missing signatures under threshold policy.
+  - expanded regression coverage:
+    - `tests/test_ruleset_trust.py`
+    - `tests/test_ruleset_trust_cli.py`
+  - hardened trust-cli output checks to avoid false failures from wrapped console output.
+  - updated trust policy documentation in `docs/RULESET_TRUST.md`.
 - Acceptance: met.
 
 ## Workslice Update Protocol

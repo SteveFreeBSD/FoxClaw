@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -12,6 +13,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+_SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0"}
+
 
 class RulesetTrustKey(BaseModel):
     """One trusted public key entry for ruleset signature verification."""
@@ -19,6 +22,9 @@ class RulesetTrustKey(BaseModel):
     key_id: str
     algorithm: Literal["ed25519"] = "ed25519"
     public_key: str
+    status: Literal["active", "deprecated", "revoked"] = "active"
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
 
 
 class RulesetTrustSignature(BaseModel):
@@ -34,6 +40,7 @@ class RulesetTrustEntry(BaseModel):
 
     path: str
     sha256: str
+    min_valid_signatures: int = 0
     signatures: list[RulesetTrustSignature] = Field(default_factory=list)
 
     @field_validator("sha256")
@@ -43,6 +50,13 @@ class RulesetTrustEntry(BaseModel):
         if len(normalized) != 64 or any(char not in "0123456789abcdef" for char in normalized):
             raise ValueError("sha256 must be a 64-character lowercase hex digest")
         return normalized
+
+    @field_validator("min_valid_signatures")
+    @classmethod
+    def _validate_min_valid_signatures(_cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("min_valid_signatures must be >= 0")
+        return value
 
 
 class RulesetTrustManifest(BaseModel):
@@ -58,6 +72,7 @@ def verify_ruleset_with_manifest(
     ruleset_path: Path,
     manifest_path: Path,
     require_signatures: bool,
+    verification_time: datetime | None = None,
 ) -> None:
     """Verify ruleset digest/signature trust policy from a manifest file."""
     manifest = _load_manifest(manifest_path)
@@ -72,27 +87,49 @@ def verify_ruleset_with_manifest(
         )
 
     signatures = entry.signatures
-    if require_signatures and not signatures:
-        raise ValueError(
-            "ruleset trust verification failed: signatures are required but "
-            f"manifest entry has none for {ruleset_path}"
-        )
     if not signatures:
+        if require_signatures:
+            raise ValueError(
+                "ruleset trust verification failed: signatures are required but "
+                f"manifest entry has none for {ruleset_path}"
+            )
+        if entry.min_valid_signatures > 0:
+            raise ValueError(
+                "ruleset trust verification failed: min_valid_signatures is configured "
+                f"as {entry.min_valid_signatures} but manifest entry has no signatures "
+                f"for {ruleset_path}"
+            )
         return
 
+    required_valid_signatures = max(1, entry.min_valid_signatures)
     key_map = _build_key_map(manifest=manifest)
     if not key_map:
         raise ValueError(
             "ruleset trust verification failed: manifest contains signatures but no keys"
         )
 
-    verified = False
+    reference_time = (
+        verification_time.astimezone(UTC)
+        if verification_time is not None
+        else datetime.now(UTC)
+    )
+
+    verified_key_ids: set[str] = set()
     errors: list[str] = []
     for signature in signatures:
         key = key_map.get(signature.key_id)
         if key is None:
             errors.append(f"signature references unknown key_id='{signature.key_id}'")
             continue
+
+        availability_error = _validate_key_availability(
+            key=key,
+            reference_time=reference_time,
+        )
+        if availability_error is not None:
+            errors.append(f"key_id='{signature.key_id}': {availability_error}")
+            continue
+
         try:
             _verify_ed25519_signature(
                 public_key_b64=key.public_key,
@@ -102,15 +139,30 @@ def verify_ruleset_with_manifest(
         except ValueError as exc:
             errors.append(f"key_id='{signature.key_id}': {exc}")
             continue
-        verified = True
-        break
 
-    if not verified:
+        verified_key_ids.add(signature.key_id)
+
+    if len(verified_key_ids) < required_valid_signatures:
         details = "; ".join(errors) if errors else "no valid signature found"
         raise ValueError(
-            "ruleset trust verification failed: no valid signatures matched "
-            f"for {ruleset_path}: {details}"
+            "ruleset trust verification failed: signature threshold not met "
+            f"for {ruleset_path}: required_valid_signatures={required_valid_signatures}, "
+            f"verified_unique_keys={len(verified_key_ids)}: {details}"
         )
+
+
+def _validate_key_availability(*, key: RulesetTrustKey, reference_time: datetime) -> str | None:
+    if key.status == "revoked":
+        return "key is revoked"
+
+    valid_from = key.valid_from.astimezone(UTC) if key.valid_from is not None else None
+    valid_to = key.valid_to.astimezone(UTC) if key.valid_to is not None else None
+
+    if valid_from is not None and reference_time < valid_from:
+        return f"key is not yet valid (valid_from={valid_from.isoformat()})"
+    if valid_to is not None and reference_time > valid_to:
+        return f"key validity window expired (valid_to={valid_to.isoformat()})"
+    return None
 
 
 def _load_manifest(path: Path) -> RulesetTrustManifest:
@@ -134,9 +186,11 @@ def _load_manifest(path: Path) -> RulesetTrustManifest:
     except ValidationError as exc:
         raise ValueError(f"Ruleset trust manifest validation failed: {path}: {exc}") from exc
 
-    if manifest.schema_version != "1.0.0":
+    if manifest.schema_version not in _SUPPORTED_SCHEMA_VERSIONS:
+        supported = ", ".join(sorted(_SUPPORTED_SCHEMA_VERSIONS))
         raise ValueError(
-            f"Unsupported ruleset trust manifest schema version: {manifest.schema_version}"
+            "Unsupported ruleset trust manifest schema version: "
+            f"{manifest.schema_version} (supported: {supported})"
         )
     return manifest
 

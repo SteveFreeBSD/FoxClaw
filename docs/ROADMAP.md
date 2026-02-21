@@ -50,16 +50,19 @@ Target: after phase 1 stabilization.
   - baseline findings include fixed-version and source provenance with pinned snapshot id.
   - extend with richer vendor/NVD merge logic and confidence scoring.
 - Add extension intelligence correlation:
-  - correlate installed extension IDs/versions with AMO metadata and blocklist signals.
+  - baseline installed extension IDs/versions are correlated with AMO metadata and blocklist signals from pinned snapshots.
+  - extend with richer publisher/reputation signals and confidence scoring.
 - Signed policy packs:
   - baseline manifest pinning and optional Ed25519 signature verification are available
     via `--ruleset-trust-manifest` and `--require-ruleset-signatures`.
-  - extend toward externally distributed ruleset bundles, key rotation, and signature-threshold policy.
+  - baseline key rotation and signature-threshold policy are available in trust manifest schema `1.1.0`.
+  - extend toward externally distributed ruleset bundles and managed key distribution.
 - CI provenance:
   - baseline artifact attestations for release build outputs are available.
   - baseline provenance references are linked from release artifacts.
 - Release hardening:
   - baseline trusted publishing for package distribution is available.
+  - baseline CycloneDX SBOM generation and verification are available in release packaging.
   - baseline dependency review policy gate is enforced in CI pull requests.
   - baseline scheduled dependency vulnerability sweeps are available.
 

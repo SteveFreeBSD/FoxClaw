@@ -28,6 +28,7 @@ SQLITE_NAME_MAP: dict[str, str] = {
     "cookies": "cookies.sqlite",
 }
 _RISK_LEVEL_ORDER = {"medium": 0, "high": 1}
+_EXTENSION_INTEL_RISK_LEVEL_ORDER = {"low": 0, "medium": 1, "high": 2}
 
 
 @dataclass(slots=True)
@@ -62,6 +63,8 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_extension_permission_risk_absent(bundle, config)
     if check_name == "extension_blocklisted_absent":
         return _check_extension_blocklisted_absent(bundle, config)
+    if check_name == "extension_intel_reputation_absent":
+        return _check_extension_intel_reputation_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -292,6 +295,45 @@ def _check_extension_permission_risk_absent(
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 
+def _check_extension_intel_reputation_absent(
+    bundle: EvidenceBundle, config: object
+) -> CheckResult:
+    min_level, include_unlisted, include_inactive, include_system = (
+        _extract_extension_intel_risk_config(config)
+    )
+    candidates = [
+        item
+        for item in bundle.extensions.entries
+        if (include_inactive or item.active is True)
+        and (include_system or not _is_system_extension(item.source_kind))
+    ]
+
+    evidence: list[str] = []
+    threshold_order = _EXTENSION_INTEL_RISK_LEVEL_ORDER[min_level]
+    for item in candidates:
+        listed_flag = item.intel_listed
+        intel_level = item.intel_reputation_level
+
+        level_violation = (
+            intel_level is not None
+            and _EXTENSION_INTEL_RISK_LEVEL_ORDER[intel_level] >= threshold_order
+        )
+        unlisted_violation = include_unlisted and listed_flag is False
+        if not level_violation and not unlisted_violation:
+            continue
+
+        evidence.append(
+            f"{item.addon_id}: intel_reputation={intel_level or 'unknown'}, "
+            f"intel_listed={_format_bool_unknown(listed_flag)}, "
+            f"active={int(item.active is True)}, "
+            f"intel_source={item.intel_source or 'unknown'}"
+        )
+
+    if not evidence:
+        return CheckResult(passed=True)
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
 def _match_file_evidence(
     filesystem: list[FilePermEvidence], *, path_glob: object, key: object
 ) -> list[FilePermEvidence]:
@@ -373,8 +415,41 @@ def _extract_extension_risk_config(config: object) -> tuple[str, bool, bool]:
     return min_level, include_inactive_obj, include_system_obj
 
 
+def _extract_extension_intel_risk_config(config: object) -> tuple[str, bool, bool, bool]:
+    if config is None:
+        return "high", True, False, False
+    if not isinstance(config, dict):
+        raise ValueError("extension_intel_reputation_absent config must be an object")
+
+    min_level_obj = config.get("min_level", "high")
+    min_level = _require_value_type(min_level_obj, str, "min_level").lower()
+    if min_level not in _EXTENSION_INTEL_RISK_LEVEL_ORDER:
+        raise ValueError(
+            "extension_intel_reputation_absent min_level must be low, medium, or high"
+        )
+
+    include_unlisted = config.get("include_unlisted", True)
+    if not isinstance(include_unlisted, bool):
+        raise ValueError("extension_intel_reputation_absent include_unlisted must be a boolean")
+
+    include_inactive_obj = config.get("include_inactive", False)
+    if not isinstance(include_inactive_obj, bool):
+        raise ValueError("extension_intel_reputation_absent include_inactive must be a boolean")
+
+    include_system_obj = config.get("include_system", False)
+    if not isinstance(include_system_obj, bool):
+        raise ValueError("extension_intel_reputation_absent include_system must be a boolean")
+    return min_level, include_unlisted, include_inactive_obj, include_system_obj
+
+
 def _is_system_extension(source_kind: str) -> bool:
     return source_kind in {"system", "builtin"}
+
+
+def _format_bool_unknown(value: bool | None) -> str:
+    if value is None:
+        return "unknown"
+    return "1" if value else "0"
 
 
 def _as_dict(config: object, check_name: str) -> dict[str, object]:

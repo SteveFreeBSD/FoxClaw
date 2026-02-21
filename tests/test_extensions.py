@@ -314,6 +314,9 @@ def test_dsl_extension_unsigned_debug_and_permission_risk_absent() -> None:
                 signed_state="0",
                 debug_install=True,
                 debug_reason="temporarilyInstalled=1",
+                intel_reputation_level="high",
+                intel_listed=False,
+                intel_source="amo",
                 risky_permissions=[
                     ExtensionPermissionRisk(
                         permission="nativeMessaging",
@@ -374,6 +377,20 @@ def test_dsl_extension_unsigned_debug_and_permission_risk_absent() -> None:
     )
     assert medium.passed is False
     assert any("tabs" in line for line in medium.evidence)
+
+    intel_high = evaluate_check(
+        bundle,
+        {
+            "extension_intel_reputation_absent": {
+                "min_level": "high",
+                "include_unlisted": True,
+            }
+        },
+    )
+    assert intel_high.passed is False
+    assert intel_high.evidence == [
+        "unsigned@example.com: intel_reputation=high, intel_listed=0, active=1, intel_source=amo"
+    ]
 
 
 def test_scan_emits_extension_posture_summary_and_findings(tmp_path: Path) -> None:

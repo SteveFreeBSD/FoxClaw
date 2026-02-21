@@ -1,5 +1,5 @@
 name: strict
-version: 0.3.0
+version: 0.4.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -156,4 +156,17 @@ rules:
         include_system: false
     rationale: Strict environments should disallow temporary debug extension loading paths.
     recommendation: Remove temporary installs and deploy signed production extension builds only.
+    confidence: high
+
+  - id: FC-STRICT-EXT-005
+    title: Active extensions must not match medium/high extension intel reputation risk
+    severity: HIGH
+    category: extensions
+    check:
+      extension_intel_reputation_absent:
+        min_level: medium
+        include_unlisted: true
+        include_system: false
+    rationale: Strict baselines should block extensions with external intel risk or delisting signals.
+    recommendation: Remove extensions flagged by extension intelligence risk metadata.
     confidence: high

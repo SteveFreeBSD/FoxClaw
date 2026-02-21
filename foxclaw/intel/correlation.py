@@ -203,7 +203,8 @@ def _load_mozilla_advisories(
             if snapshot_row is None or snapshot_row[0] == 0:
                 raise ValueError(f"intel snapshot id not found: {snapshot_id}")
 
-            _require_table(connection, table_name="mozilla_advisories")
+            if not _table_exists(connection, table_name="mozilla_advisories"):
+                return _AdvisoryQueryResult(indexed_count=0, matches=[])
             indexed_row = connection.execute(
                 "SELECT COUNT(*) FROM mozilla_advisories WHERE snapshot_id = ?",
                 (snapshot_id,),
@@ -445,14 +446,6 @@ def _table_exists(connection: sqlite3.Connection, *, table_name: str) -> bool:
         (table_name,),
     ).fetchone()
     return row is not None and int(row[0]) > 0
-
-
-def _require_table(connection: sqlite3.Connection, *, table_name: str) -> None:
-    if _table_exists(connection, table_name=table_name):
-        return
-    raise ValueError(
-        f"intel store is missing required table '{table_name}'; run `foxclaw intel sync` again"
-    )
 
 
 def _build_findings(

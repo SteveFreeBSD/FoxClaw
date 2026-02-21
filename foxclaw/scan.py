@@ -12,6 +12,7 @@ from foxclaw.collect.prefs import collect_prefs
 from foxclaw.collect.sqlite import collect_sqlite_quick_checks
 from foxclaw.intel.blocklist import apply_extension_blocklist_from_snapshot
 from foxclaw.intel.correlation import correlate_firefox_vulnerability_intel
+from foxclaw.intel.reputation import apply_extension_reputation_from_snapshot
 from foxclaw.models import (
     EvidenceBundle,
     FilePermEvidence,
@@ -58,13 +59,13 @@ def run_scan(
         intel_snapshot_id=intel_snapshot_id,
     )
     extensions = collect_extensions(profile_dir)
-    if (
-        intel.enabled
-        and intel.error is None
-        and intel.store_dir is not None
-        and intel.snapshot_id is not None
-    ):
+    if intel.enabled and intel.store_dir is not None and intel.snapshot_id is not None:
         apply_extension_blocklist_from_snapshot(
+            extensions=extensions,
+            store_dir=Path(intel.store_dir),
+            snapshot_id=intel.snapshot_id,
+        )
+        apply_extension_reputation_from_snapshot(
             extensions=extensions,
             store_dir=Path(intel.store_dir),
             snapshot_id=intel.snapshot_id,

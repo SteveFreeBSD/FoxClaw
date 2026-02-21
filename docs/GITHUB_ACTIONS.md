@@ -127,12 +127,17 @@ Jobs:
 - verifies release tag matches `pyproject.toml` project version (optional leading `v` allowed).
 - builds wheel + sdist via `python -m build`.
 - validates package metadata via `twine check`.
+- generates CycloneDX SBOM (`sbom.cyclonedx.json`) from built wheel artifacts.
+- verifies SBOM structure and `foxclaw` component metadata (`scripts/verify_sbom.py`).
 - writes `provenance.txt` with release/workflow pointers.
-- uploads `dist/*` + `provenance.txt` as release bundle artifact.
+- uploads `dist/*` + `sbom.cyclonedx.json` + `provenance.txt` as release bundle artifact.
 
 2. `attest-provenance`
 - downloads release bundle.
-- creates artifact attestations with `actions/attest-build-provenance@v3`.
+- creates artifact attestations with `actions/attest-build-provenance@v3` for:
+  - `dist/*`
+  - `sbom.cyclonedx.json`
+  - `provenance.txt`
 
 3. `publish-pypi`
 - downloads release bundle.
@@ -140,16 +145,8 @@ Jobs:
 - requires environment `pypi`.
 
 4. `upload-release-assets`
-- uploads `dist/*` + `provenance.txt` to the GitHub release.
+- uploads `dist/*` + `sbom.cyclonedx.json` + `provenance.txt` to the GitHub release.
 
 Verification guidance:
 
 - see `docs/RELEASE_PROVENANCE.md`.
-
-## Forward Workflow Backlog
-
-Planned next-level CI additions (non-runtime changes):
-
-- Optional SBOM artifact generation during release packaging.
-
-See `docs/ROADMAP.md` and `docs/RESEARCH.md` for the implementation sequence and source references.

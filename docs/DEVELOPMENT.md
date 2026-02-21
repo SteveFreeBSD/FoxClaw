@@ -100,6 +100,8 @@ make fixture-scan
 make verify
 make verify-full
 make dep-audit
+make sbom
+make sbom-verify
 make certify
 make certify-live
 make test-firefox-container
@@ -139,6 +141,8 @@ python -m pip install --upgrade build twine
 rm -rf build dist
 python -m build
 python -m twine check dist/*
+make sbom
+make sbom-verify
 ```
 
 ## Review-Ready Gate Sequence
@@ -225,6 +229,7 @@ See `docs/QUALITY_GATES.md` for the full gate policy.
   - `docs/ARCHITECTURE.md`
   - `docs/SECURITY_MODEL.md`
   - `docs/RULESET_TRUST.md` (when ruleset trust controls or manifest contract changes).
+  - `docs/SBOM.md` (when release SBOM generation/verification behavior changes).
   - `docs/GITHUB_ACTIONS.md` (if CI behavior changed).
   - `docs/TESTBED.md` (if fixture or container testbed flows changed).
 - For roadmap or strategic changes, update:

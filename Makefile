@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -136,6 +136,13 @@ fixture-scan:
 trust-smoke:
 	@./scripts/trust_scan_smoke.sh "$(PYTHON_BIN)"
 
+sbom:
+	@./scripts/generate_sbom.sh --python "$(PYTHON_BIN)" --dist-dir dist --output sbom.cyclonedx.json
+	@"$(PYTHON_BIN)" ./scripts/verify_sbom.py sbom.cyclonedx.json
+
+sbom-verify:
+	@"$(PYTHON_BIN)" ./scripts/verify_sbom.py sbom.cyclonedx.json
+
 verify: lint typecheck test test-integration fixture-scan trust-smoke
 
 bandit:
@@ -163,7 +170,7 @@ hooks-install:
 	@./scripts/install_hooks.sh
 
 clean:
-	rm -f foxclaw.json foxclaw.sarif dependency-audit.json
+	rm -f foxclaw.json foxclaw.sarif dependency-audit.json sbom.cyclonedx.json
 	rm -rf .pytest_cache .mypy_cache .ruff_cache foxclaw.egg-info build dist
 	find foxclaw tests -type d -name "__pycache__" -prune -exec rm -rf {} +
 
