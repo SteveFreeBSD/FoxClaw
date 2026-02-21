@@ -184,3 +184,129 @@ def test_verify_ruleset_manifest_signature_required_without_signatures_fails(
             manifest_path=manifest,
             require_signatures=True,
         )
+
+
+def test_verify_ruleset_manifest_multiple_matching_entries_fail(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    sha256 = hashlib.sha256(ruleset.read_bytes()).hexdigest()
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.0.0",
+            "rulesets": [
+                {"path": str(ruleset), "sha256": sha256},
+                {"path": str(ruleset), "sha256": sha256},
+            ],
+            "keys": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="multiple manifest entries match"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=False,
+        )
+
+
+def test_verify_ruleset_manifest_duplicate_key_ids_fail(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    sha256 = hashlib.sha256(ruleset.read_bytes()).hexdigest()
+    public_key_b64 = base64.b64encode(b"k" * 32).decode("ascii")
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.0.0",
+            "rulesets": [
+                {
+                    "path": str(ruleset),
+                    "sha256": sha256,
+                    "signatures": [{"key_id": "dup-key", "signature": "AAAA"}],
+                }
+            ],
+            "keys": [
+                {
+                    "key_id": "dup-key",
+                    "algorithm": "ed25519",
+                    "public_key": public_key_b64,
+                },
+                {
+                    "key_id": "dup-key",
+                    "algorithm": "ed25519",
+                    "public_key": public_key_b64,
+                },
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="duplicate key_id"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=False,
+        )
+
+
+def test_verify_ruleset_manifest_unknown_signature_key_fails(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    sha256 = hashlib.sha256(ruleset.read_bytes()).hexdigest()
+    public_key_b64 = base64.b64encode(b"k" * 32).decode("ascii")
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "1.0.0",
+            "rulesets": [
+                {
+                    "path": str(ruleset),
+                    "sha256": sha256,
+                    "signatures": [{"key_id": "missing-key", "signature": "AAAA"}],
+                }
+            ],
+            "keys": [
+                {
+                    "key_id": "known-key",
+                    "algorithm": "ed25519",
+                    "public_key": public_key_b64,
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="unknown key_id"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=True,
+        )
+
+
+def test_verify_ruleset_manifest_unsupported_schema_version_fails(tmp_path: Path) -> None:
+    ruleset = tmp_path / "rules.yml"
+    _write_ruleset(ruleset)
+    sha256 = hashlib.sha256(ruleset.read_bytes()).hexdigest()
+
+    manifest = tmp_path / "ruleset-trust.json"
+    _write_manifest(
+        manifest,
+        {
+            "schema_version": "2.0.0",
+            "rulesets": [{"path": str(ruleset), "sha256": sha256}],
+            "keys": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="Unsupported ruleset trust manifest schema version"):
+        verify_ruleset_with_manifest(
+            ruleset_path=ruleset,
+            manifest_path=manifest,
+            require_signatures=False,
+        )

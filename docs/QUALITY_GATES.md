@@ -27,6 +27,7 @@ This runs:
 - fixture tree clean (`git diff --quiet -- tests/fixtures/testbed`)
 - `pytest -q -m integration`
 - fixture scan (`scripts/fixture_scan.sh`)
+- trust-boundary scan smoke (`scripts/trust_scan_smoke.sh`)
 - `bandit -q -r foxclaw -x tests`
 - `vulture foxclaw tests --min-confidence 80`
 - `detect-secrets scan --exclude-files '^tests/fixtures/testbed/manifest\.json$' $(git ls-files)`

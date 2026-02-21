@@ -9,6 +9,7 @@ Runs FoxClaw local certification gates:
   - lint, typecheck, tests
   - integration testbed suite + deterministic fixture validation
   - fixture scan (+ JSON/SARIF parse)
+  - ruleset trust smoke checks (positive and fail-closed paths)
   - security/dead-code scans (bandit, vulture, detect-secrets)
   - optional live Firefox profile scan and snapshot diff smoke test
 EOF
@@ -87,6 +88,9 @@ echo "[certify] test-integration."
 
 echo "[certify] fixture-scan."
 ./scripts/fixture_scan.sh "${PYTHON_BIN}"
+
+echo "[certify] trust-scan."
+./scripts/trust_scan_smoke.sh "${PYTHON_BIN}"
 
 echo "[certify] bandit."
 .venv/bin/bandit -q -r foxclaw -x tests

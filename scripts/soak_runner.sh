@@ -2,8 +2,9 @@
 # --------------------------------------------------------------------------
 # soak_runner.sh — Long-run stability harness for FoxClaw.
 #
-# Runs repeated integration, snapshot determinism, fuzz, and Firefox container
-# matrix checks with structured logs for post-run analysis.
+# Runs repeated integration, trust-manifest scan checks, snapshot determinism,
+# fuzz, and Firefox container matrix checks with structured logs for post-run
+# analysis.
 # --------------------------------------------------------------------------
 set -euo pipefail
 
@@ -377,6 +378,13 @@ while true; do
   if ! run_snapshot_determinism_cycle "${cycle}"; then
     overall_fail=1
   fi
+  if [[ "${stop_requested}" -eq 1 ]]; then
+    overall_fail=1
+    break
+  fi
+
+  run_step_cmd "${cycle}" "trust_scan" "1" "${LOG_DIR}/cycle-${cycle}-trust-scan.log" \
+    "${ROOT_DIR}/scripts/trust_scan_smoke.sh" "${PYTHON_BIN}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
     break

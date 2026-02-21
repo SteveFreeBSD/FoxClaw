@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-daytime soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -62,6 +62,16 @@ soak-smoke:
 		--matrix-runs 1 \
 		--label smoke
 
+soak-smoke-fuzz1000:
+	@SOAK_SUDO_PASSWORD="$(SOAK_SUDO_PASSWORD)" scripts/soak_runner.sh \
+		--duration-hours 1 \
+		--max-cycles 1 \
+		--integration-runs 1 \
+		--snapshot-runs 1 \
+		--fuzz-count 1000 \
+		--matrix-runs 1 \
+		--label smoke-fuzz1000
+
 soak-daytime:
 	@SOAK_SUDO_PASSWORD="$(SOAK_SUDO_PASSWORD)" scripts/soak_runner.sh \
 		--duration-hours 3 \
@@ -71,6 +81,16 @@ soak-daytime:
 		--fuzz-count 150 \
 		--matrix-runs 1 \
 		--label daytime-burnin
+
+soak-daytime-fuzz1000:
+	@SOAK_SUDO_PASSWORD="$(SOAK_SUDO_PASSWORD)" scripts/soak_runner.sh \
+		--duration-hours 3 \
+		--max-cycles 6 \
+		--integration-runs 2 \
+		--snapshot-runs 3 \
+		--fuzz-count 1000 \
+		--matrix-runs 1 \
+		--label daytime-burnin-fuzz1000
 
 soak-daytime-detached:
 	systemd-run --user \
@@ -113,7 +133,10 @@ typecheck:
 fixture-scan:
 	@./scripts/fixture_scan.sh "$(PYTHON_BIN)"
 
-verify: lint typecheck test test-integration fixture-scan
+trust-smoke:
+	@./scripts/trust_scan_smoke.sh "$(PYTHON_BIN)"
+
+verify: lint typecheck test test-integration fixture-scan trust-smoke
 
 bandit:
 	$(BANDIT_BIN) -q -r foxclaw -x tests

@@ -222,6 +222,14 @@ This plan converts the current review and research into sequenced, testable exec
   - added regression coverage in:
     - `tests/test_ruleset_trust.py`
     - `tests/test_ruleset_trust_cli.py`
+    - integration trust-path assertions in `tests/test_integration_testbed.py`
+  - added operational hardening checks:
+    - `scripts/trust_scan_smoke.sh` for positive + fail-closed CLI trust verification.
+    - `scripts/certify.sh` now runs trust smoke as a required gate.
+    - `scripts/soak_runner.sh` now runs trust smoke once per cycle.
+  - added high-memory fuzz presets for pre-soak burn-in:
+    - `make soak-smoke-fuzz1000`
+    - `make soak-daytime-fuzz1000`
   - updated architecture/security/roadmap/operator docs:
     - `README.md`
     - `docs/ARCHITECTURE.md`

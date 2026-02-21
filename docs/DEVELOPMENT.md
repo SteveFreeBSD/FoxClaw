@@ -104,7 +104,9 @@ make certify
 make certify-live
 make test-firefox-container
 make soak-smoke
+make soak-smoke-fuzz1000
 make soak-daytime
+make soak-daytime-fuzz1000
 make soak-daytime-detached
 make soak-status
 make soak-stop
@@ -122,6 +124,12 @@ Run on-demand dependency vulnerability audit:
 
 ```bash
 make dep-audit
+```
+
+Run trust-boundary CLI smoke checks:
+
+```bash
+make trust-smoke
 ```
 
 Packaging dry-run prior to release merges:
@@ -155,10 +163,22 @@ Run a local smoke soak (single cycle):
 make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
 ```
 
+Run the same smoke cycle with 1000 fuzzed profiles (high-memory hosts):
+
+```bash
+make soak-smoke-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
 Run the daytime burn-in gate used for commit confidence:
 
 ```bash
 make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Run the daytime burn-in with 1000 fuzzed profiles:
+
+```bash
+make soak-daytime-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
 ```
 
 Run the same daytime burn-in detached via user systemd:

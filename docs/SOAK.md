@@ -6,6 +6,7 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 
 - Catch flakiness and race conditions that short CI runs miss.
 - Validate deterministic snapshot behavior under repeated execution.
+- Validate ruleset trust fail-closed behavior under repeated execution.
 - Exercise fuzz resilience and container Firefox matrix (`esr`, `beta`, `nightly`).
 - Produce structured logs for post-run forensic analysis.
 
@@ -14,10 +15,11 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - Script: `scripts/soak_runner.sh`
 - Default duration: `10` hours
 - Default cycle workload:
-  - `5` integration runs
-  - `5` snapshot determinism runs + hash consistency check
-  - `1` fuzz run (`500` random profiles)
-  - `1` Firefox matrix run (`esr`, `beta`, `nightly`)
+- `5` integration runs
+- `5` snapshot determinism runs + hash consistency check
+- `1` trust-manifest smoke stage (scan/fleet positive + fail-closed negatives)
+- `1` fuzz run (`500` random profiles)
+- `1` Firefox matrix run (`esr`, `beta`, `nightly`)
 
 ## Launch (overnight)
 
@@ -25,7 +27,9 @@ Quick commands:
 
 ```bash
 make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-smoke-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-daytime-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-daytime-detached SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-status
 make soak-stop
@@ -66,6 +70,28 @@ Notes:
 
 - `SOAK_SUDO_PASSWORD` is only needed when the current user cannot access Docker socket directly.
 - The password is not written to soak artifacts by the harness.
+
+## High-Memory Fuzz Mode (1000 Profiles)
+
+For systems with larger memory budgets (for example 64 GB RAM), you can run
+heavier fuzz cycles:
+
+```bash
+make soak-daytime-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Or run custom overnight parameters directly:
+
+```bash
+SOAK_SUDO_PASSWORD='<sudo-password>' \
+scripts/soak_runner.sh \
+  --duration-hours 10 \
+  --integration-runs 5 \
+  --snapshot-runs 5 \
+  --fuzz-count 1000 \
+  --matrix-runs 1 \
+  --label overnight-fuzz1000
+```
 
 ## Artifacts
 
