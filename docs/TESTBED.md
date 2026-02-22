@@ -86,6 +86,33 @@ Quick smoke (engine-agnostic harness validation without Rust toolchain):
 make rust-parity-smoke
 ```
 
+## Migration Contract Fixtures (WS-32)
+
+Canonical migration fixtures freeze deterministic scan JSON/SARIF outputs for the
+testbed scenarios:
+
+- `tests/fixtures/migration_contracts/manifest.json`
+- `tests/fixtures/migration_contracts/cases/*/scan.json`
+- `tests/fixtures/migration_contracts/cases/*/scan.sarif`
+
+Validate fixture drift:
+
+```bash
+python scripts/generate_migration_contract_fixtures.py --check --python-cmd ".venv/bin/python -m foxclaw"
+```
+
+Regenerate fixtures intentionally:
+
+```bash
+python scripts/generate_migration_contract_fixtures.py --write --python-cmd ".venv/bin/python -m foxclaw"
+```
+
+Verify one engine against canonical fixtures:
+
+```bash
+python scripts/verify_migration_contract_engine.py --engine-cmd ".venv/bin/python -m foxclaw" --engine-label python
+```
+
 ## Optional Containerized Firefox Smoke
 
 Run locally (Docker required):

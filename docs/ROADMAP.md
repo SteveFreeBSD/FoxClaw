@@ -69,6 +69,7 @@ Objectives:
 - Finish WS-28 launch-gate realism and cross-OS profile baseline hardening.
 - Complete WS-30 schema lockdown with explicit JSON/SARIF version policy.
 - Complete WS-31 `foxclaw-rs` workspace bootstrap and parity harness scaffolding.
+- Complete WS-32 contract canonicalization and migration fixture enforcement for both engines.
 - Expand fixture corpus for parser edge cases (SQLite damage modes, extension metadata anomalies, profile-version variance).
 
 Exit criteria:

@@ -8,13 +8,20 @@ import difflib
 import json
 import shlex
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-TESTBED_ROOT = REPO_ROOT / "tests" / "fixtures" / "testbed"
-TESTBED_RULESET = TESTBED_ROOT / "rulesets" / "integration.yml"
-TESTBED_POLICY = TESTBED_ROOT / "policies" / "disable_telemetry.json"
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from migration_contract_common import (  # noqa: E402
+    CONTRACT_CASES,
+    REPO_ROOT,
+    TESTBED_POLICY,
+    TESTBED_ROOT,
+    TESTBED_RULESET,
+)
 
 
 @dataclass(frozen=True)
@@ -40,12 +47,13 @@ class EngineRun:
 
 
 CASES: list[ParityCase] = [
-    ParityCase("profile_baseline", "profile_baseline", False, 0),
-    ParityCase("profile_weak_perms", "profile_weak_perms", False, 2),
-    ParityCase("profile_sqlite_error", "profile_sqlite_error", False, 2),
-    ParityCase("profile_policy_present", "profile_policy_present", True, 0),
-    ParityCase("profile_userjs_override", "profile_userjs_override", True, 0),
-    ParityCase("profile_third_party_xpi", "profile_third_party_xpi", False, 0),
+    ParityCase(
+        case.name,
+        case.profile_name,
+        case.with_policy_path,
+        case.expected_exit_code,
+    )
+    for case in CONTRACT_CASES
 ]
 CASE_BY_NAME = {case.name: case for case in CASES}
 

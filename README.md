@@ -148,6 +148,12 @@ Run the Rust-bridge parity harness against deterministic fixtures:
 make rust-parity-smoke
 ```
 
+Validate canonical migration contract fixtures (WS-32):
+
+```bash
+make migration-contract-fixtures
+```
+
 ## Exit Codes
 
 Canonical CLI contract:
@@ -170,6 +176,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/ARCHITECTURE.md`: runtime boundaries and extension points.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
 - `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
+- `docs/CONTRACT_COMPATIBILITY.md`: JSON/SARIF compatibility policy and migration fixture enforcement.
 - `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
 - `docs/PROFILE_HANDOFF.md`: canonical profile-system onboarding, status memory, and anti-loop guardrails.
 - `docs/PROFILE_SYNTHESIS.md`: profile generation architecture and runtime usage.

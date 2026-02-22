@@ -139,6 +139,18 @@ jobs:
             exit 1
           fi
 
+      - name: Validate migration contract fixtures
+        run: python scripts/generate_migration_contract_fixtures.py --check --python-cmd "python -m foxclaw"
+
+      - name: Ensure migration contract fixtures are committed
+        run: |
+          git diff --exit-code -- tests/fixtures/migration_contracts
+          if [ -n "$(git ls-files --others --exclude-standard -- tests/fixtures/migration_contracts)" ]; then
+            echo "untracked migration fixture files detected under tests/fixtures/migration_contracts" >&2
+            git ls-files --others --exclude-standard -- tests/fixtures/migration_contracts >&2
+            exit 1
+          fi
+
       - name: Run integration testbed suite
         run: pytest -q -m integration
 
@@ -180,6 +192,22 @@ jobs:
             --rust-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
             --output-dir rust-parity-artifacts \
             --json-out rust-parity-artifacts/summary.json
+
+      - name: Verify Python engine against canonical migration fixtures
+        run: |
+          python scripts/verify_migration_contract_engine.py \
+            --engine-cmd "python -m foxclaw" \
+            --engine-label python \
+            --output-dir rust-parity-artifacts/python-contract
+
+      - name: Verify Rust engine against canonical migration fixtures
+        env:
+          FOXCLAW_PYTHON_BIN: python
+        run: |
+          python scripts/verify_migration_contract_engine.py \
+            --engine-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
+            --engine-label rust \
+            --output-dir rust-parity-artifacts/rust-contract
 
       - name: Upload parity artifacts
         uses: actions/upload-artifact@v4

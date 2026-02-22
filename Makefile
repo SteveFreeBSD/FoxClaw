@@ -8,8 +8,9 @@ BANDIT_BIN := $(VENV)/bin/bandit
 VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
+CARGO_BIN ?= $(shell if command -v cargo >/dev/null 2>&1; then command -v cargo; elif [ -x "$$HOME/.cargo/bin/cargo" ]; then echo "$$HOME/.cargo/bin/cargo"; else echo cargo; fi)
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate extension-catalog rust-workspace-check rust-parity-testbed rust-parity-smoke test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write migration-contract-fixtures migration-contract-fixtures-write migration-contract-verify-python migration-contract-verify-rust synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate extension-catalog rust-workspace-check rust-parity-testbed rust-parity-smoke test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -31,6 +32,27 @@ testbed-fixtures:
 
 testbed-fixtures-write:
 	$(PYTHON_BIN) ./scripts/generate_testbed_fixtures.py --write
+
+migration-contract-fixtures:
+	$(PYTHON_BIN) ./scripts/generate_migration_contract_fixtures.py --write --python-cmd "$(PYTHON_BIN) -m foxclaw"
+	$(PYTHON_BIN) ./scripts/generate_migration_contract_fixtures.py --check --python-cmd "$(PYTHON_BIN) -m foxclaw"
+	@git diff --quiet -- tests/fixtures/migration_contracts || (echo "error: migration contract fixtures are out of date; run 'make migration-contract-fixtures-write' and commit updates." >&2 && git --no-pager diff -- tests/fixtures/migration_contracts && exit 1)
+
+migration-contract-fixtures-write:
+	$(PYTHON_BIN) ./scripts/generate_migration_contract_fixtures.py --write --python-cmd "$(PYTHON_BIN) -m foxclaw"
+
+migration-contract-verify-python:
+	$(PYTHON_BIN) ./scripts/verify_migration_contract_engine.py \
+		--engine-cmd "$(PYTHON_BIN) -m foxclaw" \
+		--engine-label python \
+		--output-dir /tmp/foxclaw-contract-verify-python
+
+migration-contract-verify-rust: rust-workspace-check
+	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" "$(CARGO_BIN)" build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli
+	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" $(PYTHON_BIN) ./scripts/verify_migration_contract_engine.py \
+		--engine-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
+		--engine-label rust \
+		--output-dir /tmp/foxclaw-contract-verify-rust
 
 synth-profiles:
 	$(PYTHON_BIN) ./scripts/synth_profiles.py --count 4 --output-dir /tmp/foxclaw-synth-profiles
@@ -54,15 +76,23 @@ extension-catalog:
 	$(PYTHON_BIN) ./scripts/build_extension_catalog.py --output tests/fixtures/intel/amo_extension_catalog.v1.json
 
 rust-workspace-check:
-	@command -v cargo >/dev/null 2>&1 || (echo "error: cargo is required for Rust workspace checks." >&2 && exit 1)
-	cargo check --manifest-path foxclaw-rs/Cargo.toml
+	@test -x "$(CARGO_BIN)" || command -v "$(CARGO_BIN)" >/dev/null 2>&1 || (echo "error: cargo is required for Rust workspace checks." >&2 && exit 1)
+	"$(CARGO_BIN)" check --manifest-path foxclaw-rs/Cargo.toml
 
-rust-parity-testbed: testbed-fixtures rust-workspace-check
-	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" cargo build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli
+rust-parity-testbed: testbed-fixtures migration-contract-fixtures rust-workspace-check
+	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" "$(CARGO_BIN)" build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli
 	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" $(PYTHON_BIN) ./scripts/rust_parity_runner.py \
 		--python-cmd "$(PYTHON_BIN) -m foxclaw" \
 		--rust-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
 		--output-dir /tmp/foxclaw-rs-parity
+	$(PYTHON_BIN) ./scripts/verify_migration_contract_engine.py \
+		--engine-cmd "$(PYTHON_BIN) -m foxclaw" \
+		--engine-label python \
+		--output-dir /tmp/foxclaw-contract-verify-python
+	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" $(PYTHON_BIN) ./scripts/verify_migration_contract_engine.py \
+		--engine-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
+		--engine-label rust \
+		--output-dir /tmp/foxclaw-contract-verify-rust
 
 rust-parity-smoke: testbed-fixtures
 	$(PYTHON_BIN) ./scripts/rust_parity_runner.py \
@@ -221,7 +251,7 @@ sbom:
 sbom-verify:
 	@"$(PYTHON_BIN)" ./scripts/verify_sbom.py sbom.cyclonedx.json
 
-verify: lint typecheck test test-integration fixture-scan trust-smoke
+verify: lint typecheck test test-integration migration-contract-fixtures migration-contract-verify-python fixture-scan trust-smoke
 
 bandit:
 	$(BANDIT_BIN) -q -r foxclaw -x tests

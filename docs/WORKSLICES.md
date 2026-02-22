@@ -44,7 +44,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
 | WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
 | WS-31 | complete | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
-| WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
+| WS-32 | complete | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
 | WS-34 | pending | WS-26, WS-32 | Trusted update chain for intel/rules (signed metadata, freshness checks, rollback resistance). |
 | WS-35 | pending | WS-28 | Cross-OS profile corpus expansion for parser/fidelity stress and migration parity. |
@@ -541,8 +541,36 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-32 - Contract Canonicalization for Migration
 
-- Status: pending.
+- Status: complete.
 - Goal: freeze JSON/SARIF compatibility policy and publish canonical migration fixtures that both engines must satisfy.
+- Delivered:
+  - Added contract compatibility policy doc in `docs/CONTRACT_COMPATIBILITY.md` with:
+    - frozen migration baseline (`scan schema_version` `1.0.0`, SARIF `2.1.0`),
+    - explicit breaking/non-breaking rules,
+    - local/CI enforcement requirements.
+  - Added shared WS-32 contract utilities in `scripts/migration_contract_common.py`:
+    - canonical case matrix,
+    - host-independent normalization (`<REPO_ROOT>` path normalization, UID/GID normalization).
+  - Added canonical fixture generator/checker `scripts/generate_migration_contract_fixtures.py`.
+  - Published canonical fixture corpus under `tests/fixtures/migration_contracts/` with per-scenario JSON/SARIF and digest manifest.
+  - Added engine-to-fixture verifier `scripts/verify_migration_contract_engine.py` for explicit per-engine contract conformance checks.
+  - Added local make targets and gate wiring:
+    - `make migration-contract-fixtures`
+    - `make migration-contract-fixtures-write`
+    - `make migration-contract-verify-python`
+    - `make migration-contract-verify-rust`
+    - `make rust-parity-testbed` now enforces canonical fixture conformance for both engines.
+  - Updated CI:
+    - `integration-testbed` validates migration contract fixtures and fixture tracking cleanliness.
+    - `rust-parity-testbed` verifies both Python and Rust engines against canonical migration fixtures.
+  - Added integration coverage in `tests/test_migration_contract_scripts.py`.
+  - Updated docs (`README.md`, `docs/TESTBED.md`, `docs/QUALITY_GATES.md`, `docs/GITHUB_ACTIONS.md`, `docs/PREMERGE_READINESS.md`) to reflect enforced contract workflow.
+- Validation evidence:
+  - `python scripts/generate_migration_contract_fixtures.py --check --python-cmd '.venv/bin/python -m foxclaw'`
+  - `python scripts/verify_migration_contract_engine.py --engine-cmd '.venv/bin/python -m foxclaw' --engine-label python`
+  - `python scripts/verify_migration_contract_engine.py --engine-cmd './foxclaw-rs/target/debug/foxclaw-rs-cli' --engine-label rust`
+  - `make rust-parity-testbed`
+- Acceptance: met.
 
 ### WS-33 - ATT&CK Mapping for Browser Findings
 

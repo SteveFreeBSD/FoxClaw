@@ -31,6 +31,8 @@ Workflow file: `.github/workflows/foxclaw-security.yml`
 - Regenerates fixture matrix (`scripts/generate_testbed_fixtures.py --write`) to apply expected permission modes
 - Validates deterministic testbed fixture manifest (`scripts/generate_testbed_fixtures.py --check`)
 - Fails when fixture artifacts are stale or untracked (`git diff --exit-code -- tests/fixtures/testbed` plus untracked-file check)
+- Validates migration contract fixtures (`scripts/generate_migration_contract_fixtures.py --check`)
+- Fails when migration fixture artifacts are stale or untracked (`tests/fixtures/migration_contracts`)
 - Runs `pytest -q -m integration`
 
 5. `rust-parity-testbed`
@@ -39,6 +41,9 @@ Workflow file: `.github/workflows/foxclaw-security.yml`
   - `cargo check --manifest-path foxclaw-rs/Cargo.toml`
   - `cargo build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli`
   - `python scripts/rust_parity_runner.py` against deterministic testbed fixtures
+- Verifies canonical migration contract fixture conformance for:
+  - Python engine (`python -m foxclaw`)
+  - Rust bridge engine (`./foxclaw-rs/target/debug/foxclaw-rs-cli`)
 - Uploads parity summary/artifacts for drift triage
 
 6. `scan-balanced`

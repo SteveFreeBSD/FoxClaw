@@ -26,6 +26,9 @@ This runs:
 - `python scripts/generate_testbed_fixtures.py --check`
 - fixture tree clean (`git diff --quiet -- tests/fixtures/testbed`)
 - `pytest -q -m integration`
+- migration contract fixtures write/check (`scripts/generate_migration_contract_fixtures.py`)
+- migration contract fixture tree clean (`git diff --quiet -- tests/fixtures/migration_contracts`)
+- migration contract verification against Python engine (`scripts/verify_migration_contract_engine.py`)
 - fixture scan (`scripts/fixture_scan.sh`)
 - trust-boundary scan smoke (`scripts/trust_scan_smoke.sh`)
 - `bandit -q -r foxclaw -x tests`
@@ -66,6 +69,7 @@ The pre-push hook runs `./scripts/certify.sh` automatically.
 
 - `make certify` passes.
 - `make certify-live` passes for release/milestone branches.
+- `make rust-parity-testbed` passes when Rust bridge/parity code paths change.
 - extended pre-merge rehearsal passes when used:
   - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
   - `make dep-audit`
@@ -94,6 +98,10 @@ CI-only dependency policy gate:
 - Pull requests enforce dependency review in `dependency-policy` job
   (`actions/dependency-review-action` with high-severity failure policy).
   This gate has no exact local offline equivalent and is enforced in GitHub Actions.
+- Migration contract fixture drift gate runs in `integration-testbed`
+  (`generate_migration_contract_fixtures.py --check` + fixture cleanliness check).
+  Local equivalent command is:
+  - `make migration-contract-fixtures`
 - Rust parity gate runs in `rust-parity-testbed` (`cargo check` + deterministic
   Python-vs-Rust parity harness over testbed fixtures).
   Local equivalent commands are:

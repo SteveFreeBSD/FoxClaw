@@ -86,6 +86,25 @@ fi
 echo "[certify] test-integration."
 .venv/bin/pytest -q -m integration
 
+echo "[certify] migration-contract-fixtures-write."
+"${PYTHON_BIN}" ./scripts/generate_migration_contract_fixtures.py --write --python-cmd "${PYTHON_BIN} -m foxclaw"
+
+echo "[certify] migration-contract-fixtures-check."
+"${PYTHON_BIN}" ./scripts/generate_migration_contract_fixtures.py --check --python-cmd "${PYTHON_BIN} -m foxclaw"
+
+echo "[certify] migration-contract-fixtures-clean."
+if ! git diff --quiet -- tests/fixtures/migration_contracts; then
+  echo "error: migration contract fixtures are out of date. run make migration-contract-fixtures-write and commit updates." >&2
+  git --no-pager diff -- tests/fixtures/migration_contracts >&2 || true
+  exit 1
+fi
+
+echo "[certify] migration-contract-verify-python."
+"${PYTHON_BIN}" ./scripts/verify_migration_contract_engine.py \
+  --engine-cmd "${PYTHON_BIN} -m foxclaw" \
+  --engine-label python \
+  --output-dir /tmp/foxclaw-contract-verify-python
+
 echo "[certify] fixture-scan."
 ./scripts/fixture_scan.sh "${PYTHON_BIN}"
 

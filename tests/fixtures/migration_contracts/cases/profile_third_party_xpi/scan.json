@@ -1,0 +1,257 @@
+{
+  "bundle_provenance": null,
+  "extensions": {
+    "active_addons": 1,
+    "addons_seen": 1,
+    "entries": [
+      {
+        "active": true,
+        "addon_id": "third-party@example.com",
+        "addon_type": "extension",
+        "blocklisted": false,
+        "debug_install": false,
+        "debug_reason": null,
+        "host_permissions": [
+          "<all_urls>"
+        ],
+        "intel_average_daily_users": null,
+        "intel_listed": null,
+        "intel_reason": null,
+        "intel_recommended": null,
+        "intel_reference_url": null,
+        "intel_reputation_level": null,
+        "intel_review_count": null,
+        "intel_source": null,
+        "intel_version": null,
+        "location": "app-profile",
+        "manifest_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/extensions/third-party@example.com.xpi",
+        "manifest_status": "parsed",
+        "manifest_version": 2,
+        "name": "Third Party Test",
+        "parse_error": null,
+        "permissions": [
+          "webRequest"
+        ],
+        "risky_permissions": [
+          {
+            "level": "high",
+            "permission": "<all_urls>",
+            "reason": "Host permission includes broad wildcard origin access."
+          },
+          {
+            "level": "medium",
+            "permission": "webRequest",
+            "reason": "Can observe network request metadata."
+          }
+        ],
+        "signed_state": "2",
+        "signed_status": "valid",
+        "signed_valid": true,
+        "source": "extensions/third-party@example.com.xpi",
+        "source_kind": "profile",
+        "version": "1.0.0"
+      }
+    ],
+    "extensions_json_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/extensions.json",
+    "parse_error": null
+  },
+  "filesystem": [
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/cookies.sqlite",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/extensions.json",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/key4.db",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/places.sqlite",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/prefs.js",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    }
+  ],
+  "findings": [
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.DisableTelemetry: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-001",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.DisableTelemetry in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise telemetry disable policy should exist"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.DisableFirefoxStudies: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-002",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.DisableFirefoxStudies in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise firefox studies disable policy should exist"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.ExtensionSettings: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-003",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.ExtensionSettings in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise extension settings policy should exist"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.HTTPSOnlyMode: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-004",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.HTTPSOnlyMode in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise https-only mode policy should exist"
+    }
+  ],
+  "generated_at": "2025-01-01T00:00:00Z",
+  "high_findings": [],
+  "intel": {
+    "advisories_indexed": 0,
+    "enabled": false,
+    "error": null,
+    "matched_advisories": [],
+    "profile_firefox_version": null,
+    "snapshot_id": null,
+    "store_dir": null
+  },
+  "policies": {
+    "discovered_paths": [],
+    "searched_paths": [
+      "/etc/firefox/policies/policies.json",
+      "/usr/lib/firefox/distribution/policies.json",
+      "/usr/lib64/firefox/distribution/policies.json"
+    ],
+    "summaries": []
+  },
+  "prefs": {
+    "browser.contentblocking.category": {
+      "raw_type": "string",
+      "source": "prefs.js",
+      "value": "strict"
+    },
+    "testbed.pref.enabled": {
+      "raw_type": "bool",
+      "source": "prefs.js",
+      "value": true
+    }
+  },
+  "profile": {
+    "lock_detected": false,
+    "lock_files": [],
+    "name": "profile_third_party_xpi",
+    "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi",
+    "profile_id": "manual",
+    "selected": true,
+    "selection_reason": "Selected explicitly via --profile."
+  },
+  "schema_version": "1.0.0",
+  "sqlite": {
+    "checks": [
+      {
+        "db_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/places.sqlite",
+        "opened_ro": true,
+        "quick_check_result": "ok"
+      },
+      {
+        "db_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_third_party_xpi/cookies.sqlite",
+        "opened_ro": true,
+        "quick_check_result": "ok"
+      }
+    ]
+  },
+  "summary": {
+    "extensions_active": 1,
+    "extensions_debug_count": 0,
+    "extensions_found": 1,
+    "extensions_high_risk_count": 1,
+    "extensions_unsigned_count": 0,
+    "findings_high_count": 0,
+    "findings_info_count": 4,
+    "findings_medium_count": 0,
+    "findings_suppressed_count": 0,
+    "findings_total": 4,
+    "high_risk_perms_count": 0,
+    "intel_matches_count": 0,
+    "policies_found": 0,
+    "prefs_parsed": 2,
+    "sensitive_files_checked": 5,
+    "sqlite_checks_total": 2,
+    "sqlite_non_ok_count": 0
+  },
+  "suppressions": {
+    "applied": [],
+    "applied_by_approver": {},
+    "applied_by_owner": {},
+    "expired": [],
+    "expiring_within_30d": [],
+    "legacy_schema_count": 0,
+    "source_paths": []
+  }
+}
