@@ -7,9 +7,9 @@ cd "${ROOT_DIR}"
 output_file="$(mktemp)"
 trap 'rm -f "${output_file}"' EXIT
 
-# Fixture manifests intentionally store SHA-256 checksums and trigger false
-# positives on entropy-based detectors.
-readonly DETECT_SECRETS_EXCLUDE_FILES='^tests/fixtures/testbed/manifest\.json$'
+# Deterministic fixture artifacts intentionally embed checksums/identifiers and
+# trigger entropy-based false positives.
+readonly DETECT_SECRETS_EXCLUDE_FILES='^tests/fixtures/testbed/manifest\.json$|^tests/fixtures/migration_contracts/.*$'
 
 .venv/bin/detect-secrets scan \
   --exclude-files "${DETECT_SECRETS_EXCLUDE_FILES}" \
