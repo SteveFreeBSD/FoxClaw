@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 from foxclaw.cli import app
@@ -16,7 +17,12 @@ def _load_official_sarif_schema() -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 def test_json_and_sarif_are_deterministic(tmp_path: Path) -> None:
-    profile = TESTBED_ROOT / "profile_policy_present"
+    profile_src = TESTBED_ROOT / "profile_policy_present"
+    profile = tmp_path / "profile_policy_present"
+    shutil.copytree(profile_src, profile)
+    for file_path in profile.rglob("*"):
+        if file_path.is_file():
+            file_path.chmod(0o600)
     
     dir_a = tmp_path / "a"
     dir_b = tmp_path / "b"
