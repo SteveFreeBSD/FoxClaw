@@ -47,7 +47,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
 | WS-34 | pending | WS-26, WS-32 | Trusted update chain for intel/rules (signed metadata, freshness checks, rollback resistance). |
-| WS-35 | pending | WS-28 | Cross-OS profile corpus expansion for parser/fidelity stress and migration parity. |
+| WS-35 | pending | WS-28, WS-46 | Cross-OS profile corpus expansion for parser/fidelity stress and migration parity. |
 | WS-36 | pending | WS-31 | Formalize Rust crate boundaries and core runtime skeleton (`model`, `collect`, `rules`, `report`, `cli`). |
 | WS-37 | pending | WS-32, WS-36 | Rust contract models + serializers with schema validation parity. |
 | WS-38 | pending | WS-35, WS-37 | Port high-risk profile parsers to Rust (`prefs.js`, extensions metadata, SQLite/NSS artifacts). |
@@ -58,6 +58,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-43 | pending | WS-34 | Signed intel/rules distribution hardening in runtime install/update flows. |
 | WS-44 | pending | WS-40, WS-43 | Shadow-mode rollout for Rust engine with parity, reliability, and SLO thresholds. |
 | WS-45 | pending | WS-44 | Make Rust the default runtime and deprecate Python fallback path. |
+| WS-46 | complete | WS-28 | Enterprise Windows-share profile acquisition lane with deterministic local staging scans. |
 
 ## Slice Details
 
@@ -521,6 +522,34 @@ This plan converts the current review and research into sequenced, testable exec
 - Status: pending.
 - Goal: freeze JSON/SARIF compatibility policy and publish canonical migration fixtures that both engines must satisfy.
 
+### WS-46 - Enterprise Windows-Share Profile Acquisition Lane
+
+- Status: complete.
+- Goal: support enterprise remote-profile workflows by staging Firefox profiles from Windows shares into deterministic local snapshots before scanning.
+- Delivered:
+  - Added source-backed research and tactical guidance in:
+    - `docs/RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md`
+    - `docs/WINDOWS_SHARE_TESTING.md`
+  - Added deterministic staging + scan automation script:
+    - `scripts/windows_share_scan.py`
+  - Script behavior:
+    - copies profile from share/mount path into local staging snapshot,
+    - fails closed on active profile lock markers unless explicitly overridden,
+    - strips write bits from staged files by default,
+    - emits JSON/SARIF/snapshot outputs and `stage-manifest.json` provenance metadata.
+  - Added regression coverage in `tests/test_windows_share_scan_script.py` for:
+    - successful staged scan path (including `foxclaw` exit code `2` acceptance),
+    - lock-marker fail-closed behavior,
+    - explicit lock-marker override path.
+  - Updated doc surfaces:
+    - `README.md`
+    - `docs/TESTBED.md`
+    - `docs/ROADMAP.md`
+    - `docs/WORKSLICES.md`
+- Validation evidence:
+  - `pytest -q tests/test_windows_share_scan_script.py`
+- Acceptance: met.
+
 ### WS-33 - ATT&CK Mapping for Browser Findings
 
 - Status: pending.
@@ -534,7 +563,7 @@ This plan converts the current review and research into sequenced, testable exec
 ### WS-35 - Cross-OS Profile Corpus Expansion
 
 - Status: pending.
-- Goal: grow deterministic Windows/macOS/Linux profile fixtures and damaged-artifact scenarios for migration stress coverage.
+- Goal: grow deterministic Windows/macOS/Linux profile fixtures and damaged-artifact scenarios for migration stress coverage, building on WS-46 share-staging acquisition workflow.
 
 ### WS-36 - Rust Runtime Skeleton and Boundaries
 

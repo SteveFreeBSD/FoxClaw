@@ -172,6 +172,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components.
 - `docs/RESEARCH_2026-02-20.md`: dated ecosystem alignment checkpoint (2026 snapshot).
+- `docs/RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md`: enterprise Windows-share Firefox audit research and tactical controls.
 - `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
 - `docs/WORKSLICES.md`: ordered implementation slices with dependencies and acceptance criteria.
 - `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
@@ -185,6 +186,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 - `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
 - `docs/DEVELOPMENT.md`: local setup and quality gates.
 - `docs/TESTBED.md`: deterministic Firefox testbed fixtures and container smoke lane.
+- `docs/WINDOWS_SHARE_TESTING.md`: enterprise runbook for staged Firefox profile scans from Windows shares.
 
 ## License
 

@@ -64,6 +64,77 @@ foxclaw scan \
 
 When one or more `--policy-path` values are supplied, FoxClaw scans only those paths.
 
+## Rust Parity Harness (WS-31 Bridge)
+
+Run deterministic parity checks between Python and Rust CLI surfaces against the
+fixture matrix:
+
+```bash
+make rust-parity-testbed
+```
+
+This target:
+
+- checks `foxclaw-rs` workspace compile health.
+- builds `foxclaw-rs-cli`.
+- runs `scripts/rust_parity_runner.py` across testbed scenarios.
+- fails closed on exit-code, JSON, or SARIF drift.
+
+Quick smoke (engine-agnostic harness validation without Rust toolchain):
+
+```bash
+make rust-parity-smoke
+```
+
+## Migration Contract Fixtures (WS-32)
+
+Canonical migration fixtures freeze deterministic scan JSON/SARIF outputs for the
+testbed scenarios:
+
+- `tests/fixtures/migration_contracts/manifest.json`
+- `tests/fixtures/migration_contracts/cases/*/scan.json`
+- `tests/fixtures/migration_contracts/cases/*/scan.sarif`
+
+Validate fixture drift:
+
+```bash
+python scripts/generate_migration_contract_fixtures.py --check --python-cmd ".venv/bin/python -m foxclaw"
+```
+
+Regenerate fixtures intentionally:
+
+```bash
+python scripts/generate_migration_contract_fixtures.py --write --python-cmd ".venv/bin/python -m foxclaw"
+```
+
+Verify one engine against canonical fixtures:
+
+```bash
+python scripts/verify_migration_contract_engine.py --engine-cmd ".venv/bin/python -m foxclaw" --engine-label python
+```
+
+## Enterprise Windows Share Lane (WS-46)
+
+For enterprise workflows where profile data is staged on Windows SMB shares,
+FoxClaw now provides a deterministic stage-local-then-scan harness:
+
+```bash
+python scripts/windows_share_scan.py \
+  --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+  --ruleset foxclaw/rulesets/strict.yml \
+  --output-dir /var/tmp/foxclaw-share-jdoe
+```
+
+Operational model:
+
+- copy source profile to local staging snapshot first (never scan live share in place),
+- fail closed when active lock markers are present unless explicitly overridden,
+- remove write bits from staged copy by default,
+- emit JSON/SARIF/snapshot artifacts and stage manifest metadata.
+
+Runbook:
+
+- `docs/WINDOWS_SHARE_TESTING.md`
 ## Optional Containerized Firefox Smoke
 
 Run locally (Docker required):
