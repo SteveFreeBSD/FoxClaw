@@ -7,15 +7,28 @@ cd "${ROOT_DIR}"
 output_file="$(mktemp)"
 trap 'rm -f "${output_file}"' EXIT
 
+PYTHON_BIN="python"
+if [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+  PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+fi
+scan_cmd=()
+if [[ -x "${ROOT_DIR}/.venv/bin/detect-secrets" ]]; then
+  scan_cmd=("${ROOT_DIR}/.venv/bin/detect-secrets")
+elif command -v detect-secrets >/dev/null 2>&1; then
+  scan_cmd=("detect-secrets")
+else
+  scan_cmd=("${PYTHON_BIN}" "-m" "detect_secrets")
+fi
+
 # Deterministic fixture artifacts intentionally embed checksums/identifiers and
 # trigger entropy-based false positives.
-readonly DETECT_SECRETS_EXCLUDE_FILES='^tests/fixtures/testbed/manifest\.json$|^tests/fixtures/migration_contracts/.*$'
+readonly SCAN_EXCLUDE_FILES='^tests/fixtures/testbed/manifest\.json$|^tests/fixtures/migration_contracts/.*$'
 
-.venv/bin/detect-secrets scan \
-  --exclude-files "${DETECT_SECRETS_EXCLUDE_FILES}" \
+"${scan_cmd[@]}" scan \
+  --exclude-files "${SCAN_EXCLUDE_FILES}" \
   $(git ls-files) > "${output_file}"
 
-.venv/bin/python - <<'PY' "${output_file}"
+"${PYTHON_BIN}" - <<'PY' "${output_file}"
 import json
 import sys
 from pathlib import Path
