@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
-import shutil
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
