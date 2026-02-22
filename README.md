@@ -142,6 +142,12 @@ foxclaw scan \
   --json
 ```
 
+Run the Rust-bridge parity harness against deterministic fixtures:
+
+```bash
+make rust-parity-smoke
+```
+
 ## Exit Codes
 
 Canonical CLI contract:

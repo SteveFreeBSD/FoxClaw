@@ -43,7 +43,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-28 | complete | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
 | WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
 | WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
-| WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
+| WS-31 | complete | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
 | WS-34 | pending | WS-26, WS-32 | Trusted update chain for intel/rules (signed metadata, freshness checks, rollback resistance). |
@@ -513,8 +513,31 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-31 - Initialize Rust Backend
 
-- Status: pending.
+- Status: complete.
 - Goal: instantiate the `foxclaw-rs` Cargo workspace and build the integration testbed runner that asserts Rust output parity against Python fixtures.
+- Delivered:
+  - Initialized `foxclaw-rs/` Cargo workspace with `foxclaw-rs-cli` bridge crate (`foxclaw-rs/Cargo.toml`, `foxclaw-rs/foxclaw-rs-cli`).
+  - Added `foxclaw-rs-cli` bridge entrypoint that forwards scanner invocations to `python -m foxclaw` while Rust-native parser/rules ports are pending.
+  - Added deterministic parity harness `scripts/rust_parity_runner.py`:
+    - compares Python vs Rust engine exit codes,
+    - compares JSON outputs from `--deterministic`,
+    - compares SARIF outputs from `--deterministic`,
+    - emits case-level artifacts and summary JSON.
+  - Added parity harness regression tests in `tests/test_rust_parity_runner_script.py`.
+  - Added workspace layout checks in `tests/test_rust_workspace_layout.py`.
+  - Added local make targets:
+    - `make rust-workspace-check`
+    - `make rust-parity-testbed`
+    - `make rust-parity-smoke`
+  - Added CI `rust-parity-testbed` job in `.github/workflows/foxclaw-security.yml` to run:
+    - `cargo check` on `foxclaw-rs`,
+    - `cargo build -p foxclaw-rs-cli`,
+    - deterministic Python-vs-Rust parity harness across testbed fixtures.
+  - Validation evidence:
+    - `make verify-full`
+    - `scripts/rust_parity_runner.py --python-cmd '.venv/bin/python -m foxclaw' --rust-cmd '.venv/bin/python -m foxclaw' --output-dir /tmp/foxclaw-rs-parity-full-smoke --json-out /tmp/foxclaw-rs-parity-full-smoke/summary.json`
+    - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-post-ws31`
+- Acceptance: met.
 
 ### WS-32 - Contract Canonicalization for Migration
 

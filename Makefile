@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate extension-catalog test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate extension-catalog rust-workspace-check rust-parity-testbed rust-parity-smoke test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -52,6 +52,24 @@ profile-launch-gate:
 
 extension-catalog:
 	$(PYTHON_BIN) ./scripts/build_extension_catalog.py --output tests/fixtures/intel/amo_extension_catalog.v1.json
+
+rust-workspace-check:
+	@command -v cargo >/dev/null 2>&1 || (echo "error: cargo is required for Rust workspace checks." >&2 && exit 1)
+	cargo check --manifest-path foxclaw-rs/Cargo.toml
+
+rust-parity-testbed: testbed-fixtures rust-workspace-check
+	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" cargo build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli
+	FOXCLAW_PYTHON_BIN="$(PYTHON_BIN)" $(PYTHON_BIN) ./scripts/rust_parity_runner.py \
+		--python-cmd "$(PYTHON_BIN) -m foxclaw" \
+		--rust-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
+		--output-dir /tmp/foxclaw-rs-parity
+
+rust-parity-smoke: testbed-fixtures
+	$(PYTHON_BIN) ./scripts/rust_parity_runner.py \
+		--scenario profile_baseline \
+		--python-cmd "$(PYTHON_BIN) -m foxclaw" \
+		--rust-cmd "$(PYTHON_BIN) -m foxclaw" \
+		--output-dir /tmp/foxclaw-rs-parity-smoke
 
 test-firefox-container:
 	$(DOCKER) build -f docker/testbed/Dockerfile -t foxclaw-firefox-testbed .

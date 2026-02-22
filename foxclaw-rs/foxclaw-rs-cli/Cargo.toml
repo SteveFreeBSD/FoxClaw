@@ -1,0 +1,6 @@
+[package]
+name = "foxclaw-rs-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "FoxClaw Rust bridge CLI scaffold."

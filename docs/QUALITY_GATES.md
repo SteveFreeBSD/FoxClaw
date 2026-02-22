@@ -94,6 +94,11 @@ CI-only dependency policy gate:
 - Pull requests enforce dependency review in `dependency-policy` job
   (`actions/dependency-review-action` with high-severity failure policy).
   This gate has no exact local offline equivalent and is enforced in GitHub Actions.
+- Rust parity gate runs in `rust-parity-testbed` (`cargo check` + deterministic
+  Python-vs-Rust parity harness over testbed fixtures).
+  Local equivalent commands are:
+  - `make rust-workspace-check`
+  - `make rust-parity-testbed`
 - Scheduled dependency vulnerability sweeps run in
   `.github/workflows/foxclaw-dependency-audit.yml`.
   Local equivalent is available with `make dep-audit`.

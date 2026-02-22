@@ -33,7 +33,15 @@ Workflow file: `.github/workflows/foxclaw-security.yml`
 - Fails when fixture artifacts are stale or untracked (`git diff --exit-code -- tests/fixtures/testbed` plus untracked-file check)
 - Runs `pytest -q -m integration`
 
-5. `scan-balanced`
+5. `rust-parity-testbed`
+- Python `3.13` plus Rust toolchain (`stable`)
+- Runs:
+  - `cargo check --manifest-path foxclaw-rs/Cargo.toml`
+  - `cargo build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli`
+  - `python scripts/rust_parity_runner.py` against deterministic testbed fixtures
+- Uploads parity summary/artifacts for drift triage
+
+6. `scan-balanced`
 - Runs fixture scan against `tests/fixtures/firefox_profile`
 - Emits `foxclaw.json` and `foxclaw.sarif`
 - Accepts scan exit code `2` as expected findings signal
@@ -43,8 +51,9 @@ Workflow file: `.github/workflows/foxclaw-security.yml`
   - `test`
   - `quality-gates`
   - `integration-testbed`
+  - `rust-parity-testbed`
 
-6. `upload-sarif`
+7. `upload-sarif`
 - Downloads SARIF artifact
 - Uploads SARIF using `github/codeql-action/upload-sarif@v4`
 - Uses job permissions including `security-events: write`
@@ -75,6 +84,8 @@ This prevents insecure permission escalation patterns while keeping tests and fi
 
 - `foxclaw.json`
 - `foxclaw.sarif`
+- `rust-parity-artifacts/summary.json`
+- `rust-parity-artifacts/*` (parity case artifacts and diffs when present)
 
 Artifacts are retained via `actions/upload-artifact` for troubleshooting and local replay.
 

@@ -64,6 +64,28 @@ foxclaw scan \
 
 When one or more `--policy-path` values are supplied, FoxClaw scans only those paths.
 
+## Rust Parity Harness (WS-31 Bridge)
+
+Run deterministic parity checks between Python and Rust CLI surfaces against the
+fixture matrix:
+
+```bash
+make rust-parity-testbed
+```
+
+This target:
+
+- checks `foxclaw-rs` workspace compile health.
+- builds `foxclaw-rs-cli`.
+- runs `scripts/rust_parity_runner.py` across testbed scenarios.
+- fails closed on exit-code, JSON, or SARIF drift.
+
+Quick smoke (engine-agnostic harness validation without Rust toolchain):
+
+```bash
+make rust-parity-smoke
+```
+
 ## Optional Containerized Firefox Smoke
 
 Run locally (Docker required):

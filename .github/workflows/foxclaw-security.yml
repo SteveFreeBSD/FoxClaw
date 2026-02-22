@@ -142,6 +142,54 @@ jobs:
       - name: Run integration testbed suite
         run: pytest -q -m integration
 
+  rust-parity-testbed:
+    name: rust-parity-testbed
+    runs-on: ubuntu-latest
+    needs: integration-testbed
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check Rust workspace
+        run: cargo check --manifest-path foxclaw-rs/Cargo.toml
+
+      - name: Build Rust bridge CLI
+        run: cargo build --manifest-path foxclaw-rs/Cargo.toml -p foxclaw-rs-cli
+
+      - name: Run Python-vs-Rust parity harness
+        env:
+          FOXCLAW_PYTHON_BIN: python
+        run: |
+          python scripts/rust_parity_runner.py \
+            --python-cmd "python -m foxclaw" \
+            --rust-cmd "./foxclaw-rs/target/debug/foxclaw-rs-cli" \
+            --output-dir rust-parity-artifacts \
+            --json-out rust-parity-artifacts/summary.json
+
+      - name: Upload parity artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxclaw-rust-parity
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            rust-parity-artifacts
+
   scan-balanced:
     name: scan-balanced
     runs-on: ubuntu-latest
@@ -150,6 +198,7 @@ jobs:
       - test
       - quality-gates
       - integration-testbed
+      - rust-parity-testbed
     steps:
       - name: Checkout
         uses: actions/checkout@v5

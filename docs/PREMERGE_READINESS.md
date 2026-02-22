@@ -59,10 +59,10 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Immediate Planning Queue (Post-WS26)
+## Immediate Planning Queue (Post-WS31)
 
 Ordered next implementation targets:
 
-1. **WS-27**: Policy language expansion spike (CEL/OPA behind strict interface).
-2. **WS-28**: Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines).
-3. **WS-29**: Refresh planning docs with post-WS26 queue (complete).
+1. **WS-32**: Contract canonicalization for migration (freeze JSON/SARIF compatibility policy and publish migration fixtures).
+2. **WS-35**: Cross-OS profile corpus expansion for parser/fidelity stress and migration parity.
+3. **WS-36**: Rust runtime skeleton and crate boundary formalization (`model`, `collect`, `rules`, `report`, `cli`).

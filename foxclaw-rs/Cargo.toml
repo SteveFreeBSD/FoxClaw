@@ -1,0 +1,3 @@
+[workspace]
+members = ["foxclaw-rs-cli"]
+resolver = "2"
