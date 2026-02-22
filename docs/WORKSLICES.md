@@ -532,22 +532,31 @@ This plan converts the current review and research into sequenced, testable exec
     - `docs/WINDOWS_SHARE_TESTING.md`
   - Added deterministic staging + scan automation script:
     - `scripts/windows_share_scan.py`
-  - Script behavior:
+  - Promoted lane into first-class CLI integration:
+    - `foxclaw acquire windows-share-scan`
+    - implementation entrypoint: `foxclaw/acquire/windows_share.py`
+  - Workflow behavior:
     - copies profile from share/mount path into local staging snapshot,
     - fails closed on active profile lock markers unless explicitly overridden,
     - strips write bits from staged files by default,
-    - emits JSON/SARIF/snapshot outputs and `stage-manifest.json` provenance metadata.
+    - emits JSON/SARIF/snapshot outputs and `stage-manifest.json` provenance metadata,
+    - propagates scan exit codes (`0`, `2`) by default so vulnerability findings remain automation-visible.
   - Added regression coverage in `tests/test_windows_share_scan_script.py` for:
-    - successful staged scan path (including `foxclaw` exit code `2` acceptance),
+    - successful staged scan path with passthrough `foxclaw` exit code `2`,
+    - optional `--treat-high-findings-as-success` normalization path,
     - lock-marker fail-closed behavior,
     - explicit lock-marker override path.
+  - Added CLI coverage in `tests/test_acquire_windows_share_cli.py` for:
+    - CLI wrapper passthrough semantics and lock-marker controls,
+    - mounted-share path workflow,
+    - real end-to-end HIGH finding detection through staged scan.
   - Updated doc surfaces:
     - `README.md`
     - `docs/TESTBED.md`
     - `docs/ROADMAP.md`
     - `docs/WORKSLICES.md`
 - Validation evidence:
-  - `pytest -q tests/test_windows_share_scan_script.py`
+  - `pytest -q tests/test_windows_share_scan_script.py tests/test_acquire_windows_share_cli.py`
 - Acceptance: met.
 
 ### WS-33 - ATT&CK Mapping for Browser Findings

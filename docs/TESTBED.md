@@ -119,7 +119,7 @@ For enterprise workflows where profile data is staged on Windows SMB shares,
 FoxClaw now provides a deterministic stage-local-then-scan harness:
 
 ```bash
-python scripts/windows_share_scan.py \
+foxclaw acquire windows-share-scan \
   --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
   --ruleset foxclaw/rulesets/strict.yml \
   --output-dir /var/tmp/foxclaw-share-jdoe
@@ -135,6 +135,7 @@ Operational model:
 Runbook:
 
 - `docs/WINDOWS_SHARE_TESTING.md`
+- quick smoke target: `make windows-share-smoke`
 ## Optional Containerized Firefox Smoke
 
 Run locally (Docker required):

@@ -53,7 +53,7 @@ raise SystemExit({exit_code})
     path.chmod(0o755)
 
 
-def test_windows_share_scan_stages_locally_and_accepts_high_findings(tmp_path: Path) -> None:
+def test_windows_share_scan_stages_locally_and_propagates_high_findings(tmp_path: Path) -> None:
     source_profile = _write_fake_profile(tmp_path)
 
     fake_foxclaw = tmp_path / "fake_foxclaw.py"
@@ -76,7 +76,7 @@ def test_windows_share_scan_stages_locally_and_accepts_high_findings(tmp_path: P
     ]
 
     result = subprocess.run(cmd, check=False, capture_output=True, text=True)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 2, result.stdout + result.stderr
 
     manifest = json.loads((output_dir / "stage-manifest.json").read_text(encoding="utf-8"))
     assert manifest["copy"]["files"] >= 2
@@ -89,6 +89,33 @@ def test_windows_share_scan_stages_locally_and_accepts_high_findings(tmp_path: P
 
     mode = staged_prefs.stat().st_mode
     assert mode & stat.S_IWUSR == 0
+
+
+def test_windows_share_scan_can_treat_high_findings_as_success(tmp_path: Path) -> None:
+    source_profile = _write_fake_profile(tmp_path)
+
+    fake_foxclaw = tmp_path / "fake_foxclaw.py"
+    _write_fake_foxclaw(fake_foxclaw, exit_code=2)
+
+    output_dir = tmp_path / "artifacts"
+    cmd = [
+        sys.executable,
+        "scripts/windows_share_scan.py",
+        "--source-profile",
+        str(source_profile),
+        "--output-dir",
+        str(output_dir),
+        "--treat-high-findings-as-success",
+        "--foxclaw-cmd",
+        f"{sys.executable} {fake_foxclaw}",
+    ]
+
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    manifest = json.loads((output_dir / "stage-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["scan"]["exit_code"] == 2
+    assert manifest["scan"]["status"] == "PASS"
 
 
 def test_windows_share_scan_fails_when_active_lock_marker_present(tmp_path: Path) -> None:

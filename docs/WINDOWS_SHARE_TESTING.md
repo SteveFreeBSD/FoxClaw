@@ -51,10 +51,10 @@ Mount the share read-only in the collector OS, then use the FoxClaw staging scri
 
 ## FoxClaw staged share scan
 
-Use `scripts/windows_share_scan.py` for deterministic staging + scan artifact generation:
+Use `foxclaw acquire windows-share-scan` for deterministic staging + scan artifact generation:
 
 ```bash
-python scripts/windows_share_scan.py \
+foxclaw acquire windows-share-scan \
   --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
   --ruleset foxclaw/rulesets/strict.yml \
   --output-dir /var/tmp/foxclaw-share-jdoe \
@@ -67,14 +67,29 @@ Behavior:
 - copies profile into `<staging-root>/<snapshot-id>/profile`,
 - removes write bits from staged files unless `--keep-stage-writeable` is set,
 - runs deterministic FoxClaw JSON/SARIF/snapshot outputs,
-- writes staging manifest (`stage-manifest.json`) with source path, copy stats, and scan command/exit code.
+- writes staging manifest (`stage-manifest.json`) with source path, copy stats, and scan command/exit code,
+- returns scan exit code semantics (`0` no `HIGH`, `2` `HIGH` findings present, `1` operational error).
 
 If acquisition used a crash-consistent snapshot (for example VSS) and lock markers are expected, allow override:
 
 ```bash
-python scripts/windows_share_scan.py \
+foxclaw acquire windows-share-scan \
   --source-profile "\\\\fileserver\\forensics\\FirefoxProfiles\\jdoe.default-release" \
   --allow-active-profile
+```
+
+If automation should continue when `HIGH` findings are expected in test scenarios:
+
+```bash
+foxclaw acquire windows-share-scan \
+  --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+  --treat-high-findings-as-success
+```
+
+Script compatibility wrapper remains available:
+
+```bash
+python scripts/windows_share_scan.py --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release
 ```
 
 ## Mini soak for this lane
