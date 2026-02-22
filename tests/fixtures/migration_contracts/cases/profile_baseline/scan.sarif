@@ -1,0 +1,271 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "profile"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "enterprise telemetry disable policy should exist: policies.DisableTelemetry: not found (no policies.json discovered)"
+          },
+          "partialFingerprints": {
+            "foxclaw/evidenceFingerprint/v1": "27fbb54d5fc544e0dfa4a1e504f7d64d0b2f4de00fc55fdbcf24fdf81b453ed9",
+            "foxclaw/resultFingerprint/v1": "2ae44604e133054a899f80ab01239ac33cf125070efb8289a5a99859b860a8f2"
+          },
+          "properties": {
+            "category": "policy",
+            "confidence": "low",
+            "evidence": [
+              "policies.DisableTelemetry: not found (no policies.json discovered)"
+            ],
+            "foxclawSeverity": "INFO",
+            "security-severity": "1.0",
+            "tags": [
+              "confidence/low",
+              "policy",
+              "severity/info"
+            ]
+          },
+          "ruleId": "TB-POL-001",
+          "ruleIndex": 0
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "profile"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "enterprise firefox studies disable policy should exist: policies.DisableFirefoxStudies: not found (no policies.json discovered)"
+          },
+          "partialFingerprints": {
+            "foxclaw/evidenceFingerprint/v1": "8c585da12bf055331d9d0751e2a1b34f912c771784f9ff72361cd9e7a46b3180",
+            "foxclaw/resultFingerprint/v1": "eeffe7f56d10342566a0bbf5efcfb5791d9f71873892eebeb3be6ddc46d5e406"
+          },
+          "properties": {
+            "category": "policy",
+            "confidence": "low",
+            "evidence": [
+              "policies.DisableFirefoxStudies: not found (no policies.json discovered)"
+            ],
+            "foxclawSeverity": "INFO",
+            "security-severity": "1.0",
+            "tags": [
+              "confidence/low",
+              "policy",
+              "severity/info"
+            ]
+          },
+          "ruleId": "TB-POL-002",
+          "ruleIndex": 1
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "profile"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "enterprise extension settings policy should exist: policies.ExtensionSettings: not found (no policies.json discovered)"
+          },
+          "partialFingerprints": {
+            "foxclaw/evidenceFingerprint/v1": "35cb4a7e2341edd7e125d1072d5be59c81f83ff08bba48f28ef6b7df63a6f7a0",
+            "foxclaw/resultFingerprint/v1": "594197d2f235e44d287c1678ca1fd6be1cf0da10e13faf0baf9ac5b3534f1f1f"
+          },
+          "properties": {
+            "category": "policy",
+            "confidence": "low",
+            "evidence": [
+              "policies.ExtensionSettings: not found (no policies.json discovered)"
+            ],
+            "foxclawSeverity": "INFO",
+            "security-severity": "1.0",
+            "tags": [
+              "confidence/low",
+              "policy",
+              "severity/info"
+            ]
+          },
+          "ruleId": "TB-POL-003",
+          "ruleIndex": 2
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "profile"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "enterprise https-only mode policy should exist: policies.HTTPSOnlyMode: not found (no policies.json discovered)"
+          },
+          "partialFingerprints": {
+            "foxclaw/evidenceFingerprint/v1": "0572175929ac673ab3d687fbf5cdd7890fb8f1a5734f9b4b0ed817344a035273",
+            "foxclaw/resultFingerprint/v1": "9098f518b235d12124d20d9505db68d985037184831c3612b615cec4f89634cd"
+          },
+          "properties": {
+            "category": "policy",
+            "confidence": "low",
+            "evidence": [
+              "policies.HTTPSOnlyMode: not found (no policies.json discovered)"
+            ],
+            "foxclawSeverity": "INFO",
+            "security-severity": "1.0",
+            "tags": [
+              "confidence/low",
+              "policy",
+              "severity/info"
+            ]
+          },
+          "ruleId": "TB-POL-004",
+          "ruleIndex": 3
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "FoxClaw",
+          "rules": [
+            {
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "fullDescription": {
+                "text": "integration tests need deterministic policy evidence"
+              },
+              "help": {
+                "text": "define policies.DisableTelemetry in policies.json"
+              },
+              "helpUri": "docs/SARIF.md#rule-tb-pol-001",
+              "id": "TB-POL-001",
+              "name": "enterprise telemetry disable policy should exist",
+              "properties": {
+                "category": "policy",
+                "confidence": "low",
+                "foxclawSeverity": "INFO",
+                "security-severity": "1.0",
+                "tags": [
+                  "confidence/low",
+                  "policy",
+                  "severity/info"
+                ]
+              },
+              "shortDescription": {
+                "text": "enterprise telemetry disable policy should exist"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "fullDescription": {
+                "text": "integration tests need deterministic policy evidence"
+              },
+              "help": {
+                "text": "define policies.DisableFirefoxStudies in policies.json"
+              },
+              "helpUri": "docs/SARIF.md#rule-tb-pol-002",
+              "id": "TB-POL-002",
+              "name": "enterprise firefox studies disable policy should exist",
+              "properties": {
+                "category": "policy",
+                "confidence": "low",
+                "foxclawSeverity": "INFO",
+                "security-severity": "1.0",
+                "tags": [
+                  "confidence/low",
+                  "policy",
+                  "severity/info"
+                ]
+              },
+              "shortDescription": {
+                "text": "enterprise firefox studies disable policy should exist"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "fullDescription": {
+                "text": "integration tests need deterministic policy evidence"
+              },
+              "help": {
+                "text": "define policies.ExtensionSettings in policies.json"
+              },
+              "helpUri": "docs/SARIF.md#rule-tb-pol-003",
+              "id": "TB-POL-003",
+              "name": "enterprise extension settings policy should exist",
+              "properties": {
+                "category": "policy",
+                "confidence": "low",
+                "foxclawSeverity": "INFO",
+                "security-severity": "1.0",
+                "tags": [
+                  "confidence/low",
+                  "policy",
+                  "severity/info"
+                ]
+              },
+              "shortDescription": {
+                "text": "enterprise extension settings policy should exist"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "fullDescription": {
+                "text": "integration tests need deterministic policy evidence"
+              },
+              "help": {
+                "text": "define policies.HTTPSOnlyMode in policies.json"
+              },
+              "helpUri": "docs/SARIF.md#rule-tb-pol-004",
+              "id": "TB-POL-004",
+              "name": "enterprise https-only mode policy should exist",
+              "properties": {
+                "category": "policy",
+                "confidence": "low",
+                "foxclawSeverity": "INFO",
+                "security-severity": "1.0",
+                "tags": [
+                  "confidence/low",
+                  "policy",
+                  "severity/info"
+                ]
+              },
+              "shortDescription": {
+                "text": "enterprise https-only mode policy should exist"
+              }
+            }
+          ],
+          "semanticVersion": "0.1.0",
+          "version": "0.1.0"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

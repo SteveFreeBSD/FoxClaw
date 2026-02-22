@@ -40,6 +40,7 @@ agents/
 
 # Scan outputs and CI artifacts.
 *.sarif
+!tests/fixtures/migration_contracts/cases/*/scan.sarif
 foxclaw*.json
 dependency-audit.json
 firefox-container-artifacts/
