@@ -42,7 +42,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-27 | skipped | none | Scrapped CEL/OPA expansion to keep ruleset DSL strictly declarative for future Rust port. |
 | WS-28 | complete | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
 | WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
-| WS-30 | pending | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
+| WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
 | WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
@@ -477,8 +477,11 @@ This plan converts the current review and research into sequenced, testable exec
 - Goal: implement the deferred Firefox launch sanity gate and expand cross-OS baseline supports.
 - Delivered:
   - Created `scripts/profile_launch_gate.py` to assert synthetic profile survival in a live headless engine.
-  - Added launch gate arguments to `synth_runner.sh` and `fuzz_runner.sh`.
-  - Wired `--require-launch-gate` into overnight soak smoke targets.
+  - Added launch gate arguments to `scripts/synth_runner.sh`, `scripts/fuzz_runner.sh`, and `scripts/soak_runner.sh`.
+  - Enforced launch-gate behavior with explicit non-zero exits when `--enforce` is used and Firefox is unavailable.
+  - Added `make profile-launch-gate` and wired `--require-launch-gate` into overnight soak smoke targets.
+  - Hardened runner argument handling and validation for launch-gate score propagation in soak/synth/fuzz paths.
+  - Fixed container smoke/demo scan invocations to use explicit ruleset/policy inputs and deterministic output mode.
 - Acceptance: met.
 
 ### WS-29 - Refresh Planning Docs with Post-WS26 Queue
@@ -492,8 +495,17 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-30 - Schema Lockdown (Rust Migration Prep)
 
-- Status: pending.
+- Status: complete.
 - Goal: enforce strict schema validation on all JSON and SARIF outputs to guarantee byte-for-byte fidelity when porting to Rust.
+- Delivered:
+  - Added hidden deterministic parity option (`--deterministic`) for `scan` and `live` CLI paths to freeze `generated_at` for contract comparisons.
+  - Added deterministic SARIF path normalization in `foxclaw/report/sarif.py` to prevent host-path leakage from breaking parity fixtures.
+  - Added regression coverage in `tests/test_determinism.py` to assert byte-stable JSON/SARIF outputs across repeated runs.
+  - Updated deterministic fixture/container scan scripts to exercise locked-output behavior in operational gates.
+  - Validated full quality gates and mini-soak stability:
+    - `make verify-full`
+    - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-pre-ws31`
+- Acceptance: met.
 
 ### WS-31 - Initialize Rust Backend
 

@@ -173,7 +173,7 @@ echo ""
 scan_exit=0
 "${PYTHON_BIN}" -m foxclaw scan \
   --profile "${PROFILE_DIR}" \
-  --intel-store-dir "${INTEL_DIR}" \
+  --ruleset "${RULESET_PATH}" \
   --output "${OUTPUT_DIR}/foxclaw.json" \
   --deterministic \
   --sarif-out "${OUTPUT_DIR}/foxclaw.sarif" \

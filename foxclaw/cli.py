@@ -554,12 +554,6 @@ def fleet_aggregate(
     output: Path | None = typer.Option(
         None, "--output", help="Write merged fleet JSON report to this path."
     ),
-    deterministic: bool = typer.Option(
-        False,
-        "--deterministic",
-        help="Force static timestamps strings and stripped SARIF paths for 1:1 parity testing.",
-        hidden=True,
-    ),
 ) -> None:
     """Run multi-profile scans and emit a normalized fleet aggregation report."""
     if json_output and output is not None:
@@ -602,12 +596,6 @@ def fleet_aggregate(
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     report = build_fleet_report(bundles)
-    if deterministic:
-        for profile_report in report.profiles:
-            profile_report.summary.findings_total = sum(
-                1 for _ in profile_report.findings
-            ) # Arbitrary reset test just in case
-
     payload = render_fleet_json(report)
 
     if json_output:

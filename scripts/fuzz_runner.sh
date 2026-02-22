@@ -70,7 +70,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in COUNT SEED MUTATION_BUDGET FIDELITY_MIN_SCORE; do
+for v in COUNT SEED MUTATION_BUDGET FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
