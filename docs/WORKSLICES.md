@@ -39,9 +39,25 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-24 | complete | none | Optional `live` workflow wrapper orchestrating `sync` and pinned `scan`. |
 | WS-25 | complete | none | Suppression governance (approval workflow metadata + stronger reporting). |
 | WS-26 | complete | WS-16 | External ruleset bundle distribution model with managed key delivery. |
-| WS-27 | pending | none | Policy language expansion spike (CEL/OPA behind strict interface). |
-| WS-28 | pending | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
+| WS-27 | skipped | none | Scrapped CEL/OPA expansion to keep ruleset DSL strictly declarative for future Rust port. |
+| WS-28 | complete | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
 | WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
+| WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
+| WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
+| WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
+| WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
+| WS-34 | pending | WS-26, WS-32 | Trusted update chain for intel/rules (signed metadata, freshness checks, rollback resistance). |
+| WS-35 | pending | WS-28 | Cross-OS profile corpus expansion for parser/fidelity stress and migration parity. |
+| WS-36 | pending | WS-31 | Formalize Rust crate boundaries and core runtime skeleton (`model`, `collect`, `rules`, `report`, `cli`). |
+| WS-37 | pending | WS-32, WS-36 | Rust contract models + serializers with schema validation parity. |
+| WS-38 | pending | WS-35, WS-37 | Port high-risk profile parsers to Rust (`prefs.js`, extensions metadata, SQLite/NSS artifacts). |
+| WS-39 | pending | WS-38 | Port declarative rules DSL evaluator to Rust with deterministic parity assertions. |
+| WS-40 | pending | WS-39 | Differential Python-vs-Rust CI gate and mismatch classification workflow. |
+| WS-41 | pending | WS-09, WS-32 | OCSF-aligned export profile and fleet aggregation contract validation. |
+| WS-42 | pending | WS-36 | Rust dependency/trust gates in CI (`cargo-audit`, `cargo-deny`, `cargo-vet`). |
+| WS-43 | pending | WS-34 | Signed intel/rules distribution hardening in runtime install/update flows. |
+| WS-44 | pending | WS-40, WS-43 | Shadow-mode rollout for Rust engine with parity, reliability, and SLO thresholds. |
+| WS-45 | pending | WS-44 | Make Rust the default runtime and deprecate Python fallback path. |
 
 ## Slice Details
 
@@ -451,13 +467,23 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-27 - Policy Language Expansion Spike
 
-- Status: pending.
+- Status: skipped.
 - Goal: explore CEL/OPA behind strict engine interfaces for flexible rule authoring.
+- Outcome: Scrapped. Integrating a heavy Python-native policy engine (like OPA/Rego) conflicts with the strategic goal of porting FoxClaw to a high-performance Rust single-binary appliance. The ruleset DSL will remain strictly declarative (JSON/YAML) to ensure 1:1 parity during the Rust migration.
 
 ### WS-28 - Profile Realism Deferred Hardening
 
-- Status: pending.
+- Status: complete.
 - Goal: implement the deferred Firefox launch sanity gate and expand cross-OS baseline supports.
+- Delivered:
+  - Created `scripts/profile_launch_gate.py` to assert synthetic profile survival in a live headless engine.
+  - Added launch gate arguments to `scripts/synth_runner.sh`, `scripts/fuzz_runner.sh`, and `scripts/soak_runner.sh`.
+  - Enforced launch-gate behavior with explicit non-zero exits when `--enforce` is used and Firefox is unavailable.
+  - Added `make profile-launch-gate` and wired `--require-launch-gate` into overnight soak smoke targets.
+  - Hardened runner argument handling and validation for launch-gate score propagation in soak/synth/fuzz paths.
+  - Fixed container smoke/demo scan invocations to use explicit ruleset/policy inputs and deterministic output mode.
+  - Added launch-gate regression coverage in `tests/test_profile_launch_gate_script.py` (pass path, enforced missing-Firefox path, and destructive launch behavior).
+- Acceptance: met.
 
 ### WS-29 - Refresh Planning Docs with Post-WS26 Queue
 
@@ -465,8 +491,100 @@ This plan converts the current review and research into sequenced, testable exec
 - Goal: update runbooks and work tracking to align with newest roadmap stops.
 - Delivered:
   - Updated `docs/PREMERGE_READINESS.md`.
-  - Added WS-27, WS-28, WS-29 to `docs/WORKSLICES.md`.
+  - Added WS-27 through WS-31 to `docs/WORKSLICES.md`.
 - Acceptance: met.
+
+### WS-30 - Schema Lockdown (Rust Migration Prep)
+
+- Status: complete.
+- Goal: enforce strict schema validation on all JSON and SARIF outputs to guarantee byte-for-byte fidelity when porting to Rust.
+- Delivered:
+  - Added hidden deterministic parity option (`--deterministic`) for `scan` and `live` CLI paths to freeze `generated_at` for contract comparisons.
+  - Added deterministic SARIF path normalization in `foxclaw/report/sarif.py` to prevent host-path leakage from breaking parity fixtures.
+  - Added regression coverage in `tests/test_determinism.py` to assert byte-stable JSON/SARIF outputs across repeated runs.
+  - Updated deterministic fixture/container scan scripts to exercise locked-output behavior in operational gates.
+  - Validated full quality gates and mini-soak stability:
+    - `make verify-full`
+    - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-pre-ws31`
+  - Re-validated gates after launch-gate test hardening on 2026-02-22:
+    - `make verify-full`
+    - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-post-hardening`
+- Acceptance: met.
+
+### WS-31 - Initialize Rust Backend
+
+- Status: pending.
+- Goal: instantiate the `foxclaw-rs` Cargo workspace and build the integration testbed runner that asserts Rust output parity against Python fixtures.
+
+### WS-32 - Contract Canonicalization for Migration
+
+- Status: pending.
+- Goal: freeze JSON/SARIF compatibility policy and publish canonical migration fixtures that both engines must satisfy.
+
+### WS-33 - ATT&CK Mapping for Browser Findings
+
+- Status: pending.
+- Goal: map relevant finding classes to ATT&CK techniques (including browser extension abuse and browser credential access) with deterministic evidence semantics.
+
+### WS-34 - Trusted Intel/Rules Update Chain
+
+- Status: pending.
+- Goal: harden intel and rules update workflows with signed metadata, freshness windows, and rollback-resistant verification.
+
+### WS-35 - Cross-OS Profile Corpus Expansion
+
+- Status: pending.
+- Goal: grow deterministic Windows/macOS/Linux profile fixtures and damaged-artifact scenarios for migration stress coverage.
+
+### WS-36 - Rust Runtime Skeleton and Boundaries
+
+- Status: pending.
+- Goal: define crate boundaries and shared interfaces for the Rust scanner runtime (`model`, `collect`, `rules`, `report`, `cli`).
+
+### WS-37 - Rust Contract Models and Serializers
+
+- Status: pending.
+- Goal: implement Rust-side contract models/serializers validated against locked JSON/SARIF schemas.
+
+### WS-38 - Rust Parser Port (High-Risk Artifacts)
+
+- Status: pending.
+- Goal: port the highest-risk profile artifact parsers to Rust while preserving semantic parity and read-only behavior.
+
+### WS-39 - Rust Declarative Rules Evaluator
+
+- Status: pending.
+- Goal: implement the existing declarative rules DSL evaluator in Rust without introducing programmable policy-engine drift.
+
+### WS-40 - Differential CI Gate (Python vs Rust)
+
+- Status: pending.
+- Goal: make normalized differential comparisons mandatory in CI and classify every mismatch before merge.
+
+### WS-41 - OCSF Export and Fleet Contract Validation
+
+- Status: pending.
+- Goal: add OCSF-aligned export mode and validate fleet aggregation contracts for downstream SIEM/XDR systems.
+
+### WS-42 - Rust Dependency and Trust Gates
+
+- Status: pending.
+- Goal: enforce Rust dependency policy and advisory governance in CI via `cargo-audit`, `cargo-deny`, and `cargo-vet`.
+
+### WS-43 - Signed Distribution Hardening
+
+- Status: pending.
+- Goal: enforce signed and verifiable intel/rules distribution flows end-to-end in operational install/update paths.
+
+### WS-44 - Rust Shadow-Mode Rollout
+
+- Status: pending.
+- Goal: run Rust in production shadow mode with explicit parity, reliability, and performance thresholds before default cutover.
+
+### WS-45 - Rust Default Runtime Cutover
+
+- Status: pending.
+- Goal: make Rust the default runtime and retire Python fallback according to deprecation and rollback policy.
 
 ## Workslice Update Protocol
 

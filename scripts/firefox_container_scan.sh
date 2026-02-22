@@ -125,7 +125,8 @@ scan_exit=0
   --policy-path "${policy_path}" \
   --output "${OUTPUT_DIR}/foxclaw.json" \
   --sarif-out "${OUTPUT_DIR}/foxclaw.sarif" \
-  --snapshot-out "${OUTPUT_DIR}/foxclaw.snapshot.json" || scan_exit=$?
+  --snapshot-out "${OUTPUT_DIR}/foxclaw.snapshot.json" \
+  --deterministic || scan_exit=$?
 
 if [[ "${scan_exit}" -ne 0 && "${scan_exit}" -ne 2 ]]; then
   echo "error: foxclaw scan returned unexpected exit code: ${scan_exit}" >&2

@@ -1,111 +1,151 @@
 # Roadmap
 
-This roadmap advances FoxClaw from a deterministic scanner into a feature-rich security application while preserving core safety guarantees.
+This roadmap is FoxClaw's execution map for becoming a reference-grade browser security appliance, with Rust as the long-term runtime and deterministic contracts as the stability backbone.
+
+Primary research input (online, current as of February 22, 2026): `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`.
+
+## End-State Definition
+
+FoxClaw is considered "appliance-grade" when all of the following are true:
+
+- Single-binary Rust scanner is the default runtime.
+- Scan path remains offline-by-default and read-only.
+- JSON/SARIF contracts are versioned, validated, and backward-compatible by policy.
+- Findings include deterministic provenance, risk-priority context, and defensible evidence.
+- Update channels for intel/rules are verifiable and rollback-resistant.
 
 ## Non-Negotiable Constraints
 
-- Scan runtime stays offline-by-default.
-- Collectors remain read-only.
-- Outputs remain deterministic and schema-stable.
-- Trust boundaries remain explicit and testable.
+- No network access in `scan` execution paths.
+- Collectors and parsers are read-only against target profiles.
+- Output must be deterministic for identical inputs and snapshot IDs.
+- Trust boundaries must fail closed (rules, intel, and release artifacts).
+- Declarative rules DSL remains the policy authoring model (no embedded runtime scripting engine).
 
-## Phase 1: Detection Depth and Analyst Workflow
+## Program Gates (Must Pass Before Advancing)
 
-Target: near-term.
+### Gate A - Contract Lock
 
-- Complete snapshot/diff analyst loop:
-  - baseline snapshot export is available via `scan --snapshot-out`.
-  - deterministic snapshot diff is available via `snapshot diff`.
-- Add local extension posture checks:
-  - baseline extension inventory from profile metadata is available.
-  - baseline permission-risk classification from extension manifests is available.
-  - baseline unsigned extension detection is available.
-  - baseline debug/dev install detection is available (temporary install flags and volatile external source paths).
-  - extend detection depth (debug/dev install states, richer risk model, suppression-aware workflows).
-- Add suppression lifecycle:
-  - baseline suppression by rule id + scope is available.
-  - owner, reason, and expiration timestamp are required.
-  - extend toward approval workflows and stronger governance reporting.
-- Add stronger SARIF fidelity:
-  - preserve stable fingerprints across runs.
-  - keep path normalization rules strict.
+- JSON and SARIF schemas are frozen for the migration window.
+- Contract test fixtures are stable and version-pinned.
+- Dual-engine comparator exists (Python vs Rust normalized outputs).
 
-Exit criteria:
+### Gate B - Differential Parity
 
-- snapshot/diff, extension posture, and suppression paths covered by tests.
-- no runtime network dependency introduced.
-- SARIF upload remains GitHub Code Scanning compatible.
+- Rust output parity is >= 99.9% on canonical fixtures and generated profile corpus.
+- Any mismatch must be categorized (bug, intentional contract bump, or unsupported edge).
+- Zero silent drift is allowed on severity, rule IDs, evidence, or provenance fields.
 
-## Phase 2: Vulnerability Intel Foundation and Supply-Chain Integrity
+### Gate C - Security and Trust
 
-Target: after phase 1 stabilization.
+- Intel/rules update chain is signed and freshness-checked.
+- Release provenance and SBOM/VEX artifacts are published and verifiable.
+- Dependency and advisory policy gates are enforced in CI.
 
-- Add explicit intelligence sync path (network-enabled by command, not by scan):
-  - baseline `intel sync` command is available for deterministic source snapshot ingestion.
-  - baseline normalized source adapter/indexing is available for `foxclaw.mozilla.firefox_advisories.v1`.
-  - extend source adapters to fetch/normalize Mozilla/NVD/CVE/KEV datasets.
-  - baseline local intelligence snapshot store now includes schema/versioned source metadata indexing.
-- Add Mozilla CVE correlation:
-  - baseline local Firefox version correlation from `compatibility.ini` is available.
-  - baseline findings include fixed-version and source provenance with pinned snapshot id.
-  - extend with richer vendor/NVD merge logic and confidence scoring.
-- Add extension intelligence correlation:
-  - baseline installed extension IDs/versions are correlated with AMO metadata and blocklist signals from pinned snapshots.
-  - extend with richer publisher/reputation signals and confidence scoring.
-- Signed policy packs:
-  - baseline manifest pinning and optional Ed25519 signature verification are available
-    via `--ruleset-trust-manifest` and `--require-ruleset-signatures`.
-  - baseline key rotation and signature-threshold policy are available in trust manifest schema `1.1.0`.
-  - extend toward externally distributed ruleset bundles and managed key distribution.
-- CI provenance:
-  - baseline artifact attestations for release build outputs are available.
-  - baseline provenance references are linked from release artifacts.
-- Release hardening:
-  - baseline trusted publishing for package distribution is available.
-  - baseline CycloneDX SBOM generation and verification are available in release packaging.
-  - baseline dependency review policy gate is enforced in CI pull requests.
-  - baseline scheduled dependency vulnerability sweeps are available.
+### Gate D - Operational Readiness
+
+- Crash-free rate is validated on large synthetic + real-profile corpus.
+- Performance and memory SLOs are met for defined profile-size tiers.
+- Rollback plan is documented and tested.
+
+## Phase Plan
+
+### Phase 1: Foundation Shipped (Completed Baseline)
+
+Status: substantially complete.
+
+- Deterministic scanning, snapshot/diff workflow, and suppression lifecycle.
+- Intel sync and correlation foundations (Mozilla, CVE/NVD, KEV, EPSS paths).
+- Ruleset trust boundary controls and supply-chain baseline controls.
+- Fleet aggregation and stable machine-readable report surfaces.
+
+Why this matters:
+- These capabilities are the stable substrate for Rust migration and appliance hardening.
+
+### Phase 2: Contract and Corpus Hardening (Now through Q2 2026)
+
+Objectives:
+
+- Finish WS-28 launch-gate realism and cross-OS profile baseline hardening.
+- Complete WS-30 schema lockdown with explicit JSON/SARIF version policy.
+- Complete WS-31 `foxclaw-rs` workspace bootstrap and parity harness scaffolding.
+- Expand fixture corpus for parser edge cases (SQLite damage modes, extension metadata anomalies, profile-version variance).
 
 Exit criteria:
 
-- scan remains offline-by-default while consuming local intelligence snapshots.
-- correlated findings are reproducible from profile + snapshot id.
-- policy pack loading fails closed on verification errors.
-- release artifacts are accompanied by verifiable provenance.
-- dependency policy gates are enforced on pull requests.
+- Launch/fidelity gate is wired into synthesis workflows and enforced in CI where Firefox is available.
+- Contract suite blocks incompatible output changes by default.
+- Rust workspace compiles in CI and runs contract-smoke tests against canonical fixtures.
 
-## Phase 3: Risk Prioritization and Platform Integrations
+### Phase 3: Rust Core and Differential Execution (Q2 to Q3 2026)
 
-Target: medium-term.
+Objectives:
 
-- Offline intelligence cache ingestion (explicit update phase only):
-  - baseline KEV/EPSS-aware risk-priority metadata is available in correlated findings.
-  - enrich findings with KEV/EPSS-aware prioritization metadata.
-- Optional comprehensive live workflow:
-  - provide a wrapper command that runs sync + scan pinned to the new snapshot.
-  - keep deterministic replay by recording snapshot id in outputs.
-- Policy language expansion:
-  - evaluate CEL/OPA-based advanced policy packs behind strict interfaces.
-- Multi-profile and fleet workflow support:
-  - normalized machine outputs for aggregation.
-  - stable report contracts for downstream SIEM pipelines.
+- Establish Rust crate boundaries:
+  - `foxclaw-rs-model` (contracts),
+  - `foxclaw-rs-collect` (artifact readers),
+  - `foxclaw-rs-rules` (declarative evaluator),
+  - `foxclaw-rs-report` (JSON/SARIF emitters),
+  - `foxclaw-rs-cli` (entrypoint).
+- Implement normalized Python-vs-Rust diff runner in CI.
+- Port highest-risk parsers first (`prefs.js`, `extensions.json`, `places.sqlite`, `cookies.sqlite`, NSS metadata artifacts).
 
 Exit criteria:
 
-- enrichment logic remains deterministic for a fixed intelligence snapshot.
-- no direct network lookups in scan command paths.
-- policy-engine expansion does not weaken collector boundary.
+- Differential runner is mandatory on pull requests touching parser/rules/report code.
+- Rust scanner can produce contract-valid JSON/SARIF for the canonical fixture suite.
+- Mismatch dashboard is available and trending down release-over-release.
+
+### Phase 4: Threat-Context and Integration Leadership (Q3 to Q4 2026)
+
+Objectives:
+
+- Add ATT&CK technique mapping coverage for browser-specific finding classes.
+- Strengthen KEV/EPSS/CVSS signal normalization and explanation fields.
+- Add OCSF-aligned export profile for downstream SIEM/XDR ingestion.
+- Expand multi-profile fleet reporting with deterministic aggregation identity.
+
+Exit criteria:
+
+- Threat-context fields are present, schema-validated, and deterministic.
+- OCSF export mode is documented and covered by integration tests.
+- Fleet outputs remain stable under versioned compatibility policy.
+
+### Phase 5: Signed Distribution and Cutover Readiness (Q4 2026)
+
+Objectives:
+
+- Add TUF-style metadata and rollback checks for intel/rules update channels.
+- Publish release artifacts with provenance attestations, CycloneDX SBOM, and OpenVEX where applicable.
+- Enforce Rust dependency governance (`cargo-audit`, `cargo-deny`, `cargo-vet`) in CI.
+- Run dual-engine production shadow mode with defined promotion criteria.
+
+Exit criteria:
+
+- End-to-end trust chain is verifiable for releases and update payloads.
+- Rust engine meets parity, reliability, and SLO thresholds in shadow operation.
+- Cutover decision package is complete (go/no-go with rollback procedures).
+
+### Phase 6: Rust Default and Python Sunset (Target: Q1 2027)
+
+Objectives:
+
+- Promote Rust engine to default scanner runtime.
+- Keep Python engine as temporary compatibility fallback behind explicit flag.
+- Remove fallback after defined stabilization window and no critical regressions.
+
+Exit criteria:
+
+- Rust is default in docs, CI, and release artifacts.
+- Python compatibility path is retired according to deprecation policy.
+- Post-cutover audit confirms contract continuity and trust guarantees.
 
 ## Delivery Discipline
 
-- Every phase must ship with:
-  - architecture/security doc updates.
-  - tests for new behavior.
-  - deterministic output assertions.
-  - rollback-safe feature flags when introducing new surfaces.
-
-Execution tracking:
-
-- Ordered implementation slices are tracked in `docs/WORKSLICES.md`.
-- Periodic technical and ecosystem checkpoints are recorded in date-stamped docs under `docs/`.
-- Expanded pre-merge gate and planning runbook: `docs/PREMERGE_READINESS.md`.
+- Every phase ships with:
+  - architecture/security doc updates,
+  - deterministic tests and contract assertions,
+  - operational runbooks,
+  - explicit rollback strategy.
+- New behavior is tracked in `docs/WORKSLICES.md` with dependency ordering.
+- Research assumptions are refreshed quarterly in date-stamped docs under `docs/`.

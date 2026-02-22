@@ -23,6 +23,8 @@ Options:
   --synth-mode <name>      Synth mode: realistic|bootstrap (default: realistic).
   --synth-mutation-budget <N> Mutations per synth profile (default: 0).
   --synth-fidelity-min-score <N> Min realism score for synth profiles (default: 70).
+  --require-launch-gate    Run Firefox launch gate for synth/fuzz profile batches.
+  --launch-gate-min-score <N> Min realism score after Firefox launch gate (default: 50).
   --fuzz-count <N>         Profiles per fuzz cycle (default: 500).
   --fuzz-seed <N>          Deterministic fuzz generator seed (default: 525252).
   --fuzz-mode <name>       Fuzz mode: realistic|chaos (default: chaos).
@@ -63,6 +65,8 @@ FUZZ_SEED=525252
 FUZZ_MODE="chaos"
 FUZZ_MUTATION_BUDGET=3
 FUZZ_FIDELITY_MIN_SCORE=50
+REQUIRE_LAUNCH_GATE=0
+LAUNCH_GATE_MIN_SCORE=50
 MATRIX_RUNS=1
 MAX_CYCLES=0
 
@@ -78,6 +82,8 @@ while [[ $# -gt 0 ]]; do
     --synth-mode)       SYNTH_MODE="${2:-}"; shift 2 ;;
     --synth-mutation-budget) SYNTH_MUTATION_BUDGET="${2:-}"; shift 2 ;;
     --synth-fidelity-min-score) SYNTH_FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
+    --require-launch-gate)      REQUIRE_LAUNCH_GATE=1; shift 1 ;;
+    --launch-gate-min-score)    LAUNCH_GATE_MIN_SCORE="${2:-}"; shift 2 ;;
     --fuzz-count)       FUZZ_COUNT="${2:-}"; shift 2 ;;
     --fuzz-seed)        FUZZ_SEED="${2:-}"; shift 2 ;;
     --fuzz-mode)        FUZZ_MODE="${2:-}"; shift 2 ;;
@@ -95,7 +101,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE MATRIX_RUNS MAX_CYCLES; do
+for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE MATRIX_RUNS MAX_CYCLES; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
@@ -112,6 +118,11 @@ fi
 if [[ "${FUZZ_MODE}" != "realistic" && "${FUZZ_MODE}" != "chaos" ]]; then
   echo "error: --fuzz-mode must be realistic or chaos" >&2
   exit 2
+fi
+
+launch_gate_args=()
+if [[ "${REQUIRE_LAUNCH_GATE}" -eq 1 ]]; then
+  launch_gate_args=(--require-launch-gate --launch-gate-min-score "${LAUNCH_GATE_MIN_SCORE}")
 fi
 
 sanitize_label() {
@@ -181,6 +192,8 @@ fuzz_seed=${FUZZ_SEED}
 fuzz_mode=${FUZZ_MODE}
 fuzz_mutation_budget=${FUZZ_MUTATION_BUDGET}
 fuzz_fidelity_min_score=${FUZZ_FIDELITY_MIN_SCORE}
+require_launch_gate=${REQUIRE_LAUNCH_GATE}
+launch_gate_min_score=${LAUNCH_GATE_MIN_SCORE}
 matrix_runs_per_cycle=${MATRIX_RUNS}
 max_cycles=${MAX_CYCLES}
 host=$(hostname)
@@ -443,7 +456,8 @@ while true; do
     --mode "${SYNTH_MODE}" \
     --seed "${SYNTH_SEED}" \
     --mutation-budget "${SYNTH_MUTATION_BUDGET}" \
-    --fidelity-min-score "${SYNTH_FIDELITY_MIN_SCORE}" || overall_fail=1
+    --fidelity-min-score "${SYNTH_FIDELITY_MIN_SCORE}" \
+    "${launch_gate_args[@]}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
     break
@@ -458,7 +472,8 @@ while true; do
     --mode "${FUZZ_MODE}" \
     --seed "${FUZZ_SEED}" \
     --mutation-budget "${FUZZ_MUTATION_BUDGET}" \
-    --fidelity-min-score "${FUZZ_FIDELITY_MIN_SCORE}" || overall_fail=1
+    --fidelity-min-score "${FUZZ_FIDELITY_MIN_SCORE}" \
+    "${launch_gate_args[@]}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
     break

@@ -175,6 +175,7 @@ scan_exit=0
   --profile "${PROFILE_DIR}" \
   --ruleset "${RULESET_PATH}" \
   --output "${OUTPUT_DIR}/foxclaw.json" \
+  --deterministic \
   --sarif-out "${OUTPUT_DIR}/foxclaw.sarif" \
   --snapshot-out "${OUTPUT_DIR}/foxclaw.snapshot.json" || scan_exit=$?
 

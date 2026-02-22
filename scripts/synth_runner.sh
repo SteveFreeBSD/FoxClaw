@@ -22,6 +22,8 @@ Options:
   --catalog-path <path>          Optional AMO catalog snapshot JSON
   --allow-network-fetch          Allow live AMO fetches for uncached extensions
   --fidelity-min-score <N>       Minimum realism score (default: 70)
+  --require-launch-gate          Run headless Firefox against generated profiles
+  --launch-gate-min-score <N>    Minimum realism score after Firefox exit (default: 50)
 EOF_HELP
 }
 
@@ -29,6 +31,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
 SYNTH_PROFILES_SCRIPT="${ROOT_DIR}/scripts/synth_profiles.py"
 FIDELITY_SCRIPT="${ROOT_DIR}/scripts/profile_fidelity_check.py"
+LAUNCH_GATE_SCRIPT="${ROOT_DIR}/scripts/profile_launch_gate.py"
 OUTPUT_DIR="/tmp/foxclaw-synth-profiles"
 RULESET_PATH="${ROOT_DIR}/foxclaw/rulesets/strict.yml"
 COUNT=20
@@ -40,6 +43,8 @@ MAX_MUTATION_SEVERITY="medium"
 CATALOG_PATH=""
 ALLOW_NETWORK_FETCH=0
 FIDELITY_MIN_SCORE=70
+REQUIRE_LAUNCH_GATE=0
+LAUNCH_GATE_MIN_SCORE=50
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,6 +58,8 @@ while [[ $# -gt 0 ]]; do
     --catalog-path) CATALOG_PATH="${2:-}"; shift 2 ;;
     --allow-network-fetch) ALLOW_NETWORK_FETCH=1; shift 1 ;;
     --fidelity-min-score) FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
+    --require-launch-gate) REQUIRE_LAUNCH_GATE=1; shift 1 ;;
+    --launch-gate-min-score) LAUNCH_GATE_MIN_SCORE="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -63,7 +70,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in COUNT SEED MUTATION_BUDGET FIDELITY_MIN_SCORE; do
+for v in COUNT SEED MUTATION_BUDGET FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
@@ -137,6 +144,28 @@ else:
 PY
 )"
 
+launch_stats=""
+if [[ "${REQUIRE_LAUNCH_GATE}" -eq 1 ]]; then
+  echo "[synth] Running profile launch gate (min post-score ${LAUNCH_GATE_MIN_SCORE})..."
+  "${PYTHON_BIN}" "${LAUNCH_GATE_SCRIPT}" "${OUTPUT_DIR}" \
+    --pattern "*.synth-*" \
+    --min-post-score "${LAUNCH_GATE_MIN_SCORE}" \
+    --enforce \
+    --json-out "${OUTPUT_DIR}/launch-gate-summary.json"
+    
+  launch_stats="$("${PYTHON_BIN}" - <<'PY' "${OUTPUT_DIR}/launch-gate-summary.json"
+import json
+import sys
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+survived = payload.get("profiles_survived", 0)
+total = payload.get("profiles_evaluated", 0)
+print(f"survived={survived}/{total}")
+PY
+)"
+fi
+
 echo "[synth] Starting FoxClaw scans..."
 failed=0
 passed=0
@@ -172,6 +201,9 @@ echo "[synth] Summary:"
 echo "  Passed (no crashes): ${passed}"
 echo "  Failed (crashed):    ${failed}"
 echo "  Avg realism score:   ${avg_score}"
+if [[ -n "${launch_stats}" ]]; then
+  echo "  Launch Gate:         ${launch_stats}"
+fi
 echo "  Provenance: mode=${MODE} seed=${SEED} scenario=${SCENARIO:-auto} catalog=${catalog_version}"
 
 if [[ "${failed}" -gt 0 ]]; then
