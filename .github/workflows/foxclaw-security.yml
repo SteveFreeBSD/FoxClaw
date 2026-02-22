@@ -91,18 +91,7 @@ jobs:
         run: vulture foxclaw tests --min-confidence 80
 
       - name: detect-secrets
-        run: |
-          detect-secrets scan \
-            --exclude-files '^tests/fixtures/testbed/manifest\.json$' \
-            $(git ls-files) > detect-secrets.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path("detect-secrets.json").read_text(encoding="utf-8"))
-          if payload.get("results"):
-              raise SystemExit("detect-secrets reported potential secrets")
-          print("[secrets] clean.")
-          PY
+        run: ./scripts/check_secrets.sh
 
   integration-testbed:
     name: integration-testbed
