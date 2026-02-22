@@ -482,6 +482,7 @@ This plan converts the current review and research into sequenced, testable exec
   - Added `make profile-launch-gate` and wired `--require-launch-gate` into overnight soak smoke targets.
   - Hardened runner argument handling and validation for launch-gate score propagation in soak/synth/fuzz paths.
   - Fixed container smoke/demo scan invocations to use explicit ruleset/policy inputs and deterministic output mode.
+  - Added launch-gate regression coverage in `tests/test_profile_launch_gate_script.py` (pass path, enforced missing-Firefox path, and destructive launch behavior).
 - Acceptance: met.
 
 ### WS-29 - Refresh Planning Docs with Post-WS26 Queue
@@ -505,6 +506,9 @@ This plan converts the current review and research into sequenced, testable exec
   - Validated full quality gates and mini-soak stability:
     - `make verify-full`
     - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-pre-ws31`
+  - Re-validated gates after launch-gate test hardening on 2026-02-22:
+    - `make verify-full`
+    - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-post-hardening`
 - Acceptance: met.
 
 ### WS-31 - Initialize Rust Backend
