@@ -153,3 +153,4 @@ This matrix tracks high-value components for evolving FoxClaw into a feature-ric
 - Revisit this matrix each release cycle.
 - Promote completed items into architecture/workflow docs with implementation notes.
 - Record deferred/dropped items with explicit rationale.
+- Latest ecosystem deep-dive snapshot: `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`.

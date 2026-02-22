@@ -13,7 +13,8 @@ scan_exit=0
   --profile tests/fixtures/firefox_profile \
   --ruleset foxclaw/rulesets/balanced.yml \
   --output foxclaw.json \
-  --sarif-out foxclaw.sarif || scan_exit=$?
+  --sarif-out foxclaw.sarif \
+  --deterministic || scan_exit=$?
 
 echo "foxclaw scan exit code: ${scan_exit}"
 if [[ "${scan_exit}" -ne 0 && "${scan_exit}" -ne 2 ]]; then

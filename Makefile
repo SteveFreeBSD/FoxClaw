@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity extension-catalog test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate extension-catalog test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)
@@ -47,6 +47,9 @@ fuzz-profiles:
 profile-fidelity:
 	$(PYTHON_BIN) ./scripts/profile_fidelity_check.py /tmp/foxclaw-synth-profiles --pattern "*.synth-*" --min-score 70 --enforce-min-score
 
+profile-launch-gate:
+	$(PYTHON_BIN) ./scripts/profile_launch_gate.py /tmp/foxclaw-synth-profiles --pattern "*.synth-*" --firefox-bin firefox --min-post-score 50 --enforce
+
 extension-catalog:
 	$(PYTHON_BIN) ./scripts/build_extension_catalog.py --output tests/fixtures/intel/amo_extension_catalog.v1.json
 
@@ -80,6 +83,8 @@ soak-smoke:
 		--synth-mode bootstrap \
 		--synth-seed 424242 \
 		--synth-fidelity-min-score 70 \
+		--require-launch-gate \
+		--launch-gate-min-score 50 \
 		--fuzz-count 10 \
 		--fuzz-mode chaos \
 		--fuzz-seed 525252 \
@@ -97,6 +102,8 @@ soak-smoke-fuzz1000:
 		--synth-mode bootstrap \
 		--synth-seed 424242 \
 		--synth-fidelity-min-score 70 \
+		--require-launch-gate \
+		--launch-gate-min-score 50 \
 		--fuzz-count 1000 \
 		--fuzz-mode chaos \
 		--fuzz-seed 525252 \

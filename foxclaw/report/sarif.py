@@ -23,13 +23,15 @@ _PATH_RE = re.compile(r"/[^\s,;()]+")
 _LIKELY_FILE_SUFFIXES = (".db", ".sqlite", ".sqlite-wal", ".sqlite-shm", ".json", ".js")
 
 
-def render_scan_sarif(bundle: EvidenceBundle) -> str:
+def render_scan_sarif(bundle: EvidenceBundle, *, deterministic: bool = False) -> str:
     """Render a deterministic SARIF payload for scan findings."""
-    payload = build_scan_sarif(bundle)
+    payload = build_scan_sarif(bundle, deterministic=deterministic)
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
-def build_scan_sarif(bundle: EvidenceBundle, *, repo_root: Path | None = None) -> dict[str, object]:
+def build_scan_sarif(
+    bundle: EvidenceBundle, *, repo_root: Path | None = None, deterministic: bool = False
+) -> dict[str, object]:
     """Build SARIF object for FoxClaw findings."""
     resolved_repo_root = (repo_root or Path.cwd()).expanduser().resolve(strict=False)
     profile_root = Path(bundle.profile.path).expanduser()
@@ -44,6 +46,7 @@ def build_scan_sarif(bundle: EvidenceBundle, *, repo_root: Path | None = None) -
             profile_root=profile_root,
             repo_root=resolved_repo_root,
             rule_index=rule_indices[finding.id],
+            deterministic=deterministic,
         )
         for finding in findings
     ]
@@ -108,16 +111,19 @@ def _build_rules(findings: list[Finding]) -> tuple[list[dict[str, object]], dict
 
 
 def _finding_to_result(
-    finding: Finding, *, profile_root: Path, repo_root: Path, rule_index: int
+    finding: Finding, *, profile_root: Path, repo_root: Path, rule_index: int, deterministic: bool
 ) -> dict[str, object]:
     evidence_lines = [
-        _normalize_evidence_line(line, profile_root=profile_root, repo_root=repo_root)
+        _normalize_evidence_line(
+            line, profile_root=profile_root, repo_root=repo_root, deterministic=deterministic
+        )
         for line in finding.evidence
     ]
     artifact_uri = _find_artifact_uri(
         evidence_lines,
         profile_root=profile_root,
         repo_root=repo_root,
+        deterministic=deterministic,
     )
     if not evidence_lines:
         evidence_lines = ["No additional evidence."]
@@ -159,19 +165,24 @@ def _finding_to_result(
     }
 
 
-def _find_artifact_uri(evidence: list[str], *, profile_root: Path, repo_root: Path) -> str:
+def _find_artifact_uri(
+    evidence: list[str], *, profile_root: Path, repo_root: Path, deterministic: bool
+) -> str:
     for line in evidence:
         artifact_uri = _extract_artifact_uri(
             line,
             profile_root=profile_root,
             repo_root=repo_root,
+            deterministic=deterministic,
         )
         if artifact_uri is not None:
             return artifact_uri
     return "profile"
 
 
-def _extract_artifact_uri(line: str, *, profile_root: Path, repo_root: Path) -> str | None:
+def _extract_artifact_uri(
+    line: str, *, profile_root: Path, repo_root: Path, deterministic: bool
+) -> str | None:
     file_uri_match = _FILE_URI_RE.search(line)
     if file_uri_match:
         parsed = urlparse(file_uri_match.group(0).rstrip(":"))
@@ -180,12 +191,15 @@ def _extract_artifact_uri(line: str, *, profile_root: Path, repo_root: Path) -> 
                 unquote(parsed.path),
                 profile_root=profile_root,
                 repo_root=repo_root,
+                deterministic=deterministic,
             )
         return file_uri_match.group(0).rstrip(":")
 
     prefix = line.split(":", 1)[0].strip()
     if prefix and _looks_like_path(prefix):
-        return _normalize_artifact_path(prefix, profile_root=profile_root, repo_root=repo_root)
+        return _normalize_artifact_path(
+            prefix, profile_root=profile_root, repo_root=repo_root, deterministic=deterministic
+        )
 
     path_match = _PATH_RE.search(line)
     if path_match:
@@ -193,12 +207,15 @@ def _extract_artifact_uri(line: str, *, profile_root: Path, repo_root: Path) -> 
             path_match.group(0).rstrip(":"),
             profile_root=profile_root,
             repo_root=repo_root,
+            deterministic=deterministic,
         )
 
     return None
 
 
-def _normalize_evidence_line(line: str, *, profile_root: Path, repo_root: Path) -> str:
+def _normalize_evidence_line(
+    line: str, *, profile_root: Path, repo_root: Path, deterministic: bool
+) -> str:
     file_uri_match = _FILE_URI_RE.search(line)
     if file_uri_match:
         raw_uri = file_uri_match.group(0).rstrip(":")
@@ -208,6 +225,7 @@ def _normalize_evidence_line(line: str, *, profile_root: Path, repo_root: Path) 
                 unquote(parsed.path),
                 profile_root=profile_root,
                 repo_root=repo_root,
+                deterministic=deterministic,
             )
             return line.replace(raw_uri, normalized, 1)
         return line
@@ -219,13 +237,16 @@ def _normalize_evidence_line(line: str, *, profile_root: Path, repo_root: Path) 
             raw_path,
             profile_root=profile_root,
             repo_root=repo_root,
+            deterministic=deterministic,
         )
         return line.replace(raw_path, normalized, 1)
 
     return line
 
 
-def _normalize_artifact_path(raw_path: str, *, profile_root: Path, repo_root: Path) -> str:
+def _normalize_artifact_path(
+    raw_path: str, *, profile_root: Path, repo_root: Path, deterministic: bool = False
+) -> str:
     candidate = Path(raw_path).expanduser()
     if not candidate.is_absolute():
         return raw_path.replace("\\", "/")
@@ -242,6 +263,8 @@ def _normalize_artifact_path(raw_path: str, *, profile_root: Path, repo_root: Pa
         relative_text = relative.as_posix()
         return relative_text if relative_text else "profile"
 
+    if deterministic:
+        return f"EXTERNAL/{candidate.name}"
     return resolved_candidate.as_posix()
 
 

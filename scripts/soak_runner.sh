@@ -63,6 +63,8 @@ FUZZ_SEED=525252
 FUZZ_MODE="chaos"
 FUZZ_MUTATION_BUDGET=3
 FUZZ_FIDELITY_MIN_SCORE=50
+REQUIRE_LAUNCH_GATE=0
+LAUNCH_GATE_MIN_SCORE=50
 MATRIX_RUNS=1
 MAX_CYCLES=0
 
@@ -78,6 +80,8 @@ while [[ $# -gt 0 ]]; do
     --synth-mode)       SYNTH_MODE="${2:-}"; shift 2 ;;
     --synth-mutation-budget) SYNTH_MUTATION_BUDGET="${2:-}"; shift 2 ;;
     --synth-fidelity-min-score) SYNTH_FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
+    --require-launch-gate)      REQUIRE_LAUNCH_GATE=1; shift 1 ;;
+    --launch-gate-min-score)    LAUNCH_GATE_MIN_SCORE="${2:-}"; shift 2 ;;
     --fuzz-count)       FUZZ_COUNT="${2:-}"; shift 2 ;;
     --fuzz-seed)        FUZZ_SEED="${2:-}"; shift 2 ;;
     --fuzz-mode)        FUZZ_MODE="${2:-}"; shift 2 ;;
@@ -443,7 +447,8 @@ while true; do
     --mode "${SYNTH_MODE}" \
     --seed "${SYNTH_SEED}" \
     --mutation-budget "${SYNTH_MUTATION_BUDGET}" \
-    --fidelity-min-score "${SYNTH_FIDELITY_MIN_SCORE}" || overall_fail=1
+    --fidelity-min-score "${SYNTH_FIDELITY_MIN_SCORE}" \
+    $([[ "${REQUIRE_LAUNCH_GATE}" -eq 1 ]] && echo "--require-launch-gate --launch-gate-min-score ${LAUNCH_GATE_MIN_SCORE}") || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
     break
@@ -458,7 +463,8 @@ while true; do
     --mode "${FUZZ_MODE}" \
     --seed "${FUZZ_SEED}" \
     --mutation-budget "${FUZZ_MUTATION_BUDGET}" \
-    --fidelity-min-score "${FUZZ_FIDELITY_MIN_SCORE}" || overall_fail=1
+    --fidelity-min-score "${FUZZ_FIDELITY_MIN_SCORE}" \
+    $([[ "${REQUIRE_LAUNCH_GATE}" -eq 1 ]] && echo "--require-launch-gate --launch-gate-min-score ${LAUNCH_GATE_MIN_SCORE}") || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
     break

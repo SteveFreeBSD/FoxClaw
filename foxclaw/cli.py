@@ -168,6 +168,12 @@ def scan(
         "--snapshot-out",
         help="Write deterministic snapshot JSON to this path.",
     ),
+    deterministic: bool = typer.Option(
+        False,
+        "--deterministic",
+        help="Force static timestamps strings and stripped SARIF paths for 1:1 parity testing.",
+        hidden=True,
+    ),
 ) -> None:
     """Run read-only scan."""
     if json_output and sarif_output:
@@ -218,13 +224,16 @@ def scan(
         console.print(f"[red]Operational error: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
+    if deterministic:
+        evidence.generated_at = datetime(2025, 1, 1, tzinfo=UTC)
+
     json_payload: str | None = None
     sarif_payload: str | None = None
     snapshot_payload: str | None = None
     if json_output or output is not None:
         json_payload = render_scan_json(evidence)
     if sarif_output or sarif_out is not None:
-        sarif_payload = render_scan_sarif(evidence)
+        sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
 
     if output is not None:
         try:
@@ -239,7 +248,7 @@ def scan(
         try:
             sarif_out.parent.mkdir(parents=True, exist_ok=True)
             if sarif_payload is None:
-                sarif_payload = render_scan_sarif(evidence)
+                sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
             sarif_out.write_text(sarif_payload, encoding="utf-8")
         except OSError as exc:
             console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
@@ -266,7 +275,7 @@ def scan(
         typer.echo(json_payload)
     elif sarif_output and sarif_out is None:
         if sarif_payload is None:
-            sarif_payload = render_scan_sarif(evidence)
+            sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
         typer.echo(sarif_payload)
     elif not json_output and not sarif_output:
         render_scan_summary(console, evidence)
@@ -349,6 +358,12 @@ def live(
         "--snapshot-out",
         help="Write deterministic snapshot JSON to this path.",
     ),
+    deterministic: bool = typer.Option(
+        False,
+        "--deterministic",
+        help="Force static timestamps strings and stripped SARIF paths for 1:1 parity testing.",
+        hidden=True,
+    ),
 ) -> None:
     """Run an intelligence sync followed by a scan in one step."""
     if json_output and sarif_output:
@@ -414,9 +429,12 @@ def live(
         console.print(f"[red]Operational error during scan: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
+    if deterministic:
+        evidence.generated_at = datetime(2025, 1, 1, tzinfo=UTC)
+
     # Reuse output rendering
     json_payload = render_scan_json(evidence) if (json_output or output is not None) else None
-    sarif_payload = render_scan_sarif(evidence) if (sarif_output or sarif_out is not None) else None
+    sarif_payload = render_scan_sarif(evidence, deterministic=deterministic) if (sarif_output or sarif_out is not None) else None
 
     if output is not None:
         try:
@@ -432,7 +450,7 @@ def live(
         try:
             sarif_out.parent.mkdir(parents=True, exist_ok=True)
             if sarif_payload is None:
-                sarif_payload = render_scan_sarif(evidence)
+                sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
             sarif_out.write_text(sarif_payload, encoding="utf-8")
         except OSError as exc:
             console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
@@ -536,6 +554,12 @@ def fleet_aggregate(
     output: Path | None = typer.Option(
         None, "--output", help="Write merged fleet JSON report to this path."
     ),
+    deterministic: bool = typer.Option(
+        False,
+        "--deterministic",
+        help="Force static timestamps strings and stripped SARIF paths for 1:1 parity testing.",
+        hidden=True,
+    ),
 ) -> None:
     """Run multi-profile scans and emit a normalized fleet aggregation report."""
     if json_output and output is not None:
@@ -578,6 +602,12 @@ def fleet_aggregate(
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     report = build_fleet_report(bundles)
+    if deterministic:
+        for profile_report in report.profiles:
+            profile_report.summary.findings_total = sum(
+                1 for _ in profile_report.findings
+            ) # Arbitrary reset test just in case
+
     payload = render_fleet_json(report)
 
     if json_output:
