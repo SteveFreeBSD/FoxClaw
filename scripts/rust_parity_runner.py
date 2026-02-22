@@ -21,6 +21,7 @@ from migration_contract_common import (  # noqa: E402
     TESTBED_POLICY,
     TESTBED_ROOT,
     TESTBED_RULESET,
+    stage_contract_case_profile,
 )
 
 
@@ -152,14 +153,13 @@ def _write_diff(path: Path, left: str, right: str, *, left_name: str, right_name
 def _build_scan_command(
     *,
     base_cmd: list[str],
-    case: ParityCase,
-    testbed_root: Path,
+    profile_path: Path,
     ruleset: Path,
     policy_path: Path,
     json_out: Path,
     sarif_out: Path,
+    with_policy_path: bool,
 ) -> list[str]:
-    profile_path = testbed_root / case.profile_name
     cmd = [
         *base_cmd,
         "scan",
@@ -174,7 +174,7 @@ def _build_scan_command(
         "--sarif-out",
         str(sarif_out),
     ]
-    if case.with_policy_path:
+    if with_policy_path:
         cmd.extend(["--policy-path", str(policy_path)])
     return cmd
 
@@ -183,8 +183,8 @@ def _run_engine(
     *,
     engine_name: str,
     base_cmd: list[str],
-    case: ParityCase,
-    testbed_root: Path,
+    profile_path: Path,
+    with_policy_path: bool,
     ruleset: Path,
     policy_path: Path,
     case_dir: Path,
@@ -193,12 +193,12 @@ def _run_engine(
     sarif_out = case_dir / f"{engine_name}.sarif"
     cmd = _build_scan_command(
         base_cmd=base_cmd,
-        case=case,
-        testbed_root=testbed_root,
+        profile_path=profile_path,
         ruleset=ruleset,
         policy_path=policy_path,
         json_out=json_out,
         sarif_out=sarif_out,
+        with_policy_path=with_policy_path,
     )
     try:
         proc = subprocess.run(
@@ -276,12 +276,17 @@ def main() -> int:
     for case in selected_cases:
         case_dir = output_dir / case.name
         case_dir.mkdir(parents=True, exist_ok=True)
+        profile_path = stage_contract_case_profile(
+            case=case,
+            testbed_root=testbed_root,
+            work_root=case_dir,
+        )
 
         py_run, py_json, py_sarif = _run_engine(
             engine_name="python",
             base_cmd=python_cmd,
-            case=case,
-            testbed_root=testbed_root,
+            profile_path=profile_path,
+            with_policy_path=case.with_policy_path,
             ruleset=ruleset,
             policy_path=policy_path,
             case_dir=case_dir,
@@ -289,8 +294,8 @@ def main() -> int:
         rs_run, rs_json, rs_sarif = _run_engine(
             engine_name="rust",
             base_cmd=rust_cmd,
-            case=case,
-            testbed_root=testbed_root,
+            profile_path=profile_path,
+            with_policy_path=case.with_policy_path,
             ruleset=ruleset,
             policy_path=policy_path,
             case_dir=case_dir,

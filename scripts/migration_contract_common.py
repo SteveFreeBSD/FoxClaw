@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,9 @@ CONTRACT_CASES: list[ContractCase] = [
 ]
 CONTRACT_CASE_BY_NAME = {case.name: case for case in CONTRACT_CASES}
 
+DEFAULT_PROFILE_FILE_MODE = 0o600
+WEAK_PROFILE_FILE_MODE = 0o644
+
 
 def normalize_contract_payload(payload: Any, *, repo_root: Path) -> Any:
     """Normalize host-specific paths in payloads for cross-host canonical fixtures."""
@@ -62,3 +66,21 @@ def _normalize_contract_string(text: str, *, repo_root: Path) -> str:
         if candidate:
             normalized = normalized.replace(candidate, REPO_ROOT_PLACEHOLDER)
     return normalized
+
+
+def stage_contract_case_profile(*, case: ContractCase, testbed_root: Path, work_root: Path) -> Path:
+    """Copy a profile fixture and normalize file modes for deterministic case exits."""
+    source = testbed_root / case.profile_name
+    if not source.exists():
+        raise FileNotFoundError(f"missing profile fixture: {source}")
+
+    target = work_root / "profile"
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+
+    file_mode = WEAK_PROFILE_FILE_MODE if case.name == "profile_weak_perms" else DEFAULT_PROFILE_FILE_MODE
+    for path in target.rglob("*"):
+        if path.is_file():
+            path.chmod(file_mode)
+    return target
