@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sqlite3
 import sys
@@ -263,3 +264,68 @@ def test_acquire_windows_share_scan_rejects_staging_root_home_directory(tmp_path
 
     assert result.exit_code == 1
     assert "staging root cannot be home directory root" in (result.stdout + result.stderr)
+
+
+def test_acquire_windows_share_scan_rejects_staging_root_inside_source_profile(tmp_path: Path) -> None:
+    source_profile = _write_source_profile(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--staging-root",
+            str(source_profile / "nested-staging-root"),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "staging root cannot be inside source profile" in (result.stdout + result.stderr)
+
+
+def test_acquire_windows_share_scan_rejects_source_profile_inside_staging_root(tmp_path: Path) -> None:
+    staging_root = tmp_path / "staging-root"
+    source_profile = _write_source_profile(staging_root)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--staging-root",
+            str(staging_root),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "source profile cannot be inside staging root" in (result.stdout + result.stderr)
+
+
+def test_acquire_windows_share_scan_rejects_unc_source_on_non_windows() -> None:
+    if os.name == "nt":
+        return
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            r"\\server\forensics\profile.default-release",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "UNC source profile paths are not directly accessible on this platform" in (
+        result.stdout + result.stderr
+    )

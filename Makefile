@@ -9,7 +9,7 @@ VULTURE_BIN := $(VENV)/bin/vulture
 DETECT_SECRETS_BIN := $(VENV)/bin/detect-secrets
 DOCKER ?= docker
 
-.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write migration-contract-fixtures migration-contract-fixtures-write migration-contract-verify-python migration-contract-verify-rust synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate windows-share-smoke extension-catalog rust-workspace-check rust-parity-testbed rust-parity-smoke test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
+.PHONY: venv install test test-integration testbed-fixtures testbed-fixtures-write synth-profiles synth-profiles-bootstrap synth-profiles-100 fuzz-profiles profile-fidelity profile-launch-gate windows-share-smoke extension-catalog test-firefox-container demo-insecure-container soak-smoke soak-smoke-fuzz1000 soak-daytime soak-daytime-fuzz1000 soak-daytime-detached soak-stop soak-status lint typecheck fixture-scan trust-smoke sbom sbom-verify verify verify-full bandit vulture secrets dep-audit certify certify-live hooks-install clean clean-venv
 
 venv:
 	python3 -m venv $(VENV)

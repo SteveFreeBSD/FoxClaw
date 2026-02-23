@@ -150,18 +150,6 @@ foxclaw acquire windows-share-scan \
   --ruleset foxclaw/rulesets/strict.yml \
   --output-dir /var/tmp/foxclaw-share-jdoe
 ```
-
-Run the Rust-bridge parity harness against deterministic fixtures:
-
-```bash
-make rust-parity-smoke
-```
-
-Validate canonical migration contract fixtures (WS-32):
-
-```bash
-make migration-contract-fixtures
-```
 ## Exit Codes
 
 Canonical CLI contract:

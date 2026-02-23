@@ -155,9 +155,15 @@ def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
 
 def _resolve_paths(
     args: argparse.Namespace,
-) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
+) -> tuple[Path, bool, Path, Path, Path, Path, Path, Path, Path]:
     snapshot_id = args.snapshot_id or _default_snapshot_id()
-    source_profile = Path(args.source_profile).expanduser().resolve()
+    source_profile_input = str(args.source_profile)
+    source_is_unc_path = source_profile_input.startswith("\\\\")
+    source_profile_candidate = Path(args.source_profile).expanduser()
+    if source_is_unc_path and os.name != "nt":
+        source_profile = source_profile_candidate
+    else:
+        source_profile = source_profile_candidate.resolve()
     staging_root = Path(args.staging_root).expanduser().resolve()
     stage_root = staging_root / snapshot_id
     staged_profile = stage_root / "profile"
@@ -177,6 +183,7 @@ def _resolve_paths(
     )
     return (
         source_profile,
+        source_is_unc_path,
         staging_root,
         staged_profile,
         output_dir,
@@ -360,6 +367,7 @@ def run_windows_share_scan(
 
     (
         source_profile,
+        source_is_unc_path,
         staging_root,
         staged_profile,
         output_dir,
@@ -368,6 +376,14 @@ def run_windows_share_scan(
         scan_snapshot_out,
         manifest_out,
     ) = _resolve_paths(args)
+
+    if source_is_unc_path and os.name != "nt":
+        print(
+            "error: UNC source profile paths are not directly accessible on this platform; "
+            "mount the share and pass the mounted path.",
+            file=err_stream,
+        )
+        return 1
 
     if not source_profile.exists() or not source_profile.is_dir():
         print(f"error: source profile does not exist or is not a directory: {source_profile}", file=err_stream)
@@ -409,7 +425,7 @@ def run_windows_share_scan(
         "schema_version": "1.0.0",
         "captured_at_utc": _utc_now_iso(),
         "source_profile": str(source_profile),
-        "source_is_unc_path": str(source_profile).startswith("\\\\"),
+        "source_is_unc_path": source_is_unc_path,
         "source_lock_markers": lock_markers,
         "staged_profile": str(staged_profile),
         "stage_writeable": bool(args.keep_stage_writeable),
