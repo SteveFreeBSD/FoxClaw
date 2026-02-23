@@ -6,16 +6,26 @@ import sqlite3
 from pathlib import Path
 from urllib.parse import quote
 
+from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import SqliteCheck, SqliteEvidence
 
-DEFAULT_SQLITE_DBS: tuple[str, ...] = ("places.sqlite", "cookies.sqlite")
+DEFAULT_SQLITE_DBS: tuple[str, ...] = (
+    "places.sqlite",
+    "cookies.sqlite",
+    "content-prefs.sqlite",
+    "permissions.sqlite",
+    "protections.sqlite",
+    "favicons.sqlite",
+    "formhistory.sqlite",
+)
 
 
 def collect_sqlite_quick_checks(profile_dir: Path) -> SqliteEvidence:
     """Run `PRAGMA quick_check` in read-only mode for core Firefox SQLite DBs."""
     checks: list[SqliteCheck] = []
-    for db_name in DEFAULT_SQLITE_DBS:
-        db_path = profile_dir / db_name
+    for _db_name, db_path in iter_safe_profile_files(profile_dir, DEFAULT_SQLITE_DBS):
+        if not db_path.is_file():
+            continue
         checks.append(_run_quick_check(db_path))
     return SqliteEvidence(checks=checks)
 

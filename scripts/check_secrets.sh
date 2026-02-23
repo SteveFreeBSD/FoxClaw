@@ -9,7 +9,7 @@ trap 'rm -f "${output_file}"' EXIT
 
 # Fixture manifests intentionally store SHA-256 checksums and trigger false
 # positives on entropy-based detectors.
-readonly DETECT_SECRETS_EXCLUDE_FILES='^tests/fixtures/testbed/manifest\.json$'
+readonly DETECT_SECRETS_EXCLUDE_FILES='^tests/fixtures/(testbed/manifest\.json|migration_contracts/manifest\.json|windows_share/stage-manifest\.json)$'
 
 .venv/bin/detect-secrets scan \
   --exclude-files "${DETECT_SECRETS_EXCLUDE_FILES}" \

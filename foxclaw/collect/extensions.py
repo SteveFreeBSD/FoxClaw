@@ -9,6 +9,10 @@ import zipfile
 from pathlib import Path
 from typing import Literal
 
+from foxclaw.collect.safe_paths import (
+    ProfilePathEscapeError,
+    resolve_safe_profile_path,
+)
 from foxclaw.models import ExtensionEntry, ExtensionEvidence, ExtensionPermissionRisk
 
 _EXTENSIONS_JSON_NAME = "extensions.json"
@@ -47,7 +51,7 @@ _MEDIUM_RISK_API_PERMISSIONS: dict[str, str] = {
 
 def collect_extensions(profile_dir: Path) -> ExtensionEvidence:
     """Collect extension inventory and manifest-derived posture signals."""
-    extensions_json_path = profile_dir / _EXTENSIONS_JSON_NAME
+    extensions_json_path = resolve_safe_profile_path(profile_dir, _EXTENSIONS_JSON_NAME)
     evidence = ExtensionEvidence(extensions_json_path=str(extensions_json_path))
 
     if not extensions_json_path.is_file():
@@ -183,7 +187,7 @@ def _load_manifest(
 ) -> _ManifestData:
     for candidate in _manifest_candidates(profile_dir=profile_dir, addon=addon, addon_id=addon_id):
         if candidate.is_dir():
-            manifest_path = candidate / "manifest.json"
+            manifest_path = resolve_safe_profile_path(profile_dir, candidate / "manifest.json")
             if not manifest_path.is_file():
                 continue
             return _parse_manifest_file(manifest_path)
@@ -204,17 +208,22 @@ def _manifest_candidates(profile_dir: Path, *, addon: dict[str, object], addon_i
 
     addon_path = _optional_str(addon.get("path"))
     if addon_path:
-        path_obj = Path(addon_path).expanduser()
-        candidates.append(path_obj if path_obj.is_absolute() else profile_dir / path_obj)
+        candidates.append(Path(addon_path).expanduser())
 
-    extensions_dir = profile_dir / _EXTENSIONS_DIR_NAME
+    extensions_dir = Path(_EXTENSIONS_DIR_NAME)
     candidates.append(extensions_dir / f"{addon_id}.xpi")
     candidates.append(extensions_dir / addon_id)
 
     deduped: list[Path] = []
     seen: set[Path] = set()
     for path in candidates:
-        resolved = path.expanduser().resolve(strict=False)
+        try:
+            resolved = resolve_safe_profile_path(profile_dir, path)
+        except ProfilePathEscapeError:
+            # Extension metadata may include absolute external/system paths. Never open those.
+            if path.is_absolute():
+                continue
+            raise
         if resolved in seen:
             continue
         deduped.append(resolved)
@@ -446,7 +455,7 @@ def _resolve_source_path(*, profile_dir: Path, source: str | None) -> Path | Non
 
     candidate = Path(source).expanduser()
     if not candidate.is_absolute():
-        candidate = profile_dir / candidate
+        candidate = profile_dir.joinpath(candidate)
     return candidate.resolve(strict=False)
 
 

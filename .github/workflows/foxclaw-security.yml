@@ -93,7 +93,7 @@ jobs:
       - name: detect-secrets
         run: |
           detect-secrets scan \
-            --exclude-files '^tests/fixtures/testbed/manifest\.json$' \
+            --exclude-files '^tests/fixtures/(testbed|migration_contracts)/manifest\.json$|^tests/fixtures/windows_share/stage-manifest\.json$' \
             $(git ls-files) > detect-secrets.json
           python - <<'PY'
           import json

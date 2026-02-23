@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from foxclaw.collect.safe_paths import ProfilePathSymlinkError
 from foxclaw.models import PolicyEvidence, PolicyFileSummary
 
 DEFAULT_POLICY_PATHS: tuple[Path, ...] = (
@@ -24,6 +25,7 @@ def collect_policies(policy_paths: list[Path] | None = None) -> PolicyEvidence:
         if not policy_path.is_file():
             continue
 
+        _reject_symlink_path(policy_path)
         discovered.append(policy_path)
         summaries.append(_summarize_policy_file(policy_path))
 
@@ -76,3 +78,18 @@ def _collect_key_paths(payload: dict[str, object]) -> list[str]:
 
     _walk(payload)
     return sorted(key_paths)
+
+
+def _reject_symlink_path(policy_path: Path) -> None:
+    expanded = policy_path.expanduser()
+    if expanded.is_absolute():
+        current = Path(expanded.anchor)
+        parts = expanded.parts[1:]
+    else:
+        current = Path.cwd()
+        parts = expanded.parts
+
+    for token in parts:
+        current = current / token
+        if current.is_symlink():
+            raise ProfilePathSymlinkError(f"symlinked profile path is not allowed: {current}")

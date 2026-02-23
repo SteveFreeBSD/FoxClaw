@@ -128,6 +128,26 @@ class SqliteEvidence(BaseModel):
     checks: list[SqliteCheck] = Field(default_factory=list)
 
 
+class ProfileArtifactEntry(BaseModel):
+    """One staged profile artifact metadata record."""
+
+    rel_path: str
+    size: int | None = None
+    mtime_utc: str | None = None
+    sha256: str | None = None
+    parse_status: Literal["metadata_only", "parsed", "error"] = "metadata_only"
+    top_level_keys: list[str] = Field(default_factory=list)
+    key_values: dict[str, str] = Field(default_factory=dict)
+    parse_error: str | None = None
+
+
+class ProfileArtifactEvidence(BaseModel):
+    """Additional profile artifact metadata collected during scan."""
+
+    schema_version: str = "1.0.0"
+    entries: list[ProfileArtifactEntry] = Field(default_factory=list)
+
+
 class Finding(BaseModel):
     """Single posture finding produced by rule evaluation."""
 
@@ -293,6 +313,7 @@ class EvidenceBundle(BaseModel):
     policies: PolicyEvidence
     extensions: ExtensionEvidence = Field(default_factory=ExtensionEvidence)
     sqlite: SqliteEvidence
+    artifacts: ProfileArtifactEvidence = Field(default_factory=ProfileArtifactEvidence)
     intel: IntelCorrelationEvidence = Field(default_factory=IntelCorrelationEvidence)
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)

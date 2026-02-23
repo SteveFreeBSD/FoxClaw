@@ -10,6 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from foxclaw.acquire.windows_share import run_windows_share_scan_from_argv
 from foxclaw.intel.sync import sync_sources
 from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
@@ -38,6 +39,7 @@ intel_app = typer.Typer(help="Threat intelligence synchronization commands.")
 fleet_app = typer.Typer(help="Fleet and multi-profile aggregation commands.")
 suppression_app = typer.Typer(help="Suppression governance commands.")
 bundle_app = typer.Typer(help="External ruleset bundle distribution commands.")
+acquire_app = typer.Typer(help="Profile acquisition and staging commands.")
 console = Console()
 
 
@@ -100,6 +102,11 @@ def scan(
     ),
     profile: Path | None = typer.Option(
         None, "--profile", help="Scan this Firefox profile directory directly."
+    ),
+    allow_unc_profile: bool = typer.Option(
+        False,
+        "--allow-unc-profile",
+        help="Allow scanning UNC profile paths directly (lab-only).",
     ),
     require_quiet_profile: bool = typer.Option(
         False,
@@ -178,6 +185,14 @@ def scan(
     """Run read-only scan."""
     if json_output and sarif_output:
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
+        console.print(
+            "[red]Operational error: UNC profile paths are disabled by default. "
+            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
+            "--allow-unc-profile for lab-only workflows.[/red]"
+        )
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
     selected_profile: FirefoxProfile | None = None
@@ -490,6 +505,145 @@ def live(
 
 
 
+@acquire_app.command("windows-share-scan")
+def acquire_windows_share_scan(
+    source_profile: Path = typer.Option(
+        ...,
+        "--source-profile",
+        help="Source Firefox profile path (UNC path or mounted share path).",
+    ),
+    staging_root: Path | None = typer.Option(
+        None,
+        "--staging-root",
+        help="Root directory for staged snapshots (defaults to system temp dir).",
+    ),
+    snapshot_id: str | None = typer.Option(
+        None,
+        "--snapshot-id",
+        help="Optional snapshot identifier (defaults to UTC timestamp).",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Optional artifact directory (defaults under staging root).",
+    ),
+    foxclaw_cmd: str | None = typer.Option(
+        None,
+        "--foxclaw-cmd",
+        help="Command used to invoke FoxClaw scan (defaults to current python -m foxclaw).",
+    ),
+    ruleset: Path | None = typer.Option(
+        None,
+        "--ruleset",
+        help="Ruleset path passed to foxclaw scan.",
+    ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help="Optional repeatable policy override path.",
+    ),
+    suppression_path: list[Path] | None = typer.Option(
+        None,
+        "--suppression-path",
+        help="Optional repeatable suppression policy path.",
+    ),
+    intel_store_dir: Path | None = typer.Option(
+        None,
+        "--intel-store-dir",
+        help="Optional intel snapshot store directory.",
+    ),
+    intel_snapshot_id: str | None = typer.Option(
+        None,
+        "--intel-snapshot-id",
+        help="Optional intel snapshot id (requires --intel-store-dir).",
+    ),
+    allow_active_profile: bool = typer.Option(
+        False,
+        "--allow-active-profile",
+        help=(
+            "Allow staging when lock markers are present. Use only when source is a "
+            "crash-consistent snapshot."
+        ),
+    ),
+    keep_stage_writeable: bool = typer.Option(
+        False,
+        "--keep-stage-writeable",
+        help="Do not remove write bits from staged files.",
+    ),
+    json_out: Path | None = typer.Option(
+        None,
+        "--json-out",
+        help="Optional scan JSON output path.",
+    ),
+    sarif_out: Path | None = typer.Option(
+        None,
+        "--sarif-out",
+        help="Optional scan SARIF output path.",
+    ),
+    scan_snapshot_out: Path | None = typer.Option(
+        None,
+        "--scan-snapshot-out",
+        help="Optional scan snapshot output path.",
+    ),
+    manifest_out: Path | None = typer.Option(
+        None,
+        "--manifest-out",
+        help="Optional staging manifest output path.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Validate paths and write manifest without launching foxclaw scan.",
+    ),
+    treat_high_findings_as_success: bool = typer.Option(
+        False,
+        "--treat-high-findings-as-success",
+        help="Return exit code 0 when scan returns 2 (HIGH findings present).",
+    ),
+) -> None:
+    """Stage Firefox profile data locally and run deterministic scan artifacts."""
+    argv: list[str] = ["--source-profile", str(source_profile)]
+
+    if staging_root is not None:
+        argv.extend(["--staging-root", str(staging_root)])
+    if snapshot_id:
+        argv.extend(["--snapshot-id", snapshot_id])
+    if output_dir is not None:
+        argv.extend(["--output-dir", str(output_dir)])
+    if foxclaw_cmd:
+        argv.extend(["--foxclaw-cmd", foxclaw_cmd])
+    if ruleset is not None:
+        argv.extend(["--ruleset", str(ruleset)])
+
+    for path in policy_path or []:
+        argv.extend(["--policy-path", str(path)])
+    for path in suppression_path or []:
+        argv.extend(["--suppression-path", str(path)])
+
+    if intel_store_dir is not None:
+        argv.extend(["--intel-store-dir", str(intel_store_dir)])
+    if intel_snapshot_id:
+        argv.extend(["--intel-snapshot-id", intel_snapshot_id])
+    if allow_active_profile:
+        argv.append("--allow-active-profile")
+    if keep_stage_writeable:
+        argv.append("--keep-stage-writeable")
+    if json_out is not None:
+        argv.extend(["--json-out", str(json_out)])
+    if sarif_out is not None:
+        argv.extend(["--sarif-out", str(sarif_out)])
+    if scan_snapshot_out is not None:
+        argv.extend(["--scan-snapshot-out", str(scan_snapshot_out)])
+    if manifest_out is not None:
+        argv.extend(["--manifest-out", str(manifest_out)])
+    if dry_run:
+        argv.append("--dry-run")
+    if treat_high_findings_as_success:
+        argv.append("--treat-high-findings-as-success")
+
+    raise typer.Exit(code=run_windows_share_scan_from_argv(argv))
+
+
 @fleet_app.command("aggregate")
 def fleet_aggregate(
     profile: list[Path] | None = typer.Option(
@@ -621,6 +775,7 @@ def fleet_aggregate(
 app.add_typer(profiles_app, name="profiles")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(intel_app, name="intel")
+app.add_typer(acquire_app, name="acquire")
 app.add_typer(fleet_app, name="fleet")
 app.add_typer(suppression_app, name="suppression")
 app.add_typer(bundle_app, name="bundle")
@@ -971,6 +1126,10 @@ def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -
 def _manual_profile_id(path: Path) -> str:
     digest = hashlib.sha256(path.as_posix().encode("utf-8")).hexdigest()[:12]
     return f"manual-{digest}"
+
+
+def _is_unc_path(path: Path) -> bool:
+    return str(path).startswith("\\\\")
 
 
 if __name__ == "__main__":

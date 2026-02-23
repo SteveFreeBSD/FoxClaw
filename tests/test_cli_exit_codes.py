@@ -113,3 +113,19 @@ def test_scan_exit_code_2_when_high_findings_exist(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == 2
+
+
+def test_scan_rejects_unc_profile_path_by_default() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            r"\\server\forensics\profile.default-release",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "UNC profile paths are disabled by default" in result.stdout
