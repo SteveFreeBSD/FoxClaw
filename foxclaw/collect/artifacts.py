@@ -8,6 +8,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
@@ -26,7 +27,8 @@ _PROFILE_ARTIFACTS: tuple[str, ...] = (
 )
 _HASH_BYTES_CAP = 50 * 1024 * 1024  # 50 MiB
 
-_ArtifactParser = Callable[[Path], tuple[str, list[str], dict[str, str], str | None]]
+ParseStatus = Literal["metadata_only", "parsed", "error"]
+_ArtifactParser = Callable[[Path], tuple[ParseStatus, list[str], dict[str, str], str | None]]
 
 
 def collect_profile_artifacts(profile_dir: Path) -> ProfileArtifactEvidence:
@@ -67,6 +69,7 @@ def collect_profile_artifacts(profile_dir: Path) -> ProfileArtifactEvidence:
             hash_skipped = "size_cap"
 
         parser = _parser_for(rel_path)
+        parse_status: ParseStatus
         if parser is None:
             parse_status = "metadata_only"
             top_level_keys: list[str] = []
@@ -106,17 +109,17 @@ def _parser_for(rel_path: str) -> _ArtifactParser | None:
     return None
 
 
-def _parse_containers_json(path: Path) -> tuple[str, list[str], dict[str, str], str | None]:
+def _parse_containers_json(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
     return _parse_json_artifact(path, collector=_collect_container_keys)
 
 
-def _parse_handlers_json(path: Path) -> tuple[str, list[str], dict[str, str], str | None]:
+def _parse_handlers_json(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
     return _parse_json_artifact(path, collector=_collect_handler_keys)
 
 
 def _parse_json_artifact(
     path: Path, *, collector: Callable[[dict[str, object]], dict[str, str]]
-) -> tuple[str, list[str], dict[str, str], str | None]:
+) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -162,7 +165,7 @@ def _collect_handler_keys(payload: dict[str, object]) -> dict[str, str]:
     return key_values
 
 
-def _parse_compatibility_ini(path: Path) -> tuple[str, list[str], dict[str, str], str | None]:
+def _parse_compatibility_ini(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
     parser = configparser.ConfigParser(interpolation=None)
     try:
         parser.read_string(path.read_text(encoding="utf-8", errors="replace"))
