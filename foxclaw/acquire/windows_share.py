@@ -9,7 +9,6 @@ import os
 import shlex
 import shutil
 import stat
-# Required to invoke foxclaw scan as a subprocess.
 import subprocess  # nosec B404
 import sys
 import tempfile
