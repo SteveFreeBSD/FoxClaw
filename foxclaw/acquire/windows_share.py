@@ -9,7 +9,8 @@ import os
 import shlex
 import shutil
 import stat
-import subprocess
+# Required to invoke foxclaw scan as a subprocess.
+import subprocess  # nosec B404
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -473,7 +474,10 @@ def run_windows_share_scan(
         "status": "PENDING",
     }
 
-    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    # argv list only, shell=False, command is explicit.
+    result = subprocess.run(  # nosec B603
+        cmd, check=False, capture_output=True, text=True
+    )
     if result.stdout:
         print(result.stdout, end="", file=out_stream)
     if result.stderr:
