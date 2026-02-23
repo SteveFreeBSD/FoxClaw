@@ -25,7 +25,7 @@ class CopyStats:
     files_copied: int
     dirs_copied: int
     bytes_copied: int
-    file_entries: list["StagedFileEntry"]
+    file_entries: list[StagedFileEntry]
 
 
 @dataclass
