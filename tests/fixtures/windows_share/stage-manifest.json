@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "captured_at_utc": "<ISO8601_UTC_TIMESTAMP>",
+  "source_profile": "<ABSOLUTE_SOURCE_PROFILE_PATH>",
+  "source_is_unc_path": false,
+  "source_lock_markers": [],
+  "staged_profile": "<ABSOLUTE_STAGED_PROFILE_PATH>",
+  "stage_writeable": false,
+  "copy": {
+    "directories": 1,
+    "files": 2,
+    "bytes": 66
+  },
+  "files": [
+    {
+      "rel_path": "cookies.sqlite",
+      "size": 13,
+      "mtime_utc": "2025-01-01T00:00:00Z",
+      "sha256": "e9a1aebc56fd7f4c82b8388005a51f0281c6653d729ccbaed8e2abfd2eb3a183"
+    },
+    {
+      "rel_path": "prefs.js",
+      "size": 53,
+      "mtime_utc": "2025-01-01T00:00:00Z",
+      "sha256": "ccec5bb00ebef96a4ef949f818c6b2952c9b87571b89cd6099d1a5c2f776d9c6"
+    }
+  ],
+  "artifacts": {
+    "json": "<ABSOLUTE_JSON_OUTPUT_PATH>",
+    "sarif": "<ABSOLUTE_SARIF_OUTPUT_PATH>",
+    "snapshot": "<ABSOLUTE_SNAPSHOT_OUTPUT_PATH>"
+  },
+  "scan": {
+    "command": [],
+    "exit_code": 0,
+    "status": "SKIPPED"
+  }
+}

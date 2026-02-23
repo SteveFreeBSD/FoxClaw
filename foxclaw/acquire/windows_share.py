@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shlex
@@ -24,6 +25,15 @@ class CopyStats:
     files_copied: int
     dirs_copied: int
     bytes_copied: int
+    file_entries: list["StagedFileEntry"]
+
+
+@dataclass
+class StagedFileEntry:
+    rel_path: str
+    size: int
+    mtime_utc: str
+    sha256: str
 
 
 def _utc_now_iso() -> str:
@@ -143,7 +153,9 @@ def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path, Path, Path, Path]:
+def _resolve_paths(
+    args: argparse.Namespace,
+) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
     snapshot_id = args.snapshot_id or _default_snapshot_id()
     source_profile = Path(args.source_profile).expanduser().resolve()
     staging_root = Path(args.staging_root).expanduser().resolve()
@@ -163,7 +175,16 @@ def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path, Pa
         if args.manifest_out
         else output_dir / "stage-manifest.json"
     )
-    return source_profile, staged_profile, output_dir, json_out, sarif_out, scan_snapshot_out, manifest_out
+    return (
+        source_profile,
+        staging_root,
+        staged_profile,
+        output_dir,
+        json_out,
+        sarif_out,
+        scan_snapshot_out,
+        manifest_out,
+    )
 
 
 def _find_lock_markers(profile_root: Path) -> list[str]:
@@ -182,6 +203,7 @@ def _copy_tree(source_root: Path, target_root: Path) -> CopyStats:
     files_copied = 0
     dirs_copied = 0
     bytes_copied = 0
+    file_entries: list[StagedFileEntry] = []
 
     for root, dirs, files in os.walk(source_root):
         src_dir = Path(root)
@@ -190,26 +212,83 @@ def _copy_tree(source_root: Path, target_root: Path) -> CopyStats:
 
         dst_dir.mkdir(parents=True, exist_ok=True)
         dirs_copied += 1
+        dirs.sort()
 
         for directory in dirs:
             src_child = src_dir / directory
             if src_child.is_symlink():
                 raise RuntimeError(f"symlinked directory not allowed in source profile: {src_child}")
 
-        for file_name in files:
+        for file_name in sorted(files):
             src_file = src_dir / file_name
             if src_file.is_symlink():
                 raise RuntimeError(f"symlinked file not allowed in source profile: {src_file}")
 
             dst_file = dst_dir / file_name
             shutil.copy2(src_file, dst_file)
-            try:
-                bytes_copied += dst_file.stat().st_size
-            except OSError:
-                pass
+            file_stat = dst_file.stat()
+            bytes_copied += file_stat.st_size
             files_copied += 1
+            file_entries.append(
+                StagedFileEntry(
+                    rel_path=src_file.relative_to(source_root).as_posix(),
+                    size=file_stat.st_size,
+                    mtime_utc=_timestamp_to_utc_iso(file_stat.st_mtime),
+                    sha256=_sha256_file(dst_file),
+                )
+            )
 
-    return CopyStats(files_copied=files_copied, dirs_copied=dirs_copied, bytes_copied=bytes_copied)
+    file_entries.sort(key=lambda item: item.rel_path)
+    return CopyStats(
+        files_copied=files_copied,
+        dirs_copied=dirs_copied,
+        bytes_copied=bytes_copied,
+        file_entries=file_entries,
+    )
+
+
+def _timestamp_to_utc_iso(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, tz=UTC).isoformat().replace("+00:00", "Z")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _is_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _validate_staging_root(*, source_profile: Path, staging_root: Path) -> str | None:
+    filesystem_root = Path(staging_root.anchor or os.sep).resolve(strict=False)
+    if staging_root == filesystem_root:
+        return f"staging root cannot be filesystem root: {staging_root}"
+
+    home_root = Path.home().expanduser().resolve(strict=False)
+    if staging_root == home_root:
+        return f"staging root cannot be home directory root: {staging_root}"
+
+    if _is_within_root(staging_root, source_profile):
+        return (
+            "staging root cannot be inside source profile: "
+            f"{staging_root} is under {source_profile}"
+        )
+
+    if _is_within_root(source_profile, staging_root):
+        return (
+            "source profile cannot be inside staging root: "
+            f"{source_profile} is under {staging_root}"
+        )
+
+    return None
 
 
 def _make_tree_read_only(root: Path) -> None:
@@ -281,6 +360,7 @@ def run_windows_share_scan(
 
     (
         source_profile,
+        staging_root,
         staged_profile,
         output_dir,
         json_out,
@@ -296,6 +376,14 @@ def run_windows_share_scan(
     if args.intel_snapshot_id and not args.intel_store_dir:
         print("error: --intel-snapshot-id requires --intel-store-dir", file=err_stream)
         return 2
+
+    staging_root_error = _validate_staging_root(
+        source_profile=source_profile,
+        staging_root=staging_root,
+    )
+    if staging_root_error is not None:
+        print(f"error: {staging_root_error}", file=err_stream)
+        return 1
 
     lock_markers = _find_lock_markers(source_profile)
     if lock_markers and not args.allow_active_profile:
@@ -330,6 +418,15 @@ def run_windows_share_scan(
             "files": copy_stats.files_copied,
             "bytes": copy_stats.bytes_copied,
         },
+        "files": [
+            {
+                "rel_path": entry.rel_path,
+                "size": entry.size,
+                "mtime_utc": entry.mtime_utc,
+                "sha256": entry.sha256,
+            }
+            for entry in copy_stats.file_entries
+        ],
         "artifacts": {
             "json": str(json_out),
             "sarif": str(sarif_out),

@@ -1,0 +1,179 @@
+{
+  "artifacts": {
+    "entries": [],
+    "schema_version": "1.0.0"
+  },
+  "bundle_provenance": null,
+  "extensions": {
+    "active_addons": 0,
+    "addons_seen": 0,
+    "entries": [],
+    "extensions_json_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/extensions.json",
+    "parse_error": null
+  },
+  "filesystem": [
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/cookies.sqlite",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/key4.db",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/places.sqlite",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/prefs.js",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/user.js",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    }
+  ],
+  "findings": [],
+  "generated_at": "2025-01-01T00:00:00Z",
+  "high_findings": [],
+  "intel": {
+    "advisories_indexed": 0,
+    "enabled": false,
+    "error": null,
+    "matched_advisories": [],
+    "profile_firefox_version": null,
+    "snapshot_id": null,
+    "store_dir": null
+  },
+  "policies": {
+    "discovered_paths": [
+      "<REPO_ROOT>/tests/fixtures/testbed/policies/disable_telemetry.json"
+    ],
+    "searched_paths": [
+      "<REPO_ROOT>/tests/fixtures/testbed/policies/disable_telemetry.json"
+    ],
+    "summaries": [
+      {
+        "key_paths": [
+          "policies",
+          "policies.DisableFirefoxStudies",
+          "policies.DisableTelemetry",
+          "policies.ExtensionSettings",
+          "policies.ExtensionSettings.*",
+          "policies.ExtensionSettings.*.installation_mode",
+          "policies.HTTPSOnlyMode"
+        ],
+        "parse_error": null,
+        "path": "<REPO_ROOT>/tests/fixtures/testbed/policies/disable_telemetry.json",
+        "policies_count": 4,
+        "top_level_keys": [
+          "policies"
+        ]
+      }
+    ]
+  },
+  "prefs": {
+    "browser.contentblocking.category": {
+      "raw_type": "string",
+      "source": "prefs.js",
+      "value": "strict"
+    },
+    "testbed.pref.enabled": {
+      "raw_type": "bool",
+      "source": "prefs.js",
+      "value": true
+    },
+    "testbed.pref.override": {
+      "raw_type": "string",
+      "source": "user.js",
+      "value": "from-user"
+    }
+  },
+  "profile": {
+    "lock_detected": false,
+    "lock_files": [],
+    "name": "profile_userjs_override",
+    "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override",
+    "profile_id": "manual",
+    "selected": true,
+    "selection_reason": "Selected explicitly via --profile."
+  },
+  "schema_version": "1.0.0",
+  "sqlite": {
+    "checks": [
+      {
+        "db_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/places.sqlite",
+        "opened_ro": true,
+        "quick_check_result": "ok"
+      },
+      {
+        "db_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_userjs_override/cookies.sqlite",
+        "opened_ro": true,
+        "quick_check_result": "ok"
+      }
+    ]
+  },
+  "summary": {
+    "extensions_active": 0,
+    "extensions_debug_count": 0,
+    "extensions_found": 0,
+    "extensions_high_risk_count": 0,
+    "extensions_unsigned_count": 0,
+    "findings_high_count": 0,
+    "findings_info_count": 0,
+    "findings_medium_count": 0,
+    "findings_suppressed_count": 0,
+    "findings_total": 0,
+    "high_risk_perms_count": 0,
+    "intel_matches_count": 0,
+    "policies_found": 1,
+    "prefs_parsed": 3,
+    "sensitive_files_checked": 5,
+    "sqlite_checks_total": 2,
+    "sqlite_non_ok_count": 0
+  },
+  "suppressions": {
+    "applied": [],
+    "applied_by_approver": {},
+    "applied_by_owner": {},
+    "expired": [],
+    "expiring_within_30d": [],
+    "legacy_schema_count": 0,
+    "source_paths": []
+  }
+}

@@ -4,6 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 
+import pytest
 from foxclaw.cli import app
 from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.prefs import collect_prefs
@@ -168,3 +169,186 @@ Default=1
         "sqlite_non_ok_count",
         "findings_high_count",
     }
+
+
+def test_scan_rejects_symlinked_profile_paths(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    target_prefs = tmp_path / "target-prefs.js"
+    target_prefs.write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
+    try:
+        (profile_dir / "prefs.js").symlink_to(target_prefs)
+    except OSError as exc:
+        pytest.skip(f"symlink creation not supported: {exc}")
+
+    _create_sqlite_db(profile_dir / "places.sqlite")
+    _create_sqlite_db(profile_dir / "cookies.sqlite")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "symlinked profile path is not allowed" in result.stdout
+
+
+def test_scan_rejects_symlinked_sensitive_file_in_filesystem_collector(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
+    _create_sqlite_db(profile_dir / "places.sqlite")
+    _create_sqlite_db(profile_dir / "cookies.sqlite")
+
+    target_key4 = tmp_path / "target-key4.db"
+    target_key4.write_text("key4", encoding="utf-8")
+    try:
+        (profile_dir / "key4.db").symlink_to(target_key4)
+    except OSError as exc:
+        pytest.skip(f"symlink creation not supported: {exc}")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Operational error: symlinked profile path is not allowed" in result.stdout
+
+
+def test_scan_rejects_symlinked_extension_artifact(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    extensions_dir = profile_dir / "extensions"
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
+    _create_sqlite_db(profile_dir / "places.sqlite")
+    _create_sqlite_db(profile_dir / "cookies.sqlite")
+    (profile_dir / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": "bad-addon@example.com",
+                        "type": "extension",
+                        "active": True,
+                        "location": "app-profile",
+                        "path": "extensions/bad-addon@example.com.xpi",
+                        "signedState": 2,
+                    }
+                ]
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    target_xpi = tmp_path / "target-bad-addon.xpi"
+    target_xpi.write_text("not-a-real-xpi", encoding="utf-8")
+    try:
+        (extensions_dir / "bad-addon@example.com.xpi").symlink_to(target_xpi)
+    except OSError as exc:
+        pytest.skip(f"symlink creation not supported: {exc}")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Operational error: symlinked profile path is not allowed" in result.stdout
+
+
+def test_scan_rejects_extension_path_escape(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
+    _create_sqlite_db(profile_dir / "places.sqlite")
+    _create_sqlite_db(profile_dir / "cookies.sqlite")
+    (profile_dir / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": "escape-addon@example.com",
+                        "type": "extension",
+                        "active": True,
+                        "location": "app-profile",
+                        "path": "../escape-addon@example.com.xpi",
+                        "signedState": 2,
+                    }
+                ]
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Operational error: unsafe profile path escapes profile root" in result.stdout
+
+
+def test_scan_rejects_symlinked_policy_path(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
+    _create_sqlite_db(profile_dir / "places.sqlite")
+    _create_sqlite_db(profile_dir / "cookies.sqlite")
+
+    policy_target = tmp_path / "policy-target.json"
+    policy_target.write_text(json.dumps({"policies": {"DisableTelemetry": True}}), encoding="utf-8")
+    policy_link = tmp_path / "policy-link.json"
+    try:
+        policy_link.symlink_to(policy_target)
+    except OSError as exc:
+        pytest.skip(f"symlink creation not supported: {exc}")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--policy-path",
+            str(policy_link),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Operational error: symlinked profile path is not allowed" in result.stdout

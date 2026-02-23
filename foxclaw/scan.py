@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from foxclaw.collect.artifacts import collect_profile_artifacts
 from foxclaw.collect.extensions import collect_extensions
 from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.policies import collect_policies
@@ -59,6 +60,7 @@ def run_scan(
         intel_snapshot_id=intel_snapshot_id,
     )
     extensions = collect_extensions(profile_dir)
+    artifacts = collect_profile_artifacts(profile_dir)
     if intel.enabled and intel.store_dir is not None and intel.snapshot_id is not None:
         apply_extension_blocklist_from_snapshot(
             extensions=extensions,
@@ -128,6 +130,7 @@ def run_scan(
         policies=policies,
         extensions=extensions,
         sqlite=sqlite,
+        artifacts=artifacts,
         intel=intel,
         summary=provisional_summary,
     )
@@ -170,6 +173,7 @@ def run_scan(
         policies=policies,
         extensions=extensions,
         sqlite=sqlite,
+        artifacts=artifacts,
         intel=intel,
         summary=summary,
         high_findings=high_finding_ids,
@@ -191,11 +195,11 @@ def _normalize_policy_paths(policy_paths: list[Path] | None) -> list[Path] | Non
     normalized: list[Path] = []
     seen: set[Path] = set()
     for path in policy_paths:
-        resolved = path.expanduser().resolve(strict=False)
-        if resolved in seen:
+        normalized_path = Path(os.path.abspath(str(path.expanduser())))
+        if normalized_path in seen:
             continue
-        normalized.append(resolved)
-        seen.add(resolved)
+        normalized.append(normalized_path)
+        seen.add(normalized_path)
     return normalized
 
 

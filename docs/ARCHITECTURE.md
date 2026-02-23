@@ -7,6 +7,15 @@
 - Offline-by-default scanning with no runtime network dependency.
 - Incremental path to a richer security platform without breaking current guarantees.
 
+## Architecture Invariants
+
+- Stage-local-then-scan is mandatory for share-hosted Firefox profiles.
+- Direct UNC profile scanning is disabled by default and requires explicit override.
+- Collectors must validate all profile-file reads via `resolve_safe_profile_path()` or
+  `iter_safe_profile_files()`.
+- Unsafe profile paths (symlink traversal or root escape) must fail closed and surface as
+  scan operational errors.
+
 ## Runtime Modules (Current)
 
 - `foxclaw/cli.py`.

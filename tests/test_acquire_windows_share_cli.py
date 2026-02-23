@@ -221,3 +221,45 @@ def test_acquire_windows_share_scan_can_target_mounted_share_path(tmp_path: Path
 
     assert result.exit_code == 0, result.stdout
     assert (output_dir / "stage-manifest.json").exists()
+
+
+def test_acquire_windows_share_scan_rejects_staging_root_filesystem_root(tmp_path: Path) -> None:
+    source_profile = _write_source_profile(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--staging-root",
+            "/",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "staging root cannot be filesystem root" in (result.stdout + result.stderr)
+
+
+def test_acquire_windows_share_scan_rejects_staging_root_home_directory(tmp_path: Path) -> None:
+    source_profile = _write_source_profile(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--staging-root",
+            "~",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "staging root cannot be home directory root" in (result.stdout + result.stderr)

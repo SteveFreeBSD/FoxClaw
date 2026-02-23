@@ -5,6 +5,7 @@ from __future__ import annotations
 import stat
 from pathlib import Path
 
+from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import FilePermEvidence
 
 SENSITIVE_FILE_NAMES: tuple[str, ...] = (
@@ -28,11 +29,10 @@ SQLITE_AUX_NAMES: tuple[str, ...] = (
 
 def collect_file_permissions(profile_dir: Path) -> list[FilePermEvidence]:
     """Collect permission evidence for sensitive files present in a profile."""
-    candidates = [profile_dir / name for name in SENSITIVE_FILE_NAMES]
-    candidates.extend(profile_dir / name for name in SQLITE_AUX_NAMES)
+    candidate_names = sorted({*SENSITIVE_FILE_NAMES, *SQLITE_AUX_NAMES})
 
     evidence: list[FilePermEvidence] = []
-    for path in sorted(candidates, key=lambda item: str(item)):
+    for _rel_path, path in iter_safe_profile_files(profile_dir, candidate_names):
         if not path.exists() or not path.is_file():
             continue
 

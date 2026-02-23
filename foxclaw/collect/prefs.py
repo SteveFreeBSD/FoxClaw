@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Literal
 
+from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import PrefEvidence, PrefRawType, PrefValue
 
 _USER_PREF_RE = re.compile(
@@ -17,8 +18,12 @@ _USER_PREF_RE = re.compile(
 def collect_prefs(profile_dir: Path) -> PrefEvidence:
     """Parse prefs.js and user.js with user.js precedence."""
     merged: dict[str, PrefValue] = {}
-    merged.update(_parse_pref_file(profile_dir / "prefs.js", source="prefs.js"))
-    merged.update(_parse_pref_file(profile_dir / "user.js", source="user.js"))
+    for rel_path, file_path in iter_safe_profile_files(profile_dir, ("prefs.js", "user.js")):
+        if rel_path == "prefs.js":
+            merged.update(_parse_pref_file(file_path, source="prefs.js"))
+            continue
+        if rel_path == "user.js":
+            merged.update(_parse_pref_file(file_path, source="user.js"))
     return PrefEvidence(root=dict(sorted(merged.items(), key=lambda item: item[0])))
 
 

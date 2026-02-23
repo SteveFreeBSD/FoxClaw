@@ -103,6 +103,11 @@ def scan(
     profile: Path | None = typer.Option(
         None, "--profile", help="Scan this Firefox profile directory directly."
     ),
+    allow_unc_profile: bool = typer.Option(
+        False,
+        "--allow-unc-profile",
+        help="Allow scanning UNC profile paths directly (lab-only).",
+    ),
     require_quiet_profile: bool = typer.Option(
         False,
         "--require-quiet-profile",
@@ -180,6 +185,14 @@ def scan(
     """Run read-only scan."""
     if json_output and sarif_output:
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
+        console.print(
+            "[red]Operational error: UNC profile paths are disabled by default. "
+            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
+            "--allow-unc-profile for lab-only workflows.[/red]"
+        )
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
     selected_profile: FirefoxProfile | None = None
@@ -1113,6 +1126,10 @@ def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -
 def _manual_profile_id(path: Path) -> str:
     digest = hashlib.sha256(path.as_posix().encode("utf-8")).hexdigest()[:12]
     return f"manual-{digest}"
+
+
+def _is_unc_path(path: Path) -> bool:
+    return str(path).startswith("\\\\")
 
 
 if __name__ == "__main__":

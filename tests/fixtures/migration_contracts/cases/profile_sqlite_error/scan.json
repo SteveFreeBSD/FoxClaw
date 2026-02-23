@@ -1,0 +1,218 @@
+{
+  "artifacts": {
+    "entries": [],
+    "schema_version": "1.0.0"
+  },
+  "bundle_provenance": null,
+  "extensions": {
+    "active_addons": 0,
+    "addons_seen": 0,
+    "entries": [],
+    "extensions_json_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/extensions.json",
+    "parse_error": null
+  },
+  "filesystem": [
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/cookies.sqlite",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/key4.db",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/places.sqlite",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    },
+    {
+      "group_readable": false,
+      "group_writable": false,
+      "mode": "0600",
+      "owner_gid": 0,
+      "owner_uid": 0,
+      "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/prefs.js",
+      "recommended_chmod": null,
+      "world_readable": false,
+      "world_writable": false
+    }
+  ],
+  "findings": [
+    {
+      "category": "sqlite",
+      "confidence": "high",
+      "evidence": [
+        "places.sqlite: quick_check=error: file is not a database, opened_ro=1"
+      ],
+      "id": "TB-SQL-001",
+      "rationale": "deterministic sqlite health validation",
+      "recommendation": "repair or replace places.sqlite if corrupt",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "HIGH",
+      "title": "places.sqlite quick_check must be ok"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.DisableTelemetry: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-001",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.DisableTelemetry in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise telemetry disable policy should exist"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.DisableFirefoxStudies: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-002",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.DisableFirefoxStudies in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise firefox studies disable policy should exist"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.ExtensionSettings: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-003",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.ExtensionSettings in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise extension settings policy should exist"
+    },
+    {
+      "category": "policy",
+      "confidence": "low",
+      "evidence": [
+        "policies.HTTPSOnlyMode: not found (no policies.json discovered)"
+      ],
+      "id": "TB-POL-004",
+      "rationale": "integration tests need deterministic policy evidence",
+      "recommendation": "define policies.HTTPSOnlyMode in policies.json",
+      "risk_factors": [],
+      "risk_priority": null,
+      "severity": "INFO",
+      "title": "enterprise https-only mode policy should exist"
+    }
+  ],
+  "generated_at": "2025-01-01T00:00:00Z",
+  "high_findings": [
+    "TB-SQL-001"
+  ],
+  "intel": {
+    "advisories_indexed": 0,
+    "enabled": false,
+    "error": null,
+    "matched_advisories": [],
+    "profile_firefox_version": null,
+    "snapshot_id": null,
+    "store_dir": null
+  },
+  "policies": {
+    "discovered_paths": [],
+    "searched_paths": [
+      "/etc/firefox/policies/policies.json",
+      "/usr/lib/firefox/distribution/policies.json",
+      "/usr/lib64/firefox/distribution/policies.json"
+    ],
+    "summaries": []
+  },
+  "prefs": {
+    "browser.contentblocking.category": {
+      "raw_type": "string",
+      "source": "prefs.js",
+      "value": "strict"
+    },
+    "testbed.pref.enabled": {
+      "raw_type": "bool",
+      "source": "prefs.js",
+      "value": true
+    }
+  },
+  "profile": {
+    "lock_detected": false,
+    "lock_files": [],
+    "name": "profile_sqlite_error",
+    "path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error",
+    "profile_id": "manual",
+    "selected": true,
+    "selection_reason": "Selected explicitly via --profile."
+  },
+  "schema_version": "1.0.0",
+  "sqlite": {
+    "checks": [
+      {
+        "db_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/places.sqlite",
+        "opened_ro": true,
+        "quick_check_result": "error: file is not a database"
+      },
+      {
+        "db_path": "<REPO_ROOT>/tests/fixtures/testbed/profile_sqlite_error/cookies.sqlite",
+        "opened_ro": true,
+        "quick_check_result": "ok"
+      }
+    ]
+  },
+  "summary": {
+    "extensions_active": 0,
+    "extensions_debug_count": 0,
+    "extensions_found": 0,
+    "extensions_high_risk_count": 0,
+    "extensions_unsigned_count": 0,
+    "findings_high_count": 1,
+    "findings_info_count": 4,
+    "findings_medium_count": 0,
+    "findings_suppressed_count": 0,
+    "findings_total": 5,
+    "high_risk_perms_count": 0,
+    "intel_matches_count": 0,
+    "policies_found": 0,
+    "prefs_parsed": 2,
+    "sensitive_files_checked": 4,
+    "sqlite_checks_total": 2,
+    "sqlite_non_ok_count": 1
+  },
+  "suppressions": {
+    "applied": [],
+    "applied_by_approver": {},
+    "applied_by_owner": {},
+    "expired": [],
+    "expiring_within_30d": [],
+    "legacy_schema_count": 0,
+    "source_paths": []
+  }
+}
