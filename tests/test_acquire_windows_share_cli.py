@@ -145,6 +145,58 @@ def test_acquire_windows_share_scan_fails_closed_on_lock_marker(tmp_path: Path) 
     assert "active-profile lock markers detected" in (result.stdout + result.stderr)
 
 
+def test_acquire_windows_share_scan_lock_marker_fail_closed_then_allow_override(tmp_path: Path) -> None:
+    source_profile = _write_source_profile(tmp_path, with_lock_marker=True)
+
+    fake_foxclaw = tmp_path / "fake_foxclaw.py"
+    _write_fake_foxclaw(fake_foxclaw, exit_code=0)
+
+    runner = CliRunner()
+    fail_result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--foxclaw-cmd",
+            f"{sys.executable} {fake_foxclaw}",
+        ],
+    )
+    assert fail_result.exit_code == 1
+    fail_output = fail_result.stdout + fail_result.stderr
+    assert "active-profile lock markers detected" in fail_output
+    assert "parent.lock" in fail_output
+
+    output_dir = tmp_path / "artifacts-allow"
+    allow_result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--allow-active-profile",
+            "--output-dir",
+            str(output_dir),
+            "--foxclaw-cmd",
+            f"{sys.executable} {fake_foxclaw}",
+        ],
+    )
+    assert allow_result.exit_code == 0, allow_result.stdout + allow_result.stderr
+
+    manifest_path = output_dir / "stage-manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "parent.lock" in manifest["source_lock_markers"]
+
+    staged_profile = Path(manifest["staged_profile"])
+    assert staged_profile.exists()
+    assert staged_profile.is_dir()
+    assert (output_dir / "foxclaw.json").exists()
+    assert (output_dir / "foxclaw.sarif").exists()
+
+
 def test_acquire_windows_share_scan_detects_real_high_finding(tmp_path: Path) -> None:
     source_profile = _write_source_profile(tmp_path, weak_key4=True)
 

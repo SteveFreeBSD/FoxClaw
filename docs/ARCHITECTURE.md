@@ -16,6 +16,17 @@
 - Unsafe profile paths (symlink traversal or root escape) must fail closed and surface as
   scan operational errors.
 
+## Active Profile and Exit Semantics
+
+- Acquisition from share-hosted profiles fails closed by default when lock markers (for example
+  `parent.lock`) are present in the source profile.
+- `--allow-active-profile` explicitly allows staging and scanning to proceed; the stage manifest
+  must record `source_lock_markers` so downstream systems can identify active-profile scans.
+- `foxclaw scan` exit code `2` means scan completed with one or more `HIGH` findings; this is not
+  an operational error condition.
+- `--treat-high-findings-as-success` converts exit code `2` to success for acquisition pipelines
+  and CI orchestration.
+
 ## Runtime Modules (Current)
 
 - `foxclaw/cli.py`.
