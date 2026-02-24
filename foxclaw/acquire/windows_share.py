@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
-LOCK_MARKERS = ("parent.lock", ".parentlock", "lock")
+from foxclaw.profiles import PROFILE_LOCK_FILES
 
 
 @dataclass
@@ -196,7 +196,7 @@ def _resolve_paths(
 
 def _find_lock_markers(profile_root: Path) -> list[str]:
     present: list[str] = []
-    for marker in LOCK_MARKERS:
+    for marker in PROFILE_LOCK_FILES:
         if (profile_root / marker).exists():
             present.append(marker)
     return present

@@ -429,6 +429,14 @@ def live(
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
+    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
+        console.print(
+            "[red]Operational error: UNC profile paths are disabled by default. "
+            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
+            "--allow-unc-profile for lab-only workflows.[/red]"
+        )
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
     console.print("[blue]Step 1/2: Synchronizing intelligence sources...[/blue]")
     try:
         sync_result = sync_sources(
@@ -452,14 +460,6 @@ def live(
 
     # We must replicate the active profile checks from scan() to keep the CLI clean
     selected_profile: FirefoxProfile | None = None
-    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
-        console.print(
-            "[red]Operational error: UNC profile paths are disabled by default. "
-            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
-            "--allow-unc-profile for lab-only workflows.[/red]"
-        )
-        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
-
     if profile is not None:
         selected_profile = _build_profile_override(profile)
     else:
@@ -1268,8 +1268,9 @@ def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxPro
 
 def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -> FirefoxProfile:
     resolved = profile_path.expanduser().resolve()
+    from foxclaw.profiles import PROFILE_LOCK_FILES
     lock_files = [
-        name for name in ("parent.lock", "lock") if (resolved / name).exists()
+        name for name in PROFILE_LOCK_FILES if (resolved / name).exists()
     ]
     return FirefoxProfile(
         profile_id=profile_id,
@@ -1290,7 +1291,10 @@ def _manual_profile_id(path: Path) -> str:
 
 
 def _is_unc_path(path: Path) -> bool:
-    return str(path).startswith("\\\\")
+    raw = str(path)
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        return True
+    return any(part.startswith("\\\\") or part.startswith("//") for part in path.parts)
 
 
 if __name__ == "__main__":

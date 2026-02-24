@@ -311,6 +311,30 @@ def test_testbed_active_lock_profile_fails_with_require_quiet_profile() -> None:
     assert "quiet profile required" in result.stdout
 
 
+def test_testbed_parentlock_profile_fails_with_require_quiet_profile(tmp_path: Path) -> None:
+    import shutil
+
+    profile = tmp_path / "profile_parentlock"
+    shutil.copytree(TESTBED_ROOT / "profile_baseline", profile)
+    (profile / ".parentlock").write_text("locked\n", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile),
+            "--ruleset",
+            str(TESTBED_RULESET),
+            "--require-quiet-profile",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "quiet profile required" in result.stdout
+
+
 def test_testbed_third_party_xpi_manifest_parsed() -> None:
     profile = TESTBED_ROOT / "profile_third_party_xpi"
     runner = CliRunner()

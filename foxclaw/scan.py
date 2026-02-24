@@ -22,7 +22,7 @@ from foxclaw.models import (
     ProfileEvidence,
     ScanSummary,
 )
-from foxclaw.profiles import FirefoxProfile
+from foxclaw.profiles import PROFILE_LOCK_FILES, FirefoxProfile
 from foxclaw.rules.engine import (
     DEFAULT_RULESET_PATH,
     evaluate_rules,
@@ -31,7 +31,7 @@ from foxclaw.rules.engine import (
 )
 from foxclaw.rules.suppressions import apply_suppressions
 
-_PROFILE_LOCK_FILES = ("parent.lock", "lock")
+# Imported from foxclaw.profiles
 
 
 def run_scan(
@@ -240,7 +240,7 @@ def _count_findings_by_severity(findings: list[Finding]) -> dict[str, int]:
 def detect_active_profile_reason(profile_dir: Path) -> str | None:
     """Return activity reason for a profile, or None when profile appears quiet."""
     lock_files = [
-        lock_name for lock_name in _PROFILE_LOCK_FILES if (profile_dir / lock_name).exists()
+        lock_name for lock_name in PROFILE_LOCK_FILES if (profile_dir / lock_name).exists()
     ]
     if lock_files:
         return f"lock file(s) present: {', '.join(lock_files)}"
