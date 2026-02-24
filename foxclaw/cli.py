@@ -326,7 +326,9 @@ def scan(
                 )
                 if learning_artifact_out is not None:
                     learning_artifact_out.parent.mkdir(parents=True, exist_ok=True)
-                    artifact = store.generate_learning_artifact()
+                    artifact = store.generate_learning_artifact(
+                        evidence_generated_at_utc=evidence.generated_at.isoformat() if deterministic else None
+                    )
                     learning_artifact_out.write_text(
                         json.dumps(artifact, indent=2, sort_keys=True),
                         encoding="utf-8",

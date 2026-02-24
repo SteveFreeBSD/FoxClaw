@@ -76,7 +76,7 @@ def _compute_profile_hash(evidence: EvidenceBundle) -> str:
         "extensions_count": evidence.summary.extensions_found,
         "policies_count": evidence.summary.policies_found,
         "sqlite_checks": evidence.summary.sqlite_checks_total,
-        "firefox_version": evidence.firefox_version if hasattr(evidence, "firefox_version") else None,
+        "firefox_version": _extract_firefox_version(evidence),
     }
     raw = json.dumps(shape, sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()[:12]
@@ -100,9 +100,7 @@ def _extract_firefox_version(evidence: EvidenceBundle) -> str | None:
 
 def _extract_ruleset_info(evidence: EvidenceBundle) -> tuple[str | None, str | None]:
     """Extract ruleset name and version from evidence if available."""
-    if hasattr(evidence, "ruleset_name"):
-        return evidence.ruleset_name, getattr(evidence, "ruleset_version", None)
-    return None, None
+    return getattr(evidence, "ruleset_name", None), getattr(evidence, "ruleset_version", None)
 
 
 class ScanHistoryStore:
@@ -260,7 +258,7 @@ class ScanHistoryStore:
             for r in rows
         ]
 
-    def generate_learning_artifact(self) -> dict:
+    def generate_learning_artifact(self, evidence_generated_at_utc: str | None = None) -> dict:
         """Generate a deterministic learning artifact summarizing all history.
 
         This artifact is designed to be consumed by profile generators to
@@ -313,7 +311,7 @@ class ScanHistoryStore:
 
         return {
             "schema_version": SCHEMA_VERSION,
-            "generated_at_utc": datetime.now(UTC).isoformat(),
+            "generated_at_utc": evidence_generated_at_utc or datetime.now(UTC).isoformat(),
             "history_summary": {
                 "total_scans": scan_count,
                 "total_findings": finding_count,
