@@ -9,8 +9,8 @@ from rich.console import Console
 from rich.table import Table
 
 from foxclaw.models import (
-    Finding,
     SEVERITY_ORDER,
+    Finding,
     ScanSnapshot,
     ScanSnapshotDiff,
     SnapshotDiffSummary,

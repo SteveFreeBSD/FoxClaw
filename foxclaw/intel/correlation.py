@@ -13,7 +13,7 @@ from foxclaw.intel.models import IntelCorrelationEvidence, IntelMatchedMozillaAd
 from foxclaw.intel.sqlite import table_exists
 from foxclaw.intel.store import default_store_dir
 from foxclaw.intel.versioning import normalize_version, version_matches_spec
-from foxclaw.models import Finding, FindingSeverity, RiskPriority, SEVERITY_ORDER
+from foxclaw.models import SEVERITY_ORDER, Finding, FindingSeverity, RiskPriority
 from foxclaw.rules.engine import sort_findings
 
 _CVSS_TO_FINDING: dict[str, FindingSeverity] = {

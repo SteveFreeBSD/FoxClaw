@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from foxclaw.models import EvidenceBundle, Finding, Ruleset, SEVERITY_ORDER
+from foxclaw.models import SEVERITY_ORDER, EvidenceBundle, Finding, Ruleset
 from foxclaw.rules.dsl import evaluate_check
 
 DEFAULT_RULESET_PATH = Path(__file__).resolve().parents[1] / "rulesets" / "balanced.yml"

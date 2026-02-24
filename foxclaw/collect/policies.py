@@ -7,6 +7,7 @@ from pathlib import Path
 
 from foxclaw.models import PolicyEvidence, PolicyFileSummary
 
+
 class PolicyPathSymlinkError(ValueError):
     """Raised when a candidate policy path traverses a symlink."""
 

@@ -9,6 +9,7 @@ import socket
 from pathlib import Path
 
 from foxclaw.models import (
+    SEVERITY_ORDER,
     EvidenceBundle,
     FleetAggregateSummary,
     FleetAggregationReport,
@@ -16,7 +17,6 @@ from foxclaw.models import (
     FleetHostMetadata,
     FleetProfileIdentity,
     FleetProfileReport,
-    SEVERITY_ORDER,
 )
 
 

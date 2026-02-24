@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 
 from foxclaw.models import (
-    EvidenceBundle,
     SEVERITY_ORDER,
+    EvidenceBundle,
     ScanSnapshot,
     SnapshotRulesetMetadata,
 )

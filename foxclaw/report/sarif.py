@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from foxclaw import __version__
-from foxclaw.models import EvidenceBundle, Finding, SEVERITY_ORDER
+from foxclaw.models import SEVERITY_ORDER, EvidenceBundle, Finding
 
 SARIF_SCHEMA_URL = (
     "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json"
