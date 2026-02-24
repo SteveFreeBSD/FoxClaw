@@ -374,6 +374,12 @@ def live(
         "--require-quiet-profile",
         help="Fail if the selected profile appears active (lock file or firefox process).",
     ),
+    allow_unc_profile: bool = typer.Option(
+        False,
+        "--allow-unc-profile",
+        help="Allow UNC profile paths; disabled by default. Use only for lab-only workflows.",
+        hidden=True,
+    ),
     ruleset: Path | None = typer.Option(
         None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
     ),
@@ -446,6 +452,14 @@ def live(
 
     # We must replicate the active profile checks from scan() to keep the CLI clean
     selected_profile: FirefoxProfile | None = None
+    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
+        console.print(
+            "[red]Operational error: UNC profile paths are disabled by default. "
+            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
+            "--allow-unc-profile for lab-only workflows.[/red]"
+        )
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
     if profile is not None:
         selected_profile = _build_profile_override(profile)
     else:

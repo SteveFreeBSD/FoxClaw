@@ -391,7 +391,7 @@ def run_windows_share_scan(
 
     if args.intel_snapshot_id and not args.intel_store_dir:
         print("error: --intel-snapshot-id requires --intel-store-dir", file=err_stream)
-        return 2
+        return 1
 
     staging_root_error = _validate_staging_root(
         source_profile=source_profile,
