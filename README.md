@@ -169,9 +169,9 @@ foxclaw acquire windows-share-batch \
 
 Canonical CLI contract:
 
-- `0`: scan completed and emitted no `HIGH` findings.
-- `1`: operational error (invalid input, IO failure, invalid flag combinations).
-- `2`: scan completed and emitted one or more `HIGH` findings.
+- `0`: command completed successfully (e.g., scan with no `HIGH` findings, or no drift detected).
+- `1`: operational error (invalid input, IO failure, invalid flag combinations, active profile locks, UNC paths).
+- `2`: high-signal outcome (e.g., scan emitted `HIGH` findings, snapshot drift detected, or suppression audit violations found).
 
 ## SARIF and GitHub Code Scanning
 
