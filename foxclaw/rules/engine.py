@@ -9,11 +9,10 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from foxclaw.models import EvidenceBundle, Finding, Ruleset
+from foxclaw.models import EvidenceBundle, Finding, Ruleset, SEVERITY_ORDER
 from foxclaw.rules.dsl import evaluate_check
 
 DEFAULT_RULESET_PATH = Path(__file__).resolve().parents[1] / "rulesets" / "balanced.yml"
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 _LOG = logging.getLogger(__name__)
 
 
@@ -95,7 +94,7 @@ def evaluate_rules(bundle: EvidenceBundle, ruleset: Ruleset) -> list[Finding]:
 
 def sort_findings(findings: list[Finding]) -> list[Finding]:
     """Sort findings by severity then rule id for deterministic output."""
-    return sorted(findings, key=lambda item: (_SEVERITY_ORDER[item.severity], item.id))
+    return sorted(findings, key=lambda item: (SEVERITY_ORDER[item.severity], item.id))
 
 
 def _validate_unique_rule_ids(ruleset: Ruleset) -> None:

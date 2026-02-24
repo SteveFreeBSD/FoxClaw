@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from foxclaw.intel.models import IntelCorrelationEvidence, IntelMatchedMozillaAdvisory
+from foxclaw.intel.sqlite import table_exists
 from foxclaw.intel.store import default_store_dir
 from foxclaw.intel.versioning import normalize_version, version_matches_spec
-from foxclaw.models import Finding, FindingSeverity, RiskPriority
+from foxclaw.models import Finding, FindingSeverity, RiskPriority, SEVERITY_ORDER
 from foxclaw.rules.engine import sort_findings
 
-_SEVERITY_ORDER: dict[FindingSeverity, int] = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 _CVSS_TO_FINDING: dict[str, FindingSeverity] = {
     "critical": "HIGH",
     "high": "HIGH",
@@ -203,7 +203,7 @@ def _load_mozilla_advisories(
             if snapshot_row is None or snapshot_row[0] == 0:
                 raise ValueError(f"intel snapshot id not found: {snapshot_id}")
 
-            if not _table_exists(connection, table_name="mozilla_advisories"):
+            if not table_exists(connection, table_name="mozilla_advisories"):
                 return _AdvisoryQueryResult(indexed_count=0, matches=[])
             indexed_row = connection.execute(
                 "SELECT COUNT(*) FROM mozilla_advisories WHERE snapshot_id = ?",
@@ -266,7 +266,7 @@ def _load_cve_enrichment(
 
     try:
         with sqlite3.connect(db_path) as connection:
-            if _table_exists(connection, table_name="nvd_cves"):
+            if table_exists(connection, table_name="nvd_cves"):
                 rows = connection.execute(
                     """
                     SELECT cve_id, source_name, severity, reference_url
@@ -289,7 +289,7 @@ def _load_cve_enrichment(
                         )
                     )
 
-            if _table_exists(connection, table_name="cve_list_records"):
+            if table_exists(connection, table_name="cve_list_records"):
                 rows = connection.execute(
                     """
                     SELECT cve_id, source_name, severity, reference_url
@@ -312,7 +312,7 @@ def _load_cve_enrichment(
                         )
                     )
 
-            if _table_exists(connection, table_name="kev_catalog"):
+            if table_exists(connection, table_name="kev_catalog"):
                 rows = connection.execute(
                     """
                     SELECT
@@ -376,7 +376,7 @@ def _load_cve_enrichment(
                         )
                     )
 
-            if _table_exists(connection, table_name="epss_scores"):
+            if table_exists(connection, table_name="epss_scores"):
                 rows = connection.execute(
                     """
                     SELECT cve_id, source_name, score, percentile, reference_url
@@ -438,14 +438,6 @@ def _load_cve_enrichment(
             )
         )
     return by_cve
-
-
-def _table_exists(connection: sqlite3.Connection, *, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?;",
-        (table_name,),
-    ).fetchone()
-    return row is not None and int(row[0]) > 0
 
 
 def _build_findings(
@@ -546,7 +538,7 @@ def _collect_severity_candidates(raw_values: list[str | None]) -> list[FindingSe
     mapped: set[FindingSeverity] = set()
     for raw in raw_values:
         mapped.add(_map_severity(raw))
-    return sorted(mapped, key=lambda item: _SEVERITY_ORDER[item])
+    return sorted(mapped, key=lambda item: SEVERITY_ORDER[item])
 
 
 def _map_severity(raw: str | None) -> FindingSeverity:
@@ -554,7 +546,7 @@ def _map_severity(raw: str | None) -> FindingSeverity:
 
 
 def _select_highest_severity(candidates: list[FindingSeverity]) -> FindingSeverity:
-    return sorted(set(candidates), key=lambda item: _SEVERITY_ORDER[item])[0]
+    return sorted(set(candidates), key=lambda item: SEVERITY_ORDER[item])[0]
 
 
 def _build_rationale(severity_resolution: _SeverityResolution) -> str:

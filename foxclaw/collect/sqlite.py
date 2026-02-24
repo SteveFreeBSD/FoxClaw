@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from urllib.parse import quote
 
-from foxclaw.collect.safe_paths import iter_safe_profile_files
+from foxclaw.collect.safe_paths import iter_safe_profile_files, sqlite_ro_uri
 from foxclaw.models import SqliteCheck, SqliteEvidence
 
 DEFAULT_SQLITE_DBS: tuple[str, ...] = (
@@ -38,7 +37,7 @@ def _run_quick_check(db_path: Path) -> SqliteCheck:
             quick_check_result="error: file not found",
         )
 
-    uri = _sqlite_ro_uri(db_path)
+    uri = sqlite_ro_uri(db_path)
     try:
         connection = sqlite3.connect(uri, uri=True, timeout=0.25, isolation_level=None)
     except sqlite3.Error as exc:
@@ -66,8 +65,3 @@ def _run_quick_check(db_path: Path) -> SqliteCheck:
         connection.close()
 
     return SqliteCheck(db_path=str(db_path), opened_ro=True, quick_check_result=result)
-
-
-def _sqlite_ro_uri(db_path: Path) -> str:
-    quoted = quote(str(db_path), safe="/")
-    return f"file:{quoted}?mode=ro&immutable=1"

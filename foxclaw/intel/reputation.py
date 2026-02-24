@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from foxclaw.intel.sqlite import table_exists
 from foxclaw.models import ExtensionEvidence
 
 
@@ -62,7 +63,7 @@ def _load_amo_extension_intel(
 
     try:
         with sqlite3.connect(db_path) as connection:
-            if not _table_exists(connection, table_name="amo_extension_intel"):
+            if not table_exists(connection, table_name="amo_extension_intel"):
                 return {}
             rows = connection.execute(
                 """
@@ -128,14 +129,6 @@ def _normalize_reputation(value: object) -> Literal["low", "medium", "high"]:
     if normalized in {"low", "medium", "high"}:
         return cast(Literal["low", "medium", "high"], normalized)
     return "low"
-
-
-def _table_exists(connection: sqlite3.Connection, *, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?;",
-        (table_name,),
-    ).fetchone()
-    return row is not None and int(row[0]) > 0
 
 
 def _normalize_version(value: object) -> str | None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from pathlib import Path
+from urllib.parse import quote
 
 
 class UnsafeProfilePathError(ValueError):
@@ -74,3 +75,9 @@ def _is_within_root(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def sqlite_ro_uri(db_path: Path) -> str:
+    """Return a read-only SQLite URI for the given file path."""
+    quoted = quote(str(db_path), safe="/")
+    return f"file:{quoted}?mode=ro&immutable=1"

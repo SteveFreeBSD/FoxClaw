@@ -5,9 +5,8 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from urllib.parse import quote
 
-from foxclaw.collect.safe_paths import iter_safe_profile_files
+from foxclaw.collect.safe_paths import iter_safe_profile_files, sqlite_ro_uri
 from foxclaw.models import CredentialEvidence
 
 _CREDENTIAL_ARTIFACTS: tuple[str, ...] = (
@@ -73,7 +72,7 @@ def _collect_logins_metrics(path: Path) -> tuple[int, int, int, int, str | None]
 
 
 def _collect_formhistory_metrics(path: Path) -> tuple[bool, int, int, str | None]:
-    uri = _sqlite_ro_uri(path)
+    uri = sqlite_ro_uri(path)
     try:
         connection = sqlite3.connect(uri, uri=True, timeout=0.25, isolation_level=None)
     except sqlite3.Error as exc:
@@ -141,8 +140,3 @@ def _count_collection(value: object) -> int:
     if isinstance(value, list):
         return len(value)
     return 0
-
-
-def _sqlite_ro_uri(db_path: Path) -> str:
-    quoted = quote(str(db_path), safe="/")
-    return f"file:{quoted}?mode=ro&immutable=1"

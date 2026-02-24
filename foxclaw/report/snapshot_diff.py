@@ -10,14 +10,13 @@ from rich.table import Table
 
 from foxclaw.models import (
     Finding,
+    SEVERITY_ORDER,
     ScanSnapshot,
     ScanSnapshotDiff,
     SnapshotDiffSummary,
     SnapshotFindingChange,
     SnapshotMetadata,
 )
-
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 
 
 def load_scan_snapshot(path: Path) -> ScanSnapshot:
@@ -119,7 +118,7 @@ def _snapshot_metadata(snapshot: ScanSnapshot) -> SnapshotMetadata:
 def _sort_findings(findings: list[Finding]) -> list[Finding]:
     return sorted(
         findings,
-        key=lambda finding: (_SEVERITY_ORDER[finding.severity], finding.id, tuple(finding.evidence)),
+        key=lambda finding: (SEVERITY_ORDER[finding.severity], finding.id, tuple(finding.evidence)),
     )
 
 

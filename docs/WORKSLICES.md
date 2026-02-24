@@ -88,7 +88,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-59 | pending | WS-58 | Align UNC fail-closed and lock-marker checks across `scan`, `live`, discovery, and acquire paths. |
 | WS-60 | pending | WS-58 | Correct learning-store determinism and metadata extraction logic with regression tests. |
 | WS-61 | pending | WS-58, WS-59, WS-60 | Synchronize docs with runtime behavior (exit codes, lock markers, artifact names, WS status). |
-| WS-62 | pending | WS-59 | Reduce duplicated helpers/constants without behavior drift. |
+| WS-62 | complete | WS-59 | Reduce duplicated helpers/constants without behavior drift. |
 | WS-63 | pending | WS-61 | Resolve low-risk CLI/API polish items (`writeable` strategy, policy-path error wording, trust helper API boundaries). |
 | WS-64 | pending | WS-57, WS-58, WS-59, WS-60, WS-61, WS-62, WS-63 | Audit-readiness gate: full checks + windows-share mini soak + zero open critical/high audit findings. |
 
@@ -815,7 +815,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-62 - Redundancy Reduction Refactor
 
-- Status: pending.
+- Status: complete.
 - Goal: reduce duplicated helpers/constants that create drift risk while preserving behavior.
 - Scope:
   - centralize severity ordering helpers.

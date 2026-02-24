@@ -16,9 +16,8 @@ from foxclaw.models import (
     FleetHostMetadata,
     FleetProfileIdentity,
     FleetProfileReport,
+    SEVERITY_ORDER,
 )
-
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 
 
 def build_fleet_report(bundles: list[EvidenceBundle]) -> FleetAggregationReport:
@@ -156,7 +155,7 @@ def _normalize_profile_path(path: Path) -> str:
 
 def _finding_sort_key(item: FleetFindingRecord) -> tuple[int, str, str, tuple[str, ...]]:
     return (
-        _SEVERITY_ORDER.get(item.severity, 99),
+        SEVERITY_ORDER.get(item.severity, 99),
         item.rule_id,
         item.profile_uid,
         tuple(item.evidence),

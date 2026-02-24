@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from foxclaw.intel.sqlite import table_exists
 from foxclaw.models import ExtensionEvidence
 
 
@@ -34,7 +35,7 @@ def _load_blocklist_rules(*, store_dir: Path, snapshot_id: str) -> dict[str, set
 
     try:
         with sqlite3.connect(db_path) as connection:
-            if not _table_exists(connection, table_name="extension_blocklist"):
+            if not table_exists(connection, table_name="extension_blocklist"):
                 return {}
             rows = connection.execute(
                 """
@@ -56,14 +57,6 @@ def _load_blocklist_rules(*, store_dir: Path, snapshot_id: str) -> dict[str, set
         normalized_version = _normalize_version(version)
         rules.setdefault(normalized_addon_id, set()).add(normalized_version)
     return rules
-
-
-def _table_exists(connection: sqlite3.Connection, *, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?;",
-        (table_name,),
-    ).fetchone()
-    return row is not None and int(row[0]) > 0
 
 
 def _normalize_version(value: object) -> str | None:
