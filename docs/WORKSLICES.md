@@ -13,12 +13,14 @@ This plan converts the current review and research into sequenced, testable exec
 
 - Latest deep soak baseline is documented in:
   - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`
+- Latest comprehensive repo audit is documented in:
+  - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-55A (append-only scan-history ingestion and deterministic learning artifact)
-  - WS-55B (trend/novelty analysis from history snapshots)
+  - WS-57 through WS-61 (audit closeout: quality gates, exit-code contract, UNC/lock parity, learning-store correctness, doc sync)
+  - then WS-55B (trend/novelty analysis from history snapshots)
 - Rationale:
-  - soak stability is already strong (`120/120` pass)
-  - largest runtime concentration is fuzz (~88.7%), so learning-driven mutation tuning is highest ROI
+  - merge-readiness requires all critical/high audit findings closed first
+  - learning expansion should proceed only after command-contract and documentation consistency are restored
 
 ## Slice Queue
 
@@ -76,10 +78,19 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
 | WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
 | WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
-| WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection). |
+| WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.bin` downgrade detection). |
 | WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
-| WS-55A | in-progress | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |\n| WS-55B | pending | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
-| WS-56 | pending | WS-55, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
+| WS-55A | complete | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |
+| WS-55B | pending | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
+| WS-56 | pending | WS-55B, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
+| WS-57 | pending | none | Restore quality gate health (`ruff`, `detect-secrets`) to unblock reliable merge validation. |
+| WS-58 | pending | WS-57 | Enforce exit-code contract conformance for operational errors vs high-signal scan outcomes. |
+| WS-59 | pending | WS-58 | Align UNC fail-closed and lock-marker checks across `scan`, `live`, discovery, and acquire paths. |
+| WS-60 | pending | WS-58 | Correct learning-store determinism and metadata extraction logic with regression tests. |
+| WS-61 | pending | WS-58, WS-59, WS-60 | Synchronize docs with runtime behavior (exit codes, lock markers, artifact names, WS status). |
+| WS-62 | pending | WS-59 | Reduce duplicated helpers/constants without behavior drift. |
+| WS-63 | pending | WS-61 | Resolve low-risk CLI/API polish items (`writeable` strategy, policy-path error wording, trust helper API boundaries). |
+| WS-64 | pending | WS-57, WS-58, WS-59, WS-60, WS-61, WS-62, WS-63 | Audit-readiness gate: full checks + windows-share mini soak + zero open critical/high audit findings. |
 
 ## Slice Details
 
@@ -734,7 +745,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-55 - Adaptive Scan Intelligence (Self-Learning)
 
-- Status: pending.
+- Status: in-progress (`WS-55A` complete, `WS-55B` pending).
 - Goal: implement a local, deterministic self-learning feedback loop where FoxClaw accumulates scan history and enriches future scan outputs with trend analysis and novelty detection.
 - Scope:
   - new module `foxclaw/learning/history.py`: append-only SQLite scan history store.
@@ -755,6 +766,79 @@ This plan converts the current review and research into sequenced, testable exec
   - output enrichment field: `fleet_prevalence` (percentage of scanned profiles sharing a finding).
   - enable automatic priority elevation for findings with low fleet prevalence (outlier detection).
   - constraints: same deterministic/offline/append-only guarantees as WS-55.
+
+### WS-57 - Quality Gate Unblock Pack
+
+- Status: pending.
+- Goal: reestablish deterministic branch-health validation before functional changes continue.
+- Scope:
+  - clear `ruff` failures.
+  - clear `detect-secrets` failures with stable, reviewed false-positive handling.
+  - keep CI/local parity between workflow and `scripts/check_secrets.sh`.
+
+### WS-58 - Exit-Code Contract Conformance
+
+- Status: pending.
+- Goal: ensure operational failures never use finding-oriented exit codes.
+- Scope:
+  - normalize acquire/scan command operational-error returns to `1`.
+  - keep high-signal outcomes (`HIGH` findings, drift, governance violations) explicit and documented.
+  - add regression coverage for corrected command-level semantics.
+
+### WS-59 - Command Safety Parity (UNC + Lock Markers)
+
+- Status: pending.
+- Goal: enforce identical fail-closed path safety semantics across command entrypoints.
+- Scope:
+  - apply UNC default-deny policy to `live` command path.
+  - unify lock marker handling (`parent.lock`, `.parentlock`, `lock`) across scan/discovery/acquire.
+  - regression tests for all command surfaces.
+
+### WS-60 - Learning Store Correctness Hardening
+
+- Status: pending.
+- Goal: make learning-store behavior match determinism claims and remove ineffective metadata extraction.
+- Scope:
+  - remove or replace dead `hasattr()` extraction paths.
+  - align artifact determinism contract and implementation.
+  - extend scan-history tests for deterministic artifact behavior.
+
+### WS-61 - Documentation Contract Synchronization
+
+- Status: pending.
+- Goal: eliminate drift between docs, CLI behavior, and collector/runtime implementation.
+- Scope:
+  - align exit-code semantics language.
+  - align lock-marker and UNC behavior documentation.
+  - align artifact naming (`SiteSecurityServiceState.bin`) and WS status tracking.
+  - fix malformed workslice table rows.
+
+### WS-62 - Redundancy Reduction Refactor
+
+- Status: pending.
+- Goal: reduce duplicated helpers/constants that create drift risk while preserving behavior.
+- Scope:
+  - centralize severity ordering helpers.
+  - centralize sqlite read-only URI helper.
+  - centralize repeated intel sqlite helper patterns.
+
+### WS-63 - Low-Risk API/UX Polish
+
+- Status: pending.
+- Goal: close low-severity audit findings that affect operator clarity and long-term compatibility.
+- Scope:
+  - decide and implement `--keep-stage-writeable` alias/rename policy.
+  - clarify policy-path symlink error wording.
+  - expose trust helper APIs intentionally instead of cross-module private imports.
+
+### WS-64 - Audit Readiness Gate
+
+- Status: pending.
+- Goal: define explicit completion gates before the next comprehensive audit.
+- Scope:
+  - all WS-57 through WS-63 completed.
+  - all quality/security/test gates green.
+  - windows-share mini soak passes with stable artifacts and no operational failures.
 
 ## Workslice Update Protocol
 

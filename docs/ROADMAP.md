@@ -84,6 +84,24 @@ Exit criteria:
 - Rust workspace compiles in CI and runs contract-smoke tests against canonical fixtures.
 - Windows-share runbook and staging harness are in place for enterprise remote-profile acquisition workflows.
 
+### Phase 2.1: Audit Closeout Gate (Immediate)
+
+Objectives:
+
+- Complete WS-57 through WS-61 from `docs/WORKSLICES.md`.
+- Restore all quality gates to green (`ruff`, `detect-secrets`, tests, typecheck, security gates).
+- Correct command-level contract mismatches called out in `docs/AUDIT_2026-02-24.md`:
+  - operational error exit code semantics,
+  - UNC fail-closed parity for `scan` and `live`,
+  - lock-marker consistency across scan/acquire/discovery paths.
+- Align docs with runtime behavior before resuming feature expansion.
+
+Exit criteria:
+
+- No open critical/high findings from `docs/AUDIT_2026-02-24.md`.
+- `pytest -q tests/`, `ruff check .`, `mypy foxclaw`, `bandit`, `vulture`, and `detect-secrets` are all green.
+- Documentation and CLI/runtime behavior are synchronized for exit codes, UNC policy, lock markers, and artifact names.
+
 ### Phase 2.5: Threat Surface Expansion (Q1 to Q2 2026)
 
 Objectives:
@@ -94,7 +112,7 @@ Objectives:
 - Complete WS-50 session restore data exposure (`sessionstore.jsonlz4` sensitive data detection).
 - Complete WS-51 search engine integrity (`search.json.mozlz4` default engine validation).
 - Complete WS-52 cookie security posture (`cookies.sqlite` session theft signals).
-- Complete WS-53 HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection).
+- Complete WS-53 HSTS state integrity (`SiteSecurityServiceState.bin` downgrade detection).
 - Complete WS-54 CVE advisory simulation scenarios in Windows and Python profile generators.
 - Complete WS-33 ATT&CK technique mapping for all finding classes.
 
@@ -110,7 +128,7 @@ Exit criteria:
 
 Objectives:
 
-- Complete WS-55A scan-history ingestion (append-only local SQLite; deterministic ordering).
+- Keep WS-55A scan-history ingestion stable (append-only local SQLite; deterministic ordering).
 - Complete WS-55B per-rule trend and novelty analysis from history snapshots.
 - Complete WS-56 fleet-wide pattern correlation and prevalence enrichment.
 - Add deterministic enrichment fields:
@@ -120,9 +138,9 @@ Objectives:
 
 Execution priority (next best step):
 
-1. WS-55A scan-history ingestion and report artifact generation.
+1. WS-57 through WS-61 audit closeout (contract and gate integrity).
 2. WS-55B trend/novelty summary surfaced in non-blocking outputs.
-3. WS-56 fleet prevalence once WS-55A/B data quality is proven.
+3. WS-56 fleet prevalence once WS-55B data quality is proven.
 
 Exit criteria:
 

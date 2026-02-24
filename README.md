@@ -234,6 +234,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 
 ### Reviews (Historical)
 
+- `docs/AUDIT_2026-02-24.md`: comprehensive repo audit findings with severity-ranked remediation plan.
 - `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
 
 ## License

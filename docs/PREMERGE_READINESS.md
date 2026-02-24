@@ -63,12 +63,16 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-55A**: Implement append-only scan-history ingestion and deterministic learning artifact output.
-2. **WS-55B**: Add per-rule trend/novelty summaries from history snapshots.
-3. **WS-47..WS-53**: Finish pending threat-surface collectors/rules with deterministic regression tests.
-4. **WS-31 + WS-32**: Rust workspace bootstrap and contract canonicalization lock for migration parity.
+1. **WS-57**: Unblock quality gates (`ruff`, `detect-secrets`) and keep CI/local parity.
+2. **WS-58**: Fix exit-code contract mismatches for operational errors.
+3. **WS-59**: Align UNC fail-closed behavior and lock-marker handling across command paths.
+4. **WS-60 + WS-61**: Correct learning-store determinism gaps and synchronize docs to runtime behavior.
+5. **WS-55B**: Continue trend/novelty enrichment only after WS-57..WS-61 are complete.
+6. **WS-47..WS-53**: Continue pending threat-surface collectors/rules with deterministic regression tests.
+7. **WS-31 + WS-32**: Rust workspace bootstrap and contract canonicalization lock for migration parity.
 
 Current evidence basis:
 
 - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md` confirms stability and highlights
   runtime bottleneck concentration in fuzz workloads.
+- `docs/AUDIT_2026-02-24.md` defines mandatory closeout work before next comprehensive audit.
