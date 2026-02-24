@@ -565,7 +565,9 @@ This plan converts the current review and research into sequenced, testable exec
   - Added deterministic staging + scan automation script:
     - `scripts/windows_share_scan.py`
   - Promoted lane into first-class CLI integration:
+    - `foxclaw scan` (auto-stage for share-hosted profile paths)
     - `foxclaw acquire windows-share-scan`
+    - `foxclaw acquire windows-share-batch`
     - implementation entrypoint: `foxclaw/acquire/windows_share.py`
   - Workflow behavior:
     - copies profile from share/mount path into local staging snapshot,

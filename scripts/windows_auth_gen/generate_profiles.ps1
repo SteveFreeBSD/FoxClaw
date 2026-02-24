@@ -1,3 +1,5 @@
+# Canonical Windows-share generator seed lineage:
+#   ejm2bj4s.foxclaw-test -> foxclaw-seed.default
 param(
   [int]$Count = 10,
   [string]$ProfilesRoot = "$env:APPDATA\Mozilla\Firefox\Profiles",
@@ -27,6 +29,7 @@ $summary = [ordered]@{
   generated_at_utc = (Get-Date).ToUniversalTime().ToString("o")
   profiles_root = $ProfilesRoot
   seed_profile = $SeedName
+  seed_profile_previous_name = "ejm2bj4s.foxclaw-test"
   requested_count = $Count
   scenario_mode = $Scenario
   seed = $Seed

@@ -18,14 +18,15 @@
 
 ## Active Profile and Exit Semantics
 
-- Acquisition from share-hosted profiles fails closed by default when lock markers (for example
-  `parent.lock`) are present in the source profile.
-- `--allow-active-profile` explicitly allows staging and scanning to proceed; the stage manifest
-  must record `source_lock_markers` so downstream systems can identify active-profile scans.
+- Share-hosted profile scans fail closed by default when lock markers (for example `parent.lock`)
+  are present in the source profile.
+- `--allow-active-profile` explicitly allows staging and scanning to proceed (`scan` auto-stage or
+  `acquire windows-share-scan`); the stage manifest must record `source_lock_markers` so
+  downstream systems can identify active-profile scans.
 - `foxclaw scan` exit code `2` means scan completed with one or more `HIGH` findings; this is not
   an operational error condition.
-- `--treat-high-findings-as-success` converts exit code `2` to success for acquisition pipelines
-  and CI orchestration.
+- `--treat-high-findings-as-success` is available on acquisition wrappers and converts exit code
+  `2` to success for pipelines and CI orchestration.
 
 ## Runtime Modules (Current)
 
@@ -56,13 +57,14 @@
 ## Data Flow (Current)
 
 1. Select profile (`profiles list` scoring or explicit `--profile`).
-2. Resolve ruleset and optionally verify trust policy (`--ruleset-trust-manifest`, `--require-ruleset-signatures`).
-3. Collect local evidence through read-only collectors.
-4. Optionally correlate local Firefox version against pinned local intel snapshot (`--intel-store-dir` / `--intel-snapshot-id`).
-5. Build typed `EvidenceBundle` contract.
-6. Evaluate ruleset into finding set.
-7. Render deterministic output payloads.
-8. Optional fleet path merges multiple profile scans into normalized host/profile/finding contracts.
+2. For share-hosted profile paths, stage locally first and emit `stage-manifest.json` provenance.
+3. Resolve ruleset and optionally verify trust policy (`--ruleset-trust-manifest`, `--require-ruleset-signatures`).
+4. Collect local evidence through read-only collectors.
+5. Optionally correlate local Firefox version against pinned local intel snapshot (`--intel-store-dir` / `--intel-snapshot-id`).
+6. Build typed `EvidenceBundle` contract.
+7. Evaluate ruleset into finding set.
+8. Render deterministic output payloads.
+9. Optional fleet path merges multiple profile scans into normalized host/profile/finding contracts.
 
 ## Trust Boundary Implementation
 
