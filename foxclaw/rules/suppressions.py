@@ -43,7 +43,7 @@ def apply_suppressions(
             for path in suppression_paths
         }
     )
-    
+
     source_entries, legacy_count = _load_suppression_sources(suppression_paths)
     evidence = SuppressionEvidence(
         source_paths=source_paths,
@@ -78,15 +78,15 @@ def apply_suppressions(
         if match is None:
             remaining.append(finding)
             continue
-            
+
         evidence.applied.append(match)
-        
+
         # Governance tracing
         evidence.applied_by_owner[match.owner] = evidence.applied_by_owner.get(match.owner, 0) + 1
         if match.approval is not None:
             approver = match.approval.approved_by
             evidence.applied_by_approver[approver] = evidence.applied_by_approver.get(approver, 0) + 1
-            
+
         delta = match.expires_at - resolved_now
         if 0 <= delta.days <= 30:
             evidence.expiring_within_30d.append(match)

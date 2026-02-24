@@ -244,7 +244,7 @@ class SuppressionEvidence(BaseModel):
     source_paths: list[str] = Field(default_factory=list)
     applied: list[AppliedSuppression] = Field(default_factory=list)
     expired: list[AppliedSuppression] = Field(default_factory=list)
-    
+
     # Governance tracing
     applied_by_owner: dict[str, int] = Field(default_factory=dict)
     applied_by_approver: dict[str, int] = Field(default_factory=dict)

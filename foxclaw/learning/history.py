@@ -123,6 +123,12 @@ class ScanHistoryStore:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._init_schema()
 
+    def __enter__(self) -> "ScanHistoryStore":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     def _init_schema(self) -> None:
         """Create tables if they don't exist; verify schema version."""
         self._conn.executescript(_DDL)

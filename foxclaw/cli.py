@@ -72,7 +72,7 @@ def profiles_list() -> None:
 
     for profile in sorted(report.profiles, key=lambda item: item.profile_id):
         mtime = (
-            datetime.fromtimestamp(profile.directory_mtime).isoformat(timespec="seconds")
+            datetime.fromtimestamp(profile.directory_mtime, tz=UTC).isoformat(timespec="seconds")
             if profile.directory_mtime > 0
             else "-"
         )
@@ -318,23 +318,22 @@ def scan(
         try:
             from foxclaw.learning.history import ScanHistoryStore
 
-            store = ScanHistoryStore(history_db)
-            history_scan_id = store.ingest(evidence)
-            console.print(
-                f"[dim]Scan history ingested: {history_scan_id} "
-                f"({store.scan_count()} total scans)[/dim]"
-            )
-            if learning_artifact_out is not None:
-                learning_artifact_out.parent.mkdir(parents=True, exist_ok=True)
-                artifact = store.generate_learning_artifact()
-                learning_artifact_out.write_text(
-                    json.dumps(artifact, indent=2, sort_keys=True),
-                    encoding="utf-8",
-                )
+            with ScanHistoryStore(history_db) as store:
+                history_scan_id = store.ingest(evidence)
                 console.print(
-                    f"[dim]Learning artifact written to: {learning_artifact_out}[/dim]"
+                    f"[dim]Scan history ingested: {history_scan_id} "
+                    f"({store.scan_count()} total scans)[/dim]"
                 )
-            store.close()
+                if learning_artifact_out is not None:
+                    learning_artifact_out.parent.mkdir(parents=True, exist_ok=True)
+                    artifact = store.generate_learning_artifact()
+                    learning_artifact_out.write_text(
+                        json.dumps(artifact, indent=2, sort_keys=True),
+                        encoding="utf-8",
+                    )
+                    console.print(
+                        f"[dim]Learning artifact written to: {learning_artifact_out}[/dim]"
+                    )
         except Exception as exc:
             console.print(
                 f"[yellow]Warning: scan history ingestion failed: {exc}[/yellow]"
@@ -444,7 +443,7 @@ def live(
 
     # Pass the locked snapshot_id into the scan entrypoint manually to prevent duplication
     # We call the scan function's internal logic directly but inject the ID.
-    
+
     # We must replicate the active profile checks from scan() to keep the CLI clean
     selected_profile: FirefoxProfile | None = None
     if profile is not None:
@@ -1100,9 +1099,9 @@ def suppression_audit(
             if entry.id in seen_ids:
                 results["duplicate_ids"].append({"id": entry.id, "source": source.source_path.as_posix()})
             seen_ids.add(entry.id)
-            
+
         delta = entry.expires_at.astimezone(UTC) - now
-        
+
         info: dict[str, Any] = {
             "id": entry.id,
             "rule_id": entry.rule_id,
@@ -1110,7 +1109,7 @@ def suppression_audit(
             "expires_at": entry.expires_at.isoformat(),
             "source": source.source_path.as_posix()
         }
-        
+
         if delta.total_seconds() < 0:
             results["expired"].append(info)
         elif delta.days <= 30:
@@ -1135,7 +1134,7 @@ def suppression_audit(
     table.add_row("Expiring <= 30d", f"[yellow]{len(results['expiring_soon'])}[/yellow]" if results["expiring_soon"] else "0")
     table.add_row("Duplicate IDs", f"[red]{len(results['duplicate_ids'])}[/red]" if results["duplicate_ids"] else "0")
     console.print(table)
-    
+
     if results["expired"] or results["duplicate_ids"]:
         raise typer.Exit(code=EXIT_HIGH_FINDINGS)
     raise typer.Exit(code=EXIT_OK)
@@ -1153,14 +1152,14 @@ def bundle_fetch(
 ) -> None:
     """Download a ruleset bundle archive without verification or extraction."""
     from foxclaw.rules.bundle import fetch_bundle
-    
+
     console.print(f"[blue]Fetching bundle from: {url}[/blue]")
     try:
         fetch_bundle(url=url, dest_path=output_path, allow_insecure_http=allow_insecure_http)
     except (OSError, ValueError) as exc:
         console.print(f"[red]Fetch failed: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
-        
+
     console.print(f"[green]Successfully downloaded bundle to {output_path}[/green]")
 
 
@@ -1173,7 +1172,7 @@ def bundle_install(
 ) -> None:
     """Verify an external bundle's signatures and unpack it locally."""
     from foxclaw.rules.bundle import verify_and_unpack_bundle
-    
+
     console.print("[blue]Verifying and unpacking external ruleset bundle...[/blue]")
     try:
         manifest = verify_and_unpack_bundle(
@@ -1185,7 +1184,7 @@ def bundle_install(
     except (OSError, ValueError) as exc:
         console.print(f"[red]Bundle installation failed: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
-        
+
     console.print(f"[green]Successfully installed '{manifest.bundle_name}' (v{manifest.bundle_version}) to {dest}[/green]")
 
 
@@ -1200,7 +1199,7 @@ def bundle_verify(
     import tempfile
 
     from foxclaw.rules.bundle import verify_and_unpack_bundle
-    
+
     tmp_path = Path(tempfile.mkdtemp())
     try:
         manifest = verify_and_unpack_bundle(

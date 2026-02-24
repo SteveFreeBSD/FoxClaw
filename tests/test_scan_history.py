@@ -7,19 +7,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-
 from foxclaw.learning.history import ScanHistoryStore, _compute_scan_id
 from foxclaw.models import (
+    CredentialEvidence,
     EvidenceBundle,
+    ExtensionEvidence,
     Finding,
+    PolicyEvidence,
     PrefEvidence,
+    ProfileArtifactEvidence,
     ProfileEvidence,
     ScanSummary,
-    ExtensionEvidence,
-    PolicyEvidence,
     SqliteEvidence,
-    CredentialEvidence,
-    ProfileArtifactEvidence,
 )
 
 
