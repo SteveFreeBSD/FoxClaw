@@ -130,10 +130,7 @@ def _check_file_perm_strict(bundle: EvidenceBundle, config: dict[str, object]) -
     violations = [
         item
         for item in matches
-        if item.group_readable
-        or item.group_writable
-        or item.world_readable
-        or item.world_writable
+        if item.group_readable or item.group_writable or item.world_readable or item.world_writable
     ]
     if not violations:
         return CheckResult(passed=True)
@@ -179,11 +176,7 @@ def _check_sqlite_quickcheck_ok(bundle: EvidenceBundle, config: object) -> Check
     sqlite_file = SQLITE_NAME_MAP[db_name]
 
     target = next(
-        (
-            item
-            for item in bundle.sqlite.checks
-            if Path(item.db_path).name == sqlite_file
-        ),
+        (item for item in bundle.sqlite.checks if Path(item.db_path).name == sqlite_file),
         None,
     )
     if target is None:
@@ -249,8 +242,7 @@ def _check_extension_blocklisted_absent(bundle: EvidenceBundle, config: object) 
         return CheckResult(passed=True)
 
     evidence = [
-        f"{item.addon_id}: blocklisted=1, active={int(item.active is True)}"
-        for item in violations
+        f"{item.addon_id}: blocklisted=1, active={int(item.active is True)}" for item in violations
     ]
     return CheckResult(passed=False, evidence=evidence)
 
@@ -279,9 +271,7 @@ def _check_extension_debug_absent(bundle: EvidenceBundle, config: object) -> Che
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 
-def _check_extension_permission_risk_absent(
-    bundle: EvidenceBundle, config: object
-) -> CheckResult:
+def _check_extension_permission_risk_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
     min_level, include_inactive, include_system = _extract_extension_risk_config(config)
     candidates = [
         item
@@ -305,9 +295,7 @@ def _check_extension_permission_risk_absent(
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 
-def _check_extension_intel_reputation_absent(
-    bundle: EvidenceBundle, config: object
-) -> CheckResult:
+def _check_extension_intel_reputation_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
     min_level, include_unlisted, include_inactive, include_system = (
         _extract_extension_intel_risk_config(config)
     )
@@ -348,10 +336,7 @@ def _check_credential_metric_max(bundle: EvidenceBundle, config: dict[str, objec
     metric = _required_str(config, "metric")
     if metric not in _CREDENTIAL_METRIC_NAMES:
         allowed_metrics = ", ".join(_CREDENTIAL_METRIC_NAMES)
-        raise ValueError(
-            "credential_metric_max metric must be one of: "
-            f"{allowed_metrics}"
-        )
+        raise ValueError(f"credential_metric_max metric must be one of: {allowed_metrics}")
 
     max_value = _required_int(config, "max")
     observed = int(getattr(bundle.credentials, metric))
@@ -451,9 +436,7 @@ def _extract_extension_intel_risk_config(config: object) -> tuple[str, bool, boo
     min_level_obj = config.get("min_level", "high")
     min_level = _require_value_type(min_level_obj, str, "min_level").lower()
     if min_level not in _EXTENSION_INTEL_RISK_LEVEL_ORDER:
-        raise ValueError(
-            "extension_intel_reputation_absent min_level must be low, medium, or high"
-        )
+        raise ValueError("extension_intel_reputation_absent min_level must be low, medium, or high")
 
     include_unlisted = config.get("include_unlisted", True)
     if not isinstance(include_unlisted, bool):
@@ -499,11 +482,7 @@ def _required_int(data: dict[str, object], key: str) -> int:
 
 def _pref_values_equal(observed: bool | int | str, expected: bool | int | str) -> bool:
     if isinstance(observed, bool) or isinstance(expected, bool):
-        return (
-            isinstance(observed, bool)
-            and isinstance(expected, bool)
-            and observed == expected
-        )
+        return isinstance(observed, bool) and isinstance(expected, bool) and observed == expected
     return type(observed) is type(expected) and observed == expected
 
 

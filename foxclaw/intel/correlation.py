@@ -123,7 +123,9 @@ def correlate_firefox_vulnerability_intel(
     enrichment_by_cve = _load_cve_enrichment(
         store_dir=store_dir,
         snapshot_id=snapshot_id,
-        cve_ids={_normalize_cve_id(item.cve_id) for item in advisories.matches if item.cve_id.strip()},
+        cve_ids={
+            _normalize_cve_id(item.cve_id) for item in advisories.matches if item.cve_id.strip()
+        },
     )
 
     evidence = IntelCorrelationEvidence(
@@ -519,9 +521,7 @@ def _resolve_severity(
         break
 
     all_candidates = {
-        severity
-        for source_candidates in candidates.values()
-        for severity in source_candidates
+        severity for source_candidates in candidates.values() for severity in source_candidates
     }
     return _SeverityResolution(
         selected=selected,
@@ -554,10 +554,7 @@ def _build_rationale(severity_resolution: _SeverityResolution) -> str:
         "The local Firefox version satisfies an affected-version range from the pinned "
         "intelligence snapshot."
     )
-    policy = (
-        "Severity is resolved with deterministic source precedence "
-        "(mozilla > nvd > cve_list)."
-    )
+    policy = "Severity is resolved with deterministic source precedence (mozilla > nvd > cve_list)."
     if not severity_resolution.conflict:
         return f"{base} {policy}"
     return (
@@ -671,9 +668,7 @@ def _build_evidence_lines(
             )
 
     for nvd_record in enrichment.nvd:
-        evidence.append(
-            f"nvd:{nvd_record.source_name}:severity={nvd_record.severity or 'unknown'}"
-        )
+        evidence.append(f"nvd:{nvd_record.source_name}:severity={nvd_record.severity or 'unknown'}")
         if nvd_record.reference_url:
             evidence.append(f"nvd:{nvd_record.source_name}:url={nvd_record.reference_url}")
 
@@ -701,13 +696,10 @@ def _build_evidence_lines(
 
     for epss_record in enrichment.epss:
         percentile = (
-            f"{epss_record.percentile:.4f}"
-            if epss_record.percentile is not None
-            else "unknown"
+            f"{epss_record.percentile:.4f}" if epss_record.percentile is not None else "unknown"
         )
         evidence.append(
-            f"epss:{epss_record.source_name}:score={epss_record.score:.4f},"
-            f"percentile={percentile}"
+            f"epss:{epss_record.source_name}:score={epss_record.score:.4f},percentile={percentile}"
         )
         if epss_record.reference_url:
             evidence.append(f"epss:{epss_record.source_name}:url={epss_record.reference_url}")

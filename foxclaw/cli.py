@@ -11,10 +11,15 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from foxclaw.acquire.windows_share import run_windows_share_scan_from_argv
+from foxclaw.acquire.windows_share import (
+    is_windows_share_profile_source,
+    run_windows_share_scan_from_argv,
+    stage_windows_share_profile,
+    write_windows_share_manifest,
+)
 from foxclaw.acquire.windows_share_batch import run_windows_share_batch
 from foxclaw.intel.sync import sync_sources
-from foxclaw.profiles import FirefoxProfile, discover_profiles
+from foxclaw.profiles import PROFILE_LOCK_FILES, FirefoxProfile, discover_profiles
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
@@ -99,16 +104,39 @@ def profiles_list() -> None:
 
 @app.command("scan")
 def scan(
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit JSON report to stdout."
-    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON report to stdout."),
     profile: Path | None = typer.Option(
         None, "--profile", help="Scan this Firefox profile directory directly."
     ),
     allow_unc_profile: bool = typer.Option(
         False,
         "--allow-unc-profile",
-        help="Allow scanning UNC profile paths directly (lab-only).",
+        help=(
+            "Deprecated compatibility flag; share-hosted profiles are staged locally before scan."
+        ),
+    ),
+    staging_root: Path | None = typer.Option(
+        None,
+        "--staging-root",
+        help="Override local staging root when scanning share-hosted profiles.",
+    ),
+    allow_active_profile: bool = typer.Option(
+        False,
+        "--allow-active-profile",
+        help=(
+            "Allow staging when source profile lock markers are present; use only for "
+            "validated crash-consistent snapshots."
+        ),
+    ),
+    keep_stage_writeable: bool = typer.Option(
+        False,
+        "--keep-stage-writeable",
+        help="Do not remove write bits from staged files.",
+    ),
+    stage_manifest_out: Path | None = typer.Option(
+        None,
+        "--stage-manifest-out",
+        help="Optional stage-manifest output path when share-hosted staging is used.",
     ),
     require_quiet_profile: bool = typer.Option(
         False,
@@ -163,12 +191,8 @@ def scan(
             "use 'latest' or omit to resolve from store latest pointer."
         ),
     ),
-    sarif_output: bool = typer.Option(
-        False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
-    ),
-    output: Path | None = typer.Option(
-        None, "--output", help="Write JSON report to this path."
-    ),
+    sarif_output: bool = typer.Option(False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."),
+    output: Path | None = typer.Option(None, "--output", help="Write JSON report to this path."),
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
     ),
@@ -199,17 +223,27 @@ def scan(
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
-    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
-        console.print(
-            "[red]Operational error: UNC profile paths are disabled by default. "
-            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
-            "--allow-unc-profile for lab-only workflows.[/red]"
-        )
-        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
-
+    stage_result = None
     selected_profile: FirefoxProfile | None = None
     if profile is not None:
-        selected_profile = _build_profile_override(profile)
+        if is_windows_share_profile_source(profile):
+            try:
+                stage_result = stage_windows_share_profile(
+                    source_profile=profile,
+                    staging_root=staging_root,
+                    json_out=output,
+                    sarif_out=sarif_out,
+                    scan_snapshot_out=snapshot_out,
+                    manifest_out=stage_manifest_out,
+                    allow_active_profile=allow_active_profile,
+                    keep_stage_writeable=keep_stage_writeable,
+                )
+                selected_profile = _build_profile_override(stage_result.paths.staged_profile)
+            except (OSError, RuntimeError, ValueError) as exc:
+                console.print(f"[red]Operational error: {exc}[/red]")
+                raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        else:
+            selected_profile = _build_profile_override(profile)
     else:
         report = discover_profiles()
         selected_profile = next((p for p in report.profiles if p.selected), None)
@@ -221,16 +255,58 @@ def scan(
                     console.print(f"  - {search_dir}")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
+    resolved_ruleset_path = resolve_ruleset_path(ruleset)
+    stage_scan_command = _build_stage_scan_manifest_command(
+        profile_path=selected_profile.path,
+        resolved_ruleset_path=resolved_ruleset_path,
+        json_output=json_output,
+        sarif_output=sarif_output,
+        output=output,
+        sarif_out=sarif_out,
+        snapshot_out=snapshot_out,
+        deterministic=deterministic,
+        policy_path=policy_path,
+        suppression_path=suppression_path,
+        intel_store_dir=intel_store_dir,
+        intel_snapshot_id=intel_snapshot_id,
+        require_quiet_profile=require_quiet_profile,
+        ruleset_trust_manifest=ruleset_trust_manifest,
+        require_ruleset_signatures=require_ruleset_signatures,
+        history_db=history_db,
+        learning_artifact_out=learning_artifact_out,
+    )
+
+    def _write_stage_manifest(*, exit_code: int, status: str, strict: bool) -> None:
+        if stage_result is None:
+            return
+        stage_result.manifest_payload["scan"] = {
+            "command": stage_scan_command,
+            "exit_code": exit_code,
+            "status": status,
+        }
+        try:
+            write_windows_share_manifest(
+                stage_result.paths.manifest_out,
+                stage_result.manifest_payload,
+            )
+        except OSError as exc:
+            if strict:
+                raise
+            console.print(f"[yellow]Warning: failed to write stage manifest: {exc}[/yellow]")
+
     if require_quiet_profile:
         active_reason = detect_active_profile_reason(selected_profile.path)
         if active_reason is not None:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(
                 "[red]Operational error: quiet profile required; "
                 f"profile appears active ({active_reason}).[/red]"
             )
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
-
-    resolved_ruleset_path = resolve_ruleset_path(ruleset)
 
     try:
         if ruleset_trust_manifest is not None:
@@ -248,6 +324,11 @@ def scan(
             intel_snapshot_id=intel_snapshot_id,
         )
     except (OSError, ValueError) as exc:
+        _write_stage_manifest(
+            exit_code=EXIT_OPERATIONAL_ERROR,
+            status="FAIL",
+            strict=False,
+        )
         console.print(f"[red]Operational error: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
@@ -269,6 +350,11 @@ def scan(
                 json_payload = render_scan_json(evidence)
             output.write_text(json_payload, encoding="utf-8")
         except OSError as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(f"[red]Operational error writing output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if sarif_out is not None:
@@ -278,6 +364,11 @@ def scan(
                 sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
             sarif_out.write_text(sarif_payload, encoding="utf-8")
         except OSError as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if snapshot_out is not None:
@@ -293,6 +384,11 @@ def scan(
                 )
             snapshot_out.write_text(snapshot_payload, encoding="utf-8")
         except (OSError, ValueError) as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(f"[red]Operational error writing snapshot output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
@@ -327,7 +423,9 @@ def scan(
                 if learning_artifact_out is not None:
                     learning_artifact_out.parent.mkdir(parents=True, exist_ok=True)
                     artifact = store.generate_learning_artifact(
-                        evidence_generated_at_utc=evidence.generated_at.isoformat() if deterministic else None
+                        evidence_generated_at_utc=evidence.generated_at.isoformat()
+                        if deterministic
+                        else None
                     )
                     learning_artifact_out.write_text(
                         json.dumps(artifact, indent=2, sort_keys=True),
@@ -337,13 +435,20 @@ def scan(
                         f"[dim]Learning artifact written to: {learning_artifact_out}[/dim]"
                     )
         except Exception as exc:
-            console.print(
-                f"[yellow]Warning: scan history ingestion failed: {exc}[/yellow]"
-            )
+            console.print(f"[yellow]Warning: scan history ingestion failed: {exc}[/yellow]")
 
-    raise typer.Exit(
-        code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
-    )
+    final_exit_code = EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
+    try:
+        _write_stage_manifest(
+            exit_code=final_exit_code,
+            status="PASS",
+            strict=True,
+        )
+    except OSError as exc:
+        console.print(f"[red]Operational error writing stage manifest: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    raise typer.Exit(code=final_exit_code)
 
 
 @app.command("live")
@@ -365,9 +470,7 @@ def live(
         help="Allow plaintext HTTP source URLs for explicit trusted lab mirrors.",
     ),
     # Scan arguments
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit JSON report to stdout."
-    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON report to stdout."),
     profile: Path | None = typer.Option(
         None, "--profile", help="Scan this Firefox profile directory directly."
     ),
@@ -405,12 +508,8 @@ def live(
         "--suppression-path",
         help="Apply suppression policy file(s); repeatable.",
     ),
-    sarif_output: bool = typer.Option(
-        False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."
-    ),
-    output: Path | None = typer.Option(
-        None, "--output", help="Write JSON report to this path."
-    ),
+    sarif_output: bool = typer.Option(False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."),
+    output: Path | None = typer.Option(None, "--output", help="Write JSON report to this path."),
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
     ),
@@ -474,7 +573,9 @@ def live(
     if require_quiet_profile:
         active_reason = detect_active_profile_reason(selected_profile.path)
         if active_reason is not None:
-            console.print(f"[red]Operational error: quiet profile required; profile appears active ({active_reason}).[/red]")
+            console.print(
+                f"[red]Operational error: quiet profile required; profile appears active ({active_reason}).[/red]"
+            )
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
     resolved_ruleset_path = resolve_ruleset_path(ruleset)
@@ -503,7 +604,11 @@ def live(
 
     # Reuse output rendering
     json_payload = render_scan_json(evidence) if (json_output or output is not None) else None
-    sarif_payload = render_scan_sarif(evidence, deterministic=deterministic) if (sarif_output or sarif_out is not None) else None
+    sarif_payload = (
+        render_scan_sarif(evidence, deterministic=deterministic)
+        if (sarif_output or sarif_out is not None)
+        else None
+    )
 
     if output is not None:
         try:
@@ -556,7 +661,6 @@ def live(
     raise typer.Exit(
         code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
     )
-
 
 
 @acquire_app.command("windows-share-scan")
@@ -946,15 +1050,9 @@ app.add_typer(bundle_app, name="bundle")
 
 @snapshot_app.command("diff")
 def snapshot_diff(
-    before: Path = typer.Option(
-        ..., "--before", help="Path to baseline snapshot JSON."
-    ),
-    after: Path = typer.Option(
-        ..., "--after", help="Path to current snapshot JSON."
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit snapshot diff JSON to stdout."
-    ),
+    before: Path = typer.Option(..., "--before", help="Path to baseline snapshot JSON."),
+    after: Path = typer.Option(..., "--after", help="Path to current snapshot JSON."),
+    json_output: bool = typer.Option(False, "--json", help="Emit snapshot diff JSON to stdout."),
     output: Path | None = typer.Option(
         None, "--output", help="Write snapshot diff JSON to this path."
     ),
@@ -1084,9 +1182,7 @@ def suppression_audit(
         "--suppression-path",
         help="Apply suppression policy file(s); repeatable.",
     ),
-    json_output: bool = typer.Option(
-        False, "--json", help="Emit JSON audit report to stdout."
-    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON audit report to stdout."),
 ) -> None:
     """Audit suppression policies for governance violations and aging."""
     from foxclaw.rules.suppressions import _load_suppression_sources
@@ -1100,7 +1196,9 @@ def suppression_audit(
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     results: dict[str, Any] = {
-        "files_scanned": len(set(path.expanduser().resolve().as_posix() for path in suppression_path)),
+        "files_scanned": len(
+            set(path.expanduser().resolve().as_posix() for path in suppression_path)
+        ),
         "total_entries": len(source_entries),
         "legacy_schema_count": legacy_count,
         "expired": [],
@@ -1113,7 +1211,9 @@ def suppression_audit(
         entry = source.entry
         if entry.id:
             if entry.id in seen_ids:
-                results["duplicate_ids"].append({"id": entry.id, "source": source.source_path.as_posix()})
+                results["duplicate_ids"].append(
+                    {"id": entry.id, "source": source.source_path.as_posix()}
+                )
             seen_ids.add(entry.id)
 
         delta = entry.expires_at.astimezone(UTC) - now
@@ -1123,7 +1223,7 @@ def suppression_audit(
             "rule_id": entry.rule_id,
             "owner": entry.owner,
             "expires_at": entry.expires_at.isoformat(),
-            "source": source.source_path.as_posix()
+            "source": source.source_path.as_posix(),
         }
 
         if delta.total_seconds() < 0:
@@ -1135,9 +1235,7 @@ def suppression_audit(
     if json_output:
         typer.echo(json.dumps(results, indent=2, sort_keys=True))
         raise typer.Exit(
-            code=EXIT_HIGH_FINDINGS
-            if (results["expired"] or results["duplicate_ids"])
-            else EXIT_OK
+            code=EXIT_HIGH_FINDINGS if (results["expired"] or results["duplicate_ids"]) else EXIT_OK
         )
 
     table = Table(title="Suppression Governance Audit")
@@ -1146,9 +1244,17 @@ def suppression_audit(
     table.add_row("Files scanned", str(results["files_scanned"]))
     table.add_row("Total entries", str(results["total_entries"]))
     table.add_row("Legacy v1.0.0 schemas", str(results["legacy_schema_count"]))
-    table.add_row("Expired entries", f"[red]{len(results['expired'])}[/red]" if results["expired"] else "0")
-    table.add_row("Expiring <= 30d", f"[yellow]{len(results['expiring_soon'])}[/yellow]" if results["expiring_soon"] else "0")
-    table.add_row("Duplicate IDs", f"[red]{len(results['duplicate_ids'])}[/red]" if results["duplicate_ids"] else "0")
+    table.add_row(
+        "Expired entries", f"[red]{len(results['expired'])}[/red]" if results["expired"] else "0"
+    )
+    table.add_row(
+        "Expiring <= 30d",
+        f"[yellow]{len(results['expiring_soon'])}[/yellow]" if results["expiring_soon"] else "0",
+    )
+    table.add_row(
+        "Duplicate IDs",
+        f"[red]{len(results['duplicate_ids'])}[/red]" if results["duplicate_ids"] else "0",
+    )
     console.print(table)
 
     if results["expired"] or results["duplicate_ids"]:
@@ -1183,7 +1289,9 @@ def bundle_fetch(
 def bundle_install(
     archive: Path = typer.Argument(..., help="Path to the downloaded bundle tarball."),
     keyring: Path = typer.Option(..., "--keyring", help="Path to the trusted keyring manifest."),
-    key_id: str = typer.Option(..., "--key-id", help="Required keyring key_id to verify the manifest signature."),
+    key_id: str = typer.Option(
+        ..., "--key-id", help="Required keyring key_id to verify the manifest signature."
+    ),
     dest: Path = typer.Option(..., "--dest", help="Directory to unpack the validated bundle into."),
 ) -> None:
     """Verify an external bundle's signatures and unpack it locally."""
@@ -1201,14 +1309,18 @@ def bundle_install(
         console.print(f"[red]Bundle installation failed: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
-    console.print(f"[green]Successfully installed '{manifest.bundle_name}' (v{manifest.bundle_version}) to {dest}[/green]")
+    console.print(
+        f"[green]Successfully installed '{manifest.bundle_name}' (v{manifest.bundle_version}) to {dest}[/green]"
+    )
 
 
 @bundle_app.command("verify")
 def bundle_verify(
     archive: Path = typer.Argument(..., help="Path to the downloaded bundle tarball."),
     keyring: Path = typer.Option(..., "--keyring", help="Path to the trusted keyring manifest."),
-    key_id: str = typer.Option(..., "--key-id", help="Required keyring key_id to verify the manifest signature."),
+    key_id: str = typer.Option(
+        ..., "--key-id", help="Required keyring key_id to verify the manifest signature."
+    ),
 ) -> None:
     """Verify an external bundle's signature strictly without unpacking it."""
     import shutil
@@ -1224,12 +1336,76 @@ def bundle_verify(
             key_id=key_id,
             keyring_path=keyring,
         )
-        console.print(f"[green]Bundle '{manifest.bundle_name}' (v{manifest.bundle_version}) signature verification passed.[/green]")
+        console.print(
+            f"[green]Bundle '{manifest.bundle_name}' (v{manifest.bundle_version}) signature verification passed.[/green]"
+        )
     except (OSError, ValueError) as exc:
         console.print(f"[red]Bundle verification failed: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def _build_stage_scan_manifest_command(
+    *,
+    profile_path: Path,
+    resolved_ruleset_path: Path,
+    json_output: bool,
+    sarif_output: bool,
+    output: Path | None,
+    sarif_out: Path | None,
+    snapshot_out: Path | None,
+    deterministic: bool,
+    policy_path: list[Path] | None,
+    suppression_path: list[Path] | None,
+    intel_store_dir: Path | None,
+    intel_snapshot_id: str | None,
+    require_quiet_profile: bool,
+    ruleset_trust_manifest: Path | None,
+    require_ruleset_signatures: bool,
+    history_db: Path | None,
+    learning_artifact_out: Path | None,
+) -> list[str]:
+    command = [
+        "foxclaw",
+        "scan",
+        "--profile",
+        str(profile_path),
+        "--ruleset",
+        str(resolved_ruleset_path),
+    ]
+    if json_output:
+        command.append("--json")
+    if sarif_output:
+        command.append("--sarif")
+    if output is not None:
+        command.extend(["--output", str(output)])
+    if sarif_out is not None:
+        command.extend(["--sarif-out", str(sarif_out)])
+    if snapshot_out is not None:
+        command.extend(["--snapshot-out", str(snapshot_out)])
+    if deterministic:
+        command.append("--deterministic")
+    if require_quiet_profile:
+        command.append("--require-quiet-profile")
+    for path in policy_path or []:
+        command.extend(["--policy-path", str(path)])
+    for path in suppression_path or []:
+        command.extend(["--suppression-path", str(path)])
+    if intel_store_dir is not None:
+        command.extend(["--intel-store-dir", str(intel_store_dir)])
+    if intel_snapshot_id:
+        command.extend(["--intel-snapshot-id", intel_snapshot_id])
+    if ruleset_trust_manifest is not None:
+        command.extend(["--ruleset-trust-manifest", str(ruleset_trust_manifest)])
+    if require_ruleset_signatures:
+        command.append("--require-ruleset-signatures")
+    if history_db is not None:
+        command.extend(["--history-db", str(history_db)])
+    if learning_artifact_out is not None:
+        command.extend(["--learning-artifact-out", str(learning_artifact_out)])
+    return command
+
 
 def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxProfile]:
     if profile_paths:
@@ -1270,10 +1446,7 @@ def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxPro
 
 def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -> FirefoxProfile:
     resolved = profile_path.expanduser().resolve()
-    from foxclaw.profiles import PROFILE_LOCK_FILES
-    lock_files = [
-        name for name in PROFILE_LOCK_FILES if (resolved / name).exists()
-    ]
+    lock_files = [name for name in PROFILE_LOCK_FILES if (resolved / name).exists()]
     return FirefoxProfile(
         profile_id=profile_id,
         name=resolved.name or "manual-profile",

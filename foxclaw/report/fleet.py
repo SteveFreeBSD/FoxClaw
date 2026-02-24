@@ -89,7 +89,9 @@ def _build_aggregate_summary(
     return FleetAggregateSummary(
         profiles_total=len(profiles),
         profiles_with_findings=sum(1 for item in profiles if item.summary.findings_total > 0),
-        profiles_with_high_findings=sum(1 for item in profiles if item.summary.findings_high_count > 0),
+        profiles_with_high_findings=sum(
+            1 for item in profiles if item.summary.findings_high_count > 0
+        ),
         findings_total=sum(item.summary.findings_total for item in profiles),
         findings_high_count=sum(item.summary.findings_high_count for item in profiles),
         findings_medium_count=sum(item.summary.findings_medium_count for item in profiles),

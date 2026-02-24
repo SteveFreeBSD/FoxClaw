@@ -17,7 +17,7 @@ breaking deterministic scan behavior.
   - `results.tsv`
   - `fidelity-summary.json`
   - `adversary-summary.json`
-- Manual review is possible but not yet automated into a first-class learning store.
+- WS-55A is complete, providing a deterministic history store and append-only ingestion CLI.
 
 ## Target State (WS-55/WS-56)
 
@@ -31,7 +31,7 @@ breaking deterministic scan behavior.
 
 ## Immediate Implementation Order
 
-1. WS-55A:
+1. WS-55A (complete):
    - history ingestion command + schema + retention policy.
    - deterministic per-run learning artifact.
 2. WS-55B:

@@ -65,9 +65,7 @@ def verify_bundle_manifest(
 ) -> None:
     """Verify a downloaded bundle manifest envelope against the trusted keyring."""
     reference_time = (
-        verification_time.astimezone(UTC)
-        if verification_time is not None
-        else datetime.now(UTC)
+        verification_time.astimezone(UTC) if verification_time is not None else datetime.now(UTC)
     )
 
     signature_entry = bundle_manifest.manifest_signature
@@ -92,7 +90,9 @@ def verify_bundle_manifest(
 
     availability_error = validate_key_availability(key=key, reference_time=reference_time)
     if availability_error is not None:
-        raise ValueError(f"bundle verification failed: key_id '{key_id}' is unavailable: {availability_error}")
+        raise ValueError(
+            f"bundle verification failed: key_id '{key_id}' is unavailable: {availability_error}"
+        )
 
     try:
         verify_ed25519_signature(

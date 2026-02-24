@@ -18,15 +18,29 @@ def test_keypair() -> tuple[str, str]:
     """Return a generated Ed25519 public and private key in base64."""
     private_key = Ed25519PrivateKey.generate()
     public_key = private_key.public_key()
-    pub_b64 = base64.b64encode(public_key.public_bytes(
-        encoding=__import__("cryptography.hazmat.primitives.serialization", fromlist=["Encoding"]).Encoding.Raw,
-        format=__import__("cryptography.hazmat.primitives.serialization", fromlist=["PublicFormat"]).PublicFormat.Raw,
-    )).decode("ascii")
-    priv_b64 = base64.b64encode(private_key.private_bytes(
-        encoding=__import__("cryptography.hazmat.primitives.serialization", fromlist=["Encoding"]).Encoding.Raw,
-        format=__import__("cryptography.hazmat.primitives.serialization", fromlist=["PrivateFormat"]).PrivateFormat.Raw,
-        encryption_algorithm=__import__("cryptography.hazmat.primitives.serialization", fromlist=["NoEncryption"]).NoEncryption(),
-    )).decode("ascii")
+    pub_b64 = base64.b64encode(
+        public_key.public_bytes(
+            encoding=__import__(
+                "cryptography.hazmat.primitives.serialization", fromlist=["Encoding"]
+            ).Encoding.Raw,
+            format=__import__(
+                "cryptography.hazmat.primitives.serialization", fromlist=["PublicFormat"]
+            ).PublicFormat.Raw,
+        )
+    ).decode("ascii")
+    priv_b64 = base64.b64encode(
+        private_key.private_bytes(
+            encoding=__import__(
+                "cryptography.hazmat.primitives.serialization", fromlist=["Encoding"]
+            ).Encoding.Raw,
+            format=__import__(
+                "cryptography.hazmat.primitives.serialization", fromlist=["PrivateFormat"]
+            ).PrivateFormat.Raw,
+            encryption_algorithm=__import__(
+                "cryptography.hazmat.primitives.serialization", fromlist=["NoEncryption"]
+            ).NoEncryption(),
+        )
+    ).decode("ascii")
     return pub_b64, priv_b64
 
 
@@ -40,9 +54,9 @@ def valid_keyring(test_keypair: tuple[str, str], tmp_path: Path) -> Path:
                 "key_id": "test-root",
                 "algorithm": "ed25519",
                 "public_key": pub_key,
-                "status": "active"
+                "status": "active",
             }
-        ]
+        ],
     }
     path = tmp_path / "keyring.json"
     path.write_text(json.dumps(payload))
@@ -59,6 +73,7 @@ def _create_bundle_tarball(
         ti = tarfile.TarInfo("__manifest__.json")
         ti.size = len(manifest_bytes)
         import io
+
         tar.addfile(ti, io.BytesIO(manifest_bytes))
 
         if extra_files:
@@ -69,7 +84,9 @@ def _create_bundle_tarball(
                 tar.addfile(ti, io.BytesIO(content_bytes))
 
 
-def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path) -> None:
+def test_verify_and_unpack_bundle_success(
+    test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path
+) -> None:
     _pub_key, priv_key = test_keypair
     private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
 
@@ -101,7 +118,11 @@ def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_k
     }
 
     archive_path = tmp_path / "bundle.tar.gz"
-    _create_bundle_tarball(archive_path, bundle_manifest, extra_files={"strict.yml": "name: strict\nversion: 1.0.0\nrules: []\n"})
+    _create_bundle_tarball(
+        archive_path,
+        bundle_manifest,
+        extra_files={"strict.yml": "name: strict\nversion: 1.0.0\nrules: []\n"},
+    )
 
     install_dir = tmp_path / "installed"
     manifest = verify_and_unpack_bundle(
@@ -115,7 +136,9 @@ def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_k
     assert (install_dir / "strict.yml").exists()
 
 
-def test_verify_and_unpack_bundle_revoked_key(test_keypair: tuple[str, str], tmp_path: Path) -> None:
+def test_verify_and_unpack_bundle_revoked_key(
+    test_keypair: tuple[str, str], tmp_path: Path
+) -> None:
     pub_key, priv_key = test_keypair
     private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
 
@@ -127,15 +150,17 @@ def test_verify_and_unpack_bundle_revoked_key(test_keypair: tuple[str, str], tmp
                 "key_id": "test-root",
                 "algorithm": "ed25519",
                 "public_key": pub_key,
-                "status": "revoked"
+                "status": "revoked",
             }
-        ]
+        ],
     }
     keyring_path = tmp_path / "keyring.json"
     keyring_path.write_text(json.dumps(payload))
 
     rulesets_manifest = RulesetTrustManifest(schema_version="1.0.0", keys=[], rulesets=[])
-    payload_bytes = json.dumps(rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payload_bytes = json.dumps(
+        rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
     sig_b64 = base64.b64encode(private_key.sign(payload_bytes)).decode("ascii")
 
     bundle_manifest = {
@@ -156,11 +181,16 @@ def test_verify_and_unpack_bundle_revoked_key(test_keypair: tuple[str, str], tmp
     install_dir = tmp_path / "installed"
     with pytest.raises(ValueError, match="is revoked"):
         verify_and_unpack_bundle(
-            archive_path=archive_path, install_dir=install_dir, key_id="test-root", keyring_path=keyring_path,
+            archive_path=archive_path,
+            install_dir=install_dir,
+            key_id="test-root",
+            keyring_path=keyring_path,
         )
 
 
-def test_verify_and_unpack_bundle_invalid_signature(test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path) -> None:
+def test_verify_and_unpack_bundle_invalid_signature(
+    test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path
+) -> None:
     _pub_key, _ = test_keypair
     # Forge a bad signature
     bad_sig = base64.b64encode(b"a" * 64).decode("ascii")
@@ -185,16 +215,23 @@ def test_verify_and_unpack_bundle_invalid_signature(test_keypair: tuple[str, str
     install_dir = tmp_path / "installed"
     with pytest.raises(ValueError, match="ed25519 signature verification failed"):
         verify_and_unpack_bundle(
-            archive_path=archive_path, install_dir=install_dir, key_id="test-root", keyring_path=valid_keyring,
+            archive_path=archive_path,
+            install_dir=install_dir,
+            key_id="test-root",
+            keyring_path=valid_keyring,
         )
 
 
-def test_verify_and_unpack_bundle_wrong_expected_key(test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path) -> None:
+def test_verify_and_unpack_bundle_wrong_expected_key(
+    test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path
+) -> None:
     _pub_key, priv_key = test_keypair
     private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
 
     rulesets_manifest = RulesetTrustManifest(schema_version="1.0.0", keys=[], rulesets=[])
-    payload_bytes = json.dumps(rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payload_bytes = json.dumps(
+        rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
     sig_b64 = base64.b64encode(private_key.sign(payload_bytes)).decode("ascii")
 
     bundle_manifest = {
@@ -213,7 +250,12 @@ def test_verify_and_unpack_bundle_wrong_expected_key(test_keypair: tuple[str, st
     _create_bundle_tarball(archive_path, bundle_manifest)
 
     install_dir = tmp_path / "installed"
-    with pytest.raises(ValueError, match="manifest signed by 'test-root', but expected 'wrong-key'"):
+    with pytest.raises(
+        ValueError, match="manifest signed by 'test-root', but expected 'wrong-key'"
+    ):
         verify_and_unpack_bundle(
-            archive_path=archive_path, install_dir=install_dir, key_id="wrong-key", keyring_path=valid_keyring,
+            archive_path=archive_path,
+            install_dir=install_dir,
+            key_id="wrong-key",
+            keyring_path=valid_keyring,
         )

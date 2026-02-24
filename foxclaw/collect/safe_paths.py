@@ -64,9 +64,7 @@ def _reject_symlink_components(*, profile_root: Path, candidate: Path) -> None:
     for token in relative_candidate.parts:
         current = current / token
         if current.is_symlink():
-            raise ProfilePathSymlinkError(
-                f"symlinked profile path is not allowed: {current}"
-            )
+            raise ProfilePathSymlinkError(f"symlinked profile path is not allowed: {current}")
 
 
 def _is_within_root(path: Path, root: Path) -> bool:

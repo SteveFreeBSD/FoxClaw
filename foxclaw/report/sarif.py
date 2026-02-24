@@ -94,9 +94,7 @@ def _build_rules(findings: list[Finding]) -> tuple[list[dict[str, object]], dict
                 "fullDescription": {"text": finding.rationale},
                 "help": {"text": finding.recommendation},
                 "helpUri": _rule_help_uri(finding.id),
-                "defaultConfiguration": {
-                    "level": _SEVERITY_TO_LEVEL[finding.severity]
-                },
+                "defaultConfiguration": {"level": _SEVERITY_TO_LEVEL[finding.severity]},
                 "properties": {
                     "category": finding.category,
                     "confidence": finding.confidence,

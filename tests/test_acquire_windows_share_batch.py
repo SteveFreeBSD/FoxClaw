@@ -18,7 +18,9 @@ def test_run_windows_share_batch_continues_after_failure_and_writes_summary(tmp_
     for profile_name in ("profile-c", "profile-a", "profile-b"):
         profile_dir = source_root / profile_name
         profile_dir.mkdir(parents=True, exist_ok=True)
-        (profile_dir / "prefs.js").write_text('user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8")
+        (profile_dir / "prefs.js").write_text(
+            'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+        )
 
     # Non-directory entries are ignored by the batch enumerator.
     (source_root / "README.txt").write_text("not a profile directory\n", encoding="utf-8")

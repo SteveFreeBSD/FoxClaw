@@ -87,7 +87,9 @@ def verify_ruleset_with_manifest(
 ) -> None:
     """Verify ruleset digest/signature trust policy from a manifest file."""
     manifest = _load_manifest(manifest_path)
-    entry = _resolve_ruleset_entry(manifest=manifest, ruleset_path=ruleset_path, manifest_path=manifest_path)
+    entry = _resolve_ruleset_entry(
+        manifest=manifest, ruleset_path=ruleset_path, manifest_path=manifest_path
+    )
 
     ruleset_bytes = _read_ruleset_bytes(ruleset_path)
     digest = hashlib.sha256(ruleset_bytes).hexdigest()
@@ -120,9 +122,7 @@ def verify_ruleset_with_manifest(
         )
 
     reference_time = (
-        verification_time.astimezone(UTC)
-        if verification_time is not None
-        else datetime.now(UTC)
+        verification_time.astimezone(UTC) if verification_time is not None else datetime.now(UTC)
     )
 
     verified_key_ids: set[str] = set()

@@ -114,9 +114,7 @@ def _load_amo_extension_intel(
                 average_daily_users=(
                     int(average_daily_users) if average_daily_users is not None else None
                 ),
-                recommended=(
-                    bool(int(recommended)) if recommended is not None else None
-                ),
+                recommended=(bool(int(recommended)) if recommended is not None else None),
                 reason=str(reason) if reason is not None else None,
                 reference_url=str(reference_url) if reference_url is not None else None,
             )

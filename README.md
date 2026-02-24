@@ -144,7 +144,39 @@ foxclaw scan \
   --json
 ```
 
-Stage and scan a Firefox profile copied from a Windows share or mounted SMB path:
+Scan a Firefox profile from a mounted Windows share path with automatic local staging:
+
+```bash
+foxclaw scan \
+  --profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+  --ruleset foxclaw/rulesets/strict.yml \
+  --output /var/tmp/foxclaw-share-jdoe/foxclaw.json \
+  --sarif-out /var/tmp/foxclaw-share-jdoe/foxclaw.sarif \
+  --stage-manifest-out /var/tmp/foxclaw-share-jdoe/stage-manifest.json
+```
+
+`foxclaw scan` stages share-hosted profiles under a local staging root before collectors run.
+Default behavior refuses active profile lock markers (`parent.lock`, `.parentlock`, `lock`);
+use `--allow-active-profile` only for validated crash-consistent captures.
+
+Windows-share profile lineage for current soak/testbed:
+- seed profile renamed: `ejm2bj4s.foxclaw-test` -> `foxclaw-seed.default`
+- `foxclaw-seed.default` was used to seed 50 generated sibling profiles in the current
+  profile directory.
+
+Windows-share command structure (current):
+
+- `foxclaw scan`:
+  - primary single-profile workflow,
+  - auto-stages share-hosted profiles before collectors run.
+- `foxclaw acquire windows-share-scan`:
+  - explicit staging wrapper for orchestration pipelines,
+  - supports `--treat-high-findings-as-success` and explicit `--snapshot-id`.
+- `foxclaw acquire windows-share-batch`:
+  - loops immediate child profile directories under one source root,
+  - writes `windows-share-batch-summary.json` with per-profile outcomes.
+
+Explicit acquisition example (`windows-share-scan`):
 
 ```bash
 foxclaw acquire windows-share-scan \
@@ -152,9 +184,6 @@ foxclaw acquire windows-share-scan \
   --ruleset foxclaw/rulesets/strict.yml \
   --output-dir /var/tmp/foxclaw-share-jdoe
 ```
-
-Default behavior refuses active profile lock markers (`parent.lock`, `.parentlock`, `lock`).
-Use `--allow-active-profile` only for validated crash-consistent captures.
 
 Batch stage-and-scan many profile directories from one mounted share root:
 
@@ -169,9 +198,9 @@ foxclaw acquire windows-share-batch \
 
 Canonical CLI contract:
 
-- `0`: scan completed and emitted no `HIGH` findings.
-- `1`: operational error (invalid input, IO failure, invalid flag combinations).
-- `2`: scan completed and emitted one or more `HIGH` findings.
+- `0`: command completed successfully (e.g., scan with no `HIGH` findings, or no drift detected).
+- `1`: operational error (invalid input, IO failure, invalid flag combinations, active profile locks, UNC paths).
+- `2`: high-signal outcome (e.g., scan emitted `HIGH` findings, snapshot drift detected, or suppression audit violations found).
 
 ## SARIF and GitHub Code Scanning
 

@@ -71,15 +71,11 @@ def test_dsl_pref_equals_and_pref_unset_semantics() -> None:
         }
     )
 
-    mismatch = evaluate_check(
-        bundle, {"pref_equals": {"key": "test.pref", "value": True}}
-    )
+    mismatch = evaluate_check(bundle, {"pref_equals": {"key": "test.pref", "value": True}})
     assert mismatch.passed is False
     assert mismatch.evidence
 
-    unset = evaluate_check(
-        bundle, {"pref_equals": {"key": "missing.pref", "value": True}}
-    )
+    unset = evaluate_check(bundle, {"pref_equals": {"key": "missing.pref", "value": True}})
     assert unset.passed is True
 
 
@@ -92,15 +88,11 @@ def test_dsl_pref_equals_requires_type_stable_matches() -> None:
         }
     )
 
-    bool_vs_int = evaluate_check(
-        bundle, {"pref_equals": {"key": "bool.pref", "value": 1}}
-    )
+    bool_vs_int = evaluate_check(bundle, {"pref_equals": {"key": "bool.pref", "value": 1}})
     assert bool_vs_int.passed is False
     assert "expected=1 (int), observed=True (bool)" in bool_vs_int.evidence[0]
 
-    int_vs_bool = evaluate_check(
-        bundle, {"pref_equals": {"key": "int.pref", "value": True}}
-    )
+    int_vs_bool = evaluate_check(bundle, {"pref_equals": {"key": "int.pref", "value": True}})
     assert int_vs_bool.passed is False
     assert "expected=True (bool), observed=1 (int)" in int_vs_bool.evidence[0]
 
@@ -155,9 +147,7 @@ def test_dsl_policy_key_exists() -> None:
         ],
     )
 
-    result = evaluate_check(
-        bundle, {"policy_key_exists": {"path": "policies.DisableTelemetry"}}
-    )
+    result = evaluate_check(bundle, {"policy_key_exists": {"path": "policies.DisableTelemetry"}})
     assert result.passed is True
 
 
@@ -240,9 +230,7 @@ Default=1
     )
 
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "prefs.js").write_text(
-        'user_pref("scan.pref", true);\n', encoding="utf-8"
-    )
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
     (profile_dir / "prefs.js").chmod(0o600)
 
     # Intentionally relaxed mode to trigger HIGH file_perm_strict failure.
@@ -321,9 +309,7 @@ def test_scan_profile_override_skips_discovery(tmp_path: Path, monkeypatch) -> N
     home = tmp_path / "home-without-firefox-config"
     profile_dir = tmp_path / "manual-profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "prefs.js").write_text(
-        'user_pref("scan.pref", true);\n', encoding="utf-8"
-    )
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
 
     ruleset = tmp_path / "rules.yml"
     ruleset.write_text(
@@ -369,9 +355,7 @@ def test_scan_profile_override_skips_discovery(tmp_path: Path, monkeypatch) -> N
     assert payload["profile"]["path"] == str(profile_dir.resolve())
 
 
-def test_require_quiet_profile_exits_before_sqlite_checks(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_require_quiet_profile_exits_before_sqlite_checks(tmp_path: Path, monkeypatch) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "parent.lock").write_text("", encoding="utf-8")
@@ -453,9 +437,7 @@ def test_high_findings_ids_and_summary_counts_align(tmp_path: Path) -> None:
     assert result.exit_code == 2
     payload = json.loads(result.stdout)
     findings = payload["findings"]
-    high_ids_from_findings = [
-        item["id"] for item in findings if item["severity"] == "HIGH"
-    ]
+    high_ids_from_findings = [item["id"] for item in findings if item["severity"] == "HIGH"]
 
     assert all(isinstance(item, str) for item in payload["high_findings"])
     assert payload["high_findings"] == high_ids_from_findings
@@ -463,9 +445,10 @@ def test_high_findings_ids_and_summary_counts_align(tmp_path: Path) -> None:
     summary = payload["summary"]
     assert len(findings) == summary["findings_total"]
     assert len(high_ids_from_findings) == summary["findings_high_count"]
-    assert sum(1 for item in findings if item["severity"] == "MEDIUM") == summary[
-        "findings_medium_count"
-    ]
-    assert sum(1 for item in findings if item["severity"] == "INFO") == summary[
-        "findings_info_count"
-    ]
+    assert (
+        sum(1 for item in findings if item["severity"] == "MEDIUM")
+        == summary["findings_medium_count"]
+    )
+    assert (
+        sum(1 for item in findings if item["severity"] == "INFO") == summary["findings_info_count"]
+    )

@@ -12,9 +12,11 @@ TESTBED_ROOT = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "tes
 TESTBED_RULESET = TESTBED_ROOT / "rulesets" / "integration.yml"
 TESTBED_POLICY = TESTBED_ROOT / "policies" / "disable_telemetry.json"
 
+
 def _load_official_sarif_schema() -> dict[str, object]:
     path = Path(__file__).resolve().parents[1] / "tests" / "schemas" / "sarif-schema-2.1.0.json"
     return json.loads(path.read_text(encoding="utf-8"))
+
 
 def test_json_and_sarif_are_deterministic(tmp_path: Path) -> None:
     profile_src = TESTBED_ROOT / "profile_policy_present"
@@ -38,9 +40,12 @@ def test_json_and_sarif_are_deterministic(tmp_path: Path) -> None:
     runner = CliRunner()
     base_cmd = [
         "scan",
-        "--profile", str(profile),
-        "--ruleset", str(TESTBED_RULESET),
-        "--policy-path", str(TESTBED_POLICY),
+        "--profile",
+        str(profile),
+        "--ruleset",
+        str(TESTBED_RULESET),
+        "--policy-path",
+        str(TESTBED_POLICY),
         "--deterministic",
     ]
 

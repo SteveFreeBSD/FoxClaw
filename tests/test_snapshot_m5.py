@@ -63,6 +63,4 @@ def test_snapshot_output_is_deterministic_for_same_input(tmp_path: Path) -> None
 
     assert first_result.exit_code == 2
     assert second_result.exit_code == 2
-    assert first_snapshot.read_text(encoding="utf-8") == second_snapshot.read_text(
-        encoding="utf-8"
-    )
+    assert first_snapshot.read_text(encoding="utf-8") == second_snapshot.read_text(encoding="utf-8")

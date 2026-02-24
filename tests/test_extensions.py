@@ -180,7 +180,9 @@ def test_collect_extensions_marks_temporarily_installed_debug_extensions(tmp_pat
     assert entry.debug_reason == "temporarilyInstalled=1"
 
 
-def test_collect_extensions_marks_external_temp_source_path_as_debug_install(tmp_path: Path) -> None:
+def test_collect_extensions_marks_external_temp_source_path_as_debug_install(
+    tmp_path: Path,
+) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
 
@@ -254,7 +256,9 @@ def test_collect_extensions_profile_path_is_not_marked_debug_install(tmp_path: P
     assert entry.debug_reason is None
 
 
-def test_collect_extensions_builtin_without_manifest_is_reported_as_unavailable(tmp_path: Path) -> None:
+def test_collect_extensions_builtin_without_manifest_is_reported_as_unavailable(
+    tmp_path: Path,
+) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
 
@@ -329,7 +333,7 @@ def test_dsl_extension_unsigned_debug_and_permission_risk_absent() -> None:
                         reason="test",
                     ),
                 ],
-            )
+            ),
         ],
         addons_seen=1,
         active_addons=1,

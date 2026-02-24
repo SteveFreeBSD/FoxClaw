@@ -18,7 +18,9 @@ def _write_profile(profile_dir: Path, *, with_bad_extensions: bool = False) -> N
     profile_dir.mkdir(parents=True, exist_ok=True)
     _create_sqlite(profile_dir / "places.sqlite")
     _create_sqlite(profile_dir / "cookies.sqlite")
-    (profile_dir / "prefs.js").write_text('user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8")
+    (profile_dir / "prefs.js").write_text(
+        'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+    )
 
     if with_bad_extensions:
         (profile_dir / "extensions.json").write_text(

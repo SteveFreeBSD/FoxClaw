@@ -42,7 +42,10 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
     table.add_row("Total HIGH findings", str(bundle.summary.findings_high_count))
 
     if bundle.bundle_provenance:
-        table.add_row("Bundle loaded", f"{bundle.bundle_provenance.bundle_name}@{bundle.bundle_provenance.bundle_version}")
+        table.add_row(
+            "Bundle loaded",
+            f"{bundle.bundle_provenance.bundle_name}@{bundle.bundle_provenance.bundle_version}",
+        )
 
     console.print(table)
     _render_extension_posture(console, bundle)
@@ -50,9 +53,7 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
     _render_suppression_summary(console, bundle)
 
     counts = Counter(finding.severity for finding in bundle.findings)
-    high_rule_ids = [
-        finding.id for finding in bundle.findings if finding.severity == "HIGH"
-    ][:5]
+    high_rule_ids = [finding.id for finding in bundle.findings if finding.severity == "HIGH"][:5]
 
     findings_table = Table(title="Rule Findings Summary")
     findings_table.add_column("Metric")
@@ -145,11 +146,7 @@ def _is_system_source(entry: ExtensionEntry) -> bool:
 
 def _format_extension_intel(entry: ExtensionEntry) -> str:
     reputation = entry.intel_reputation_level or "-"
-    listed = (
-        "-"
-        if entry.intel_listed is None
-        else ("yes" if entry.intel_listed else "no")
-    )
+    listed = "-" if entry.intel_listed is None else ("yes" if entry.intel_listed else "no")
     return f"{reputation}/{listed}"
 
 

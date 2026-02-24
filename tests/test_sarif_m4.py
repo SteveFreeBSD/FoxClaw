@@ -41,9 +41,7 @@ def _bundle_with_findings(findings: list[Finding]) -> EvidenceBundle:
             sqlite_non_ok_count=0,
             findings_total=len(findings),
             findings_high_count=sum(1 for item in findings if item.severity == "HIGH"),
-            findings_medium_count=sum(
-                1 for item in findings if item.severity == "MEDIUM"
-            ),
+            findings_medium_count=sum(1 for item in findings if item.severity == "MEDIUM"),
             findings_info_count=sum(1 for item in findings if item.severity == "INFO"),
         ),
         high_findings=[],
@@ -126,12 +124,8 @@ def test_render_sarif_has_required_fields_and_result_mappings() -> None:
     assert levels == ["error", "error", "warning", "note"]
 
     assert results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "key4.db"
-    assert results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
-        "profile"
-    )
-    assert results[2]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
-        "profile"
-    )
+    assert results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == ("profile")
+    assert results[2]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == ("profile")
     assert results[3]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
         "/etc/firefox/policies/policies.json"
     )
@@ -261,9 +255,7 @@ Default=1
 """,
     )
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "prefs.js").write_text(
-        'user_pref("scan.pref", true);\n', encoding="utf-8"
-    )
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
     (profile_dir / "prefs.js").chmod(0o600)
 
     # Ruleset intentionally emits INFO only so exit code remains 0.

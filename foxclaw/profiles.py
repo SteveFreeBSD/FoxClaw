@@ -96,8 +96,7 @@ def discover_profiles(
     selected.selected = True
     if selected.lock_detected:
         selected.selection_reason = (
-            "Selected due to active lock file(s): "
-            f"{', '.join(selected.lock_files)}."
+            f"Selected due to active lock file(s): {', '.join(selected.lock_files)}."
         )
     else:
         selected.selection_reason = (
@@ -186,9 +185,7 @@ def _score_profiles(profiles: list[FirefoxProfile]) -> None:
     max_mtime = max(mtimes, default=0.0)
 
     for profile in profiles:
-        profile.suffix_score = (
-            35.0 if profile.path.name.endswith(_DEFAULT_RELEASE_SUFFIX) else 0.0
-        )
+        profile.suffix_score = 35.0 if profile.path.name.endswith(_DEFAULT_RELEASE_SUFFIX) else 0.0
         profile.default_score = 25.0 if profile.default_flag else 0.0
         profile.places_score = (
             25.0 * (profile.places_size_bytes / max_places) if max_places > 0 else 0.0
@@ -199,9 +196,7 @@ def _score_profiles(profiles: list[FirefoxProfile]) -> None:
             profile.mtime_score = 15.0
         else:
             profile.mtime_score = (
-                15.0
-                * (profile.directory_mtime - min_mtime)
-                / (max_mtime - min_mtime)
+                15.0 * (profile.directory_mtime - min_mtime) / (max_mtime - min_mtime)
             )
         profile.total_score = (
             profile.suffix_score

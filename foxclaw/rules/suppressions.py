@@ -38,10 +38,7 @@ def apply_suppressions(
 
     resolved_now = (now or datetime.now(UTC)).astimezone(UTC)
     source_paths = sorted(
-        {
-            path.expanduser().resolve(strict=False).as_posix()
-            for path in suppression_paths
-        }
+        {path.expanduser().resolve(strict=False).as_posix() for path in suppression_paths}
     )
 
     source_entries, legacy_count = _load_suppression_sources(suppression_paths)
@@ -85,7 +82,9 @@ def apply_suppressions(
         evidence.applied_by_owner[match.owner] = evidence.applied_by_owner.get(match.owner, 0) + 1
         if match.approval is not None:
             approver = match.approval.approved_by
-            evidence.applied_by_approver[approver] = evidence.applied_by_approver.get(approver, 0) + 1
+            evidence.applied_by_approver[approver] = (
+                evidence.applied_by_approver.get(approver, 0) + 1
+            )
 
         delta = match.expires_at - resolved_now
         if 0 <= delta.days <= 30:
@@ -128,12 +127,16 @@ def _load_suppression_sources(paths: list[Path]) -> tuple[list[_SuppressionSourc
             raise ValueError(f"Suppression policy validation failed: {path}: {exc}") from exc
 
         if policy.schema_version not in ("1.0.0", "1.1.0"):
-            raise ValueError(f"Unsupported suppression schema_version '{policy.schema_version}': {path}")
+            raise ValueError(
+                f"Unsupported suppression schema_version '{policy.schema_version}': {path}"
+            )
         if policy.schema_version == "1.0.0":
             legacy_count += 1
 
         for index, entry in enumerate(policy.suppressions):
-            normalized = _normalize_entry(entry, source_path=path, index=index, schema_version=policy.schema_version)
+            normalized = _normalize_entry(
+                entry, source_path=path, index=index, schema_version=policy.schema_version
+            )
             loaded.append(_SuppressionSource(source_path=path, entry=normalized))
 
     # Deterministic matching precedence: path, rule id, then suppression id.
@@ -189,7 +192,9 @@ def _normalize_entry(
         exp_utc = entry.expires_at.astimezone(UTC)
 
         if req_utc > app_utc:
-            raise ValueError(f"{prefix}: requested_at ({req_utc}) must be <= approved_at ({app_utc})")
+            raise ValueError(
+                f"{prefix}: requested_at ({req_utc}) must be <= approved_at ({app_utc})"
+            )
         if app_utc >= exp_utc:
             raise ValueError(f"{prefix}: approved_at ({app_utc}) must be < expires_at ({exp_utc})")
 

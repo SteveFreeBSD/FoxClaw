@@ -83,11 +83,11 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-55A | complete | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |
 | WS-55B | pending | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
 | WS-56 | pending | WS-55B, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
-| WS-57 | pending | none | Restore quality gate health (`ruff`, `detect-secrets`) to unblock reliable merge validation. |
-| WS-58 | pending | WS-57 | Enforce exit-code contract conformance for operational errors vs high-signal scan outcomes. |
-| WS-59 | pending | WS-58 | Align UNC fail-closed and lock-marker checks across `scan`, `live`, discovery, and acquire paths. |
-| WS-60 | pending | WS-58 | Correct learning-store determinism and metadata extraction logic with regression tests. |
-| WS-61 | pending | WS-58, WS-59, WS-60 | Synchronize docs with runtime behavior (exit codes, lock markers, artifact names, WS status). |
+| WS-57 | complete | none | Restore quality gate health (`ruff`, `detect-secrets`) to unblock reliable merge validation. |
+| WS-58 | complete | WS-57 | Enforce exit-code contract conformance for operational errors vs high-signal scan outcomes. |
+| WS-59 | complete | WS-58 | Align UNC fail-closed and lock-marker checks across `scan`, `live`, discovery, and acquire paths. |
+| WS-60 | complete | WS-58 | Correct learning-store determinism and metadata extraction logic with regression tests. |
+| WS-61 | complete | WS-58, WS-59, WS-60 | Synchronize docs with runtime behavior (exit codes, lock markers, artifact names, WS status). |
 | WS-62 | complete | WS-59 | Reduce duplicated helpers/constants without behavior drift. |
 | WS-63 | complete | WS-61 | Resolve low-risk CLI/API polish items (`writeable` strategy, policy-path error wording, trust helper API boundaries). |
 | WS-64 | pending | WS-57, WS-58, WS-59, WS-60, WS-61, WS-62, WS-63 | Audit-readiness gate: full checks + windows-share mini soak + zero open critical/high audit findings. |
@@ -565,7 +565,9 @@ This plan converts the current review and research into sequenced, testable exec
   - Added deterministic staging + scan automation script:
     - `scripts/windows_share_scan.py`
   - Promoted lane into first-class CLI integration:
+    - `foxclaw scan` (auto-stage for share-hosted profile paths)
     - `foxclaw acquire windows-share-scan`
+    - `foxclaw acquire windows-share-batch`
     - implementation entrypoint: `foxclaw/acquire/windows_share.py`
   - Workflow behavior:
     - copies profile from share/mount path into local staging snapshot,
@@ -769,7 +771,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-57 - Quality Gate Unblock Pack
 
-- Status: pending.
+- Status: complete.
 - Goal: reestablish deterministic branch-health validation before functional changes continue.
 - Scope:
   - clear `ruff` failures.
@@ -778,7 +780,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-58 - Exit-Code Contract Conformance
 
-- Status: pending.
+- Status: complete.
 - Goal: ensure operational failures never use finding-oriented exit codes.
 - Scope:
   - normalize acquire/scan command operational-error returns to `1`.
@@ -787,7 +789,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-59 - Command Safety Parity (UNC + Lock Markers)
 
-- Status: pending.
+- Status: complete.
 - Goal: enforce identical fail-closed path safety semantics across command entrypoints.
 - Scope:
   - apply UNC default-deny policy to `live` command path.
@@ -796,7 +798,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-60 - Learning Store Correctness Hardening
 
-- Status: pending.
+- Status: complete.
 - Goal: make learning-store behavior match determinism claims and remove ineffective metadata extraction.
 - Scope:
   - remove or replace dead `hasattr()` extraction paths.
@@ -805,7 +807,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-61 - Documentation Contract Synchronization
 
-- Status: pending.
+- Status: complete.
 - Goal: eliminate drift between docs, CLI behavior, and collector/runtime implementation.
 - Scope:
   - align exit-code semantics language.

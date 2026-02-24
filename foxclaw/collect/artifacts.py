@@ -165,7 +165,9 @@ def _collect_handler_keys(payload: dict[str, object]) -> dict[str, str]:
     return key_values
 
 
-def _parse_compatibility_ini(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+def _parse_compatibility_ini(
+    path: Path,
+) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
     parser = configparser.ConfigParser(interpolation=None)
     try:
         parser.read_string(path.read_text(encoding="utf-8", errors="replace"))
