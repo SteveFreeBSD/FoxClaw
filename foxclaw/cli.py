@@ -11,10 +11,15 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from foxclaw.acquire.windows_share import run_windows_share_scan_from_argv
+from foxclaw.acquire.windows_share import (
+    is_windows_share_profile_source,
+    run_windows_share_scan_from_argv,
+    stage_windows_share_profile,
+    write_windows_share_manifest,
+)
 from foxclaw.acquire.windows_share_batch import run_windows_share_batch
 from foxclaw.intel.sync import sync_sources
-from foxclaw.profiles import FirefoxProfile, discover_profiles
+from foxclaw.profiles import PROFILE_LOCK_FILES, FirefoxProfile, discover_profiles
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
@@ -108,7 +113,33 @@ def scan(
     allow_unc_profile: bool = typer.Option(
         False,
         "--allow-unc-profile",
-        help="Allow scanning UNC profile paths directly (lab-only).",
+        help=(
+            "Deprecated compatibility flag; share-hosted profiles are staged locally "
+            "before scan."
+        ),
+    ),
+    staging_root: Path | None = typer.Option(
+        None,
+        "--staging-root",
+        help="Override local staging root when scanning share-hosted profiles.",
+    ),
+    allow_active_profile: bool = typer.Option(
+        False,
+        "--allow-active-profile",
+        help=(
+            "Allow staging when source profile lock markers are present; use only for "
+            "validated crash-consistent snapshots."
+        ),
+    ),
+    keep_stage_writeable: bool = typer.Option(
+        False,
+        "--keep-stage-writeable",
+        help="Do not remove write bits from staged files.",
+    ),
+    stage_manifest_out: Path | None = typer.Option(
+        None,
+        "--stage-manifest-out",
+        help="Optional stage-manifest output path when share-hosted staging is used.",
     ),
     require_quiet_profile: bool = typer.Option(
         False,
@@ -199,17 +230,27 @@ def scan(
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
-    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
-        console.print(
-            "[red]Operational error: UNC profile paths are disabled by default. "
-            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
-            "--allow-unc-profile for lab-only workflows.[/red]"
-        )
-        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
-
+    stage_result = None
     selected_profile: FirefoxProfile | None = None
     if profile is not None:
-        selected_profile = _build_profile_override(profile)
+        if is_windows_share_profile_source(profile):
+            try:
+                stage_result = stage_windows_share_profile(
+                    source_profile=profile,
+                    staging_root=staging_root,
+                    json_out=output,
+                    sarif_out=sarif_out,
+                    scan_snapshot_out=snapshot_out,
+                    manifest_out=stage_manifest_out,
+                    allow_active_profile=allow_active_profile,
+                    keep_stage_writeable=keep_stage_writeable,
+                )
+                selected_profile = _build_profile_override(stage_result.paths.staged_profile)
+            except (OSError, RuntimeError, ValueError) as exc:
+                console.print(f"[red]Operational error: {exc}[/red]")
+                raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        else:
+            selected_profile = _build_profile_override(profile)
     else:
         report = discover_profiles()
         selected_profile = next((p for p in report.profiles if p.selected), None)
@@ -221,16 +262,58 @@ def scan(
                     console.print(f"  - {search_dir}")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
+    resolved_ruleset_path = resolve_ruleset_path(ruleset)
+    stage_scan_command = _build_stage_scan_manifest_command(
+        profile_path=selected_profile.path,
+        resolved_ruleset_path=resolved_ruleset_path,
+        json_output=json_output,
+        sarif_output=sarif_output,
+        output=output,
+        sarif_out=sarif_out,
+        snapshot_out=snapshot_out,
+        deterministic=deterministic,
+        policy_path=policy_path,
+        suppression_path=suppression_path,
+        intel_store_dir=intel_store_dir,
+        intel_snapshot_id=intel_snapshot_id,
+        require_quiet_profile=require_quiet_profile,
+        ruleset_trust_manifest=ruleset_trust_manifest,
+        require_ruleset_signatures=require_ruleset_signatures,
+        history_db=history_db,
+        learning_artifact_out=learning_artifact_out,
+    )
+
+    def _write_stage_manifest(*, exit_code: int, status: str, strict: bool) -> None:
+        if stage_result is None:
+            return
+        stage_result.manifest_payload["scan"] = {
+            "command": stage_scan_command,
+            "exit_code": exit_code,
+            "status": status,
+        }
+        try:
+            write_windows_share_manifest(
+                stage_result.paths.manifest_out,
+                stage_result.manifest_payload,
+            )
+        except OSError as exc:
+            if strict:
+                raise
+            console.print(f"[yellow]Warning: failed to write stage manifest: {exc}[/yellow]")
+
     if require_quiet_profile:
         active_reason = detect_active_profile_reason(selected_profile.path)
         if active_reason is not None:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(
                 "[red]Operational error: quiet profile required; "
                 f"profile appears active ({active_reason}).[/red]"
             )
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
-
-    resolved_ruleset_path = resolve_ruleset_path(ruleset)
 
     try:
         if ruleset_trust_manifest is not None:
@@ -248,6 +331,11 @@ def scan(
             intel_snapshot_id=intel_snapshot_id,
         )
     except (OSError, ValueError) as exc:
+        _write_stage_manifest(
+            exit_code=EXIT_OPERATIONAL_ERROR,
+            status="FAIL",
+            strict=False,
+        )
         console.print(f"[red]Operational error: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
@@ -269,6 +357,11 @@ def scan(
                 json_payload = render_scan_json(evidence)
             output.write_text(json_payload, encoding="utf-8")
         except OSError as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(f"[red]Operational error writing output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if sarif_out is not None:
@@ -278,6 +371,11 @@ def scan(
                 sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
             sarif_out.write_text(sarif_payload, encoding="utf-8")
         except OSError as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(f"[red]Operational error writing SARIF output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if snapshot_out is not None:
@@ -293,6 +391,11 @@ def scan(
                 )
             snapshot_out.write_text(snapshot_payload, encoding="utf-8")
         except (OSError, ValueError) as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
             console.print(f"[red]Operational error writing snapshot output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
@@ -341,9 +444,20 @@ def scan(
                 f"[yellow]Warning: scan history ingestion failed: {exc}[/yellow]"
             )
 
-    raise typer.Exit(
-        code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
+    final_exit_code = (
+        EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
     )
+    try:
+        _write_stage_manifest(
+            exit_code=final_exit_code,
+            status="PASS",
+            strict=True,
+        )
+    except OSError as exc:
+        console.print(f"[red]Operational error writing stage manifest: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    raise typer.Exit(code=final_exit_code)
 
 
 @app.command("live")
@@ -1231,6 +1345,68 @@ def bundle_verify(
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
+
+def _build_stage_scan_manifest_command(
+    *,
+    profile_path: Path,
+    resolved_ruleset_path: Path,
+    json_output: bool,
+    sarif_output: bool,
+    output: Path | None,
+    sarif_out: Path | None,
+    snapshot_out: Path | None,
+    deterministic: bool,
+    policy_path: list[Path] | None,
+    suppression_path: list[Path] | None,
+    intel_store_dir: Path | None,
+    intel_snapshot_id: str | None,
+    require_quiet_profile: bool,
+    ruleset_trust_manifest: Path | None,
+    require_ruleset_signatures: bool,
+    history_db: Path | None,
+    learning_artifact_out: Path | None,
+) -> list[str]:
+    command = [
+        "foxclaw",
+        "scan",
+        "--profile",
+        str(profile_path),
+        "--ruleset",
+        str(resolved_ruleset_path),
+    ]
+    if json_output:
+        command.append("--json")
+    if sarif_output:
+        command.append("--sarif")
+    if output is not None:
+        command.extend(["--output", str(output)])
+    if sarif_out is not None:
+        command.extend(["--sarif-out", str(sarif_out)])
+    if snapshot_out is not None:
+        command.extend(["--snapshot-out", str(snapshot_out)])
+    if deterministic:
+        command.append("--deterministic")
+    if require_quiet_profile:
+        command.append("--require-quiet-profile")
+    for path in policy_path or []:
+        command.extend(["--policy-path", str(path)])
+    for path in suppression_path or []:
+        command.extend(["--suppression-path", str(path)])
+    if intel_store_dir is not None:
+        command.extend(["--intel-store-dir", str(intel_store_dir)])
+    if intel_snapshot_id:
+        command.extend(["--intel-snapshot-id", intel_snapshot_id])
+    if ruleset_trust_manifest is not None:
+        command.extend(["--ruleset-trust-manifest", str(ruleset_trust_manifest)])
+    if require_ruleset_signatures:
+        command.append("--require-ruleset-signatures")
+    if history_db is not None:
+        command.extend(["--history-db", str(history_db)])
+    if learning_artifact_out is not None:
+        command.extend(["--learning-artifact-out", str(learning_artifact_out)])
+    return command
+
+
 def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxProfile]:
     if profile_paths:
         deduped_paths: list[Path] = []
@@ -1270,7 +1446,6 @@ def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxPro
 
 def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -> FirefoxProfile:
     resolved = profile_path.expanduser().resolve()
-    from foxclaw.profiles import PROFILE_LOCK_FILES
     lock_files = [
         name for name in PROFILE_LOCK_FILES if (resolved / name).exists()
     ]
