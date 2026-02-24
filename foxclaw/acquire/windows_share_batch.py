@@ -70,7 +70,7 @@ def _build_windows_share_scan_argv(
     suppression_path: list[Path] | None,
     intel_store_dir: Path | None,
     intel_snapshot_id: str | None,
-    keep_stage_writeable: bool,
+    keep_stage_writable: bool,
     dry_run: bool,
     treat_high_findings_as_success: bool,
 ) -> list[str]:
@@ -177,7 +177,7 @@ def run_windows_share_batch(
             suppression_path=suppression_path,
             intel_store_dir=intel_store_dir,
             intel_snapshot_id=intel_snapshot_id,
-            keep_stage_writeable=keep_stage_writeable,
+            keep_stage_writable=keep_stage_writable,
             dry_run=dry_run,
             treat_high_findings_as_success=treat_high_findings_as_success,
         )

@@ -465,7 +465,7 @@ def stage_windows_share_profile(
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
     allow_active_profile: bool = False,
-    keep_stage_writeable: bool = False,
+    keep_stage_writable: bool = False,
 ) -> WindowsShareStageResult:
     paths = resolve_windows_share_stage_paths(
         source_profile=source_profile,
@@ -520,7 +520,7 @@ def stage_windows_share_profile(
         "source_is_unc_path": paths.source_is_unc_path,
         "source_lock_markers": lock_markers,
         "staged_profile": str(paths.staged_profile),
-        "stage_writeable": bool(keep_stage_writeable),
+        "stage_writable": bool(keep_stage_writable),
         "copy": {
             "directories": copy_stats.dirs_copied,
             "files": copy_stats.files_copied,
@@ -578,7 +578,7 @@ def run_windows_share_scan(
             scan_snapshot_out=Path(args.scan_snapshot_out) if args.scan_snapshot_out else None,
             manifest_out=Path(args.manifest_out) if args.manifest_out else None,
             allow_active_profile=bool(args.allow_active_profile),
-            keep_stage_writeable=bool(args.keep_stage_writeable),
+            keep_stage_writable=bool(args.keep_stage_writable),
         )
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=err_stream)

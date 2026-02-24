@@ -347,4 +347,4 @@ def test_scan_rejects_symlinked_policy_path(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 1
-    assert "Operational error: symlinked profile path is not allowed" in result.stdout
+    assert "Operational error: symlinked policy path is not allowed" in result.stdout

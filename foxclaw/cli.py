@@ -128,10 +128,8 @@ def scan(
             "validated crash-consistent snapshots."
         ),
     ),
-    keep_stage_writeable: bool = typer.Option(
-        False,
-        "--keep-stage-writeable",
-        help="Do not remove write bits from staged files.",
+    keep_stage_writable: bool = typer.Option(
+        False, "--keep-stage-writable", help="Leave the staged profile writable (for mutation)"
     ),
     stage_manifest_out: Path | None = typer.Option(
         None,
@@ -236,7 +234,7 @@ def scan(
                     scan_snapshot_out=snapshot_out,
                     manifest_out=stage_manifest_out,
                     allow_active_profile=allow_active_profile,
-                    keep_stage_writeable=keep_stage_writeable,
+                    keep_stage_writable=keep_stage_writable,
                 )
                 selected_profile = _build_profile_override(stage_result.paths.staged_profile)
             except (OSError, RuntimeError, ValueError) as exc:
