@@ -25,7 +25,7 @@ Start here before editing profile generation, fidelity scoring, or soak phases.
   - fidelity minimums (`synth=70`, `fuzz=50`)
 - Realism layers currently implemented:
   - NSS artifacts (`key4.db`, `cert9.db`, `pkcs11.txt`)
-  - HSTS state (`SiteSecurityServiceState.txt`)
+  - HSTS state (`SiteSecurityServiceState.bin`)
   - web storage footprints (`storage/default/`)
   - favicon store (`favicons.sqlite`)
 

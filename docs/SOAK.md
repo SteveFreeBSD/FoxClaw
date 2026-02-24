@@ -95,7 +95,7 @@ Notes:
 - Profile generation stays offline-by-default unless runner flags explicitly enable live AMO fetches.
 - Generated profiles include realistic NSS, HSTS, storage, and favicon layers:
 - `key4.db` / `cert9.db` / `pkcs11.txt`
-- `SiteSecurityServiceState.txt`
+- `SiteSecurityServiceState.bin`
 - `storage/default/`
 - `favicons.sqlite`
 

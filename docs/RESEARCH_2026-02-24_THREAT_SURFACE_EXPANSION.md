@@ -36,7 +36,7 @@ Identify Firefox profile artifact attack surfaces that FoxClaw does not yet cove
 | `sessionstore.jsonlz4` | Session replay → form data, auth tokens, active sessions | High | T1005 (Data from Local System) |
 | `search.json.mozlz4` | Search engine hijacking → query interception, phishing redirect | Medium | T1583.001 (Acquire Infrastructure) |
 | `cookies.sqlite` | Session cookie theft, tracking, SameSite bypass | High | T1539 (Steal Web Session Cookie) |
-| `SiteSecurityServiceState.txt` | HSTS downgrade → force HTTP for targeted domains | High | T1557 (Adversary-in-the-Middle) |
+| `SiteSecurityServiceState.bin` | HSTS downgrade → force HTTP for targeted domains | High | T1557 (Adversary-in-the-Middle) |
 | `content-prefs.sqlite` | Overly permissive site permissions (camera, mic, geolocation) | Medium | T1119 (Automated Collection) |
 | `addonStartup.json.lz4` | Sideloaded extension persistence metadata | High | T1176 (Browser Extensions) |
 

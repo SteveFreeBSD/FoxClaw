@@ -196,7 +196,7 @@ scripts/fuzz_runner.sh \
 Generated profile realism baseline now includes:
 
 - Valid NSS stores (`key4.db`, `cert9.db`, `pkcs11.txt`)
-- HSTS state file (`SiteSecurityServiceState.txt`) derived from HTTPS history hosts
+- HSTS state file (`SiteSecurityServiceState.bin`) derived from HTTPS history hosts
 - Web/app storage footprint under `storage/default/` (LocalStorage + IndexedDB)
 - `favicons.sqlite` entries aligned to `places.sqlite` URLs
 

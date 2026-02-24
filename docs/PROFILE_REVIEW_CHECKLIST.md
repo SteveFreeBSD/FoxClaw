@@ -28,7 +28,7 @@ Use this checklist before requesting CTO or final merge review for profile reali
 ## 4) Realism Artifact Coverage
 
 - [ ] NSS artifacts present (`key4.db`, `cert9.db`, `pkcs11.txt`).
-- [ ] HSTS artifact present (`SiteSecurityServiceState.txt`) and aligned with HTTPS history hosts.
+- [ ] HSTS artifact present (`SiteSecurityServiceState.bin`) and aligned with HTTPS history hosts.
 - [ ] Storage artifacts present (`storage/default/...`).
 - [ ] `favicons.sqlite` generated and mapped to `places.sqlite` URLs.
 

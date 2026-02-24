@@ -402,7 +402,7 @@ This plan converts the current review and research into sequenced, testable exec
   - added synth modes (`realistic`, `bootstrap`) and deterministic `--seed`.
   - added advanced realism layers:
     - NSS stores (`key4.db`, `cert9.db`, `pkcs11.txt`)
-    - HSTS state (`SiteSecurityServiceState.txt`)
+    - HSTS state (`SiteSecurityServiceState.bin`)
     - web storage footprints (`storage/default`)
     - favicon store (`favicons.sqlite`)
   - added metadata provenance per profile (`metadata.json`).
@@ -724,10 +724,10 @@ This plan converts the current review and research into sequenced, testable exec
 ### WS-53 - HSTS State Integrity
 
 - Status: pending.
-- Goal: detect HSTS downgrade attacks by validating `SiteSecurityServiceState.txt` for missing or removed entries.
+- Goal: detect HSTS downgrade attacks by validating `SiteSecurityServiceState.bin` for missing or removed entries.
 - Scope:
   - extend filesystem/artifacts collector.
-  - parse `SiteSecurityServiceState.txt` for HSTS pin entries.
+  - parse `SiteSecurityServiceState.bin` for HSTS pin entries.
   - maintain baseline of domains that should enforce HTTPS (banking, email, corporate).
   - flag missing HSTS entries for critical domains.
   - detect manual removal patterns (file truncation, selective entry deletion).

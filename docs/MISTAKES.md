@@ -26,7 +26,7 @@
 - Date: 2026-02-20
   Mistake: HSTS state generation initially used malformed serialization that did not match Firefox tab-delimited expectations.
   Impact: generated profiles failed fidelity checks and reduced realism quality.
-  Prevention: serialize `SiteSecurityServiceState.txt` using Firefox-compatible field ordering and validate with parser tests tied to generated HTTPS history hosts.
+  Prevention: serialize `SiteSecurityServiceState.bin` using Firefox-compatible field ordering and validate with parser tests tied to generated HTTPS history hosts.
 - Date: 2026-02-20
   Mistake: fuzz fidelity threshold was temporarily lowered to mask quality regressions instead of fixing generation defects.
   Impact: soak runs looked green while low-fidelity profiles were admitted, reducing signal quality.

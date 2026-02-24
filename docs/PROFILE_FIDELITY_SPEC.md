@@ -44,7 +44,7 @@ The following artifacts increase realism score and should be present for bootstr
 - `key4.db`
 - `cert9.db`
 - `pkcs11.txt`
-- `SiteSecurityServiceState.txt`
+- `SiteSecurityServiceState.bin`
 - `search.json.mozlz4`
 - `xulstore.json`
 - `handlers.json`
@@ -64,7 +64,7 @@ The following artifacts increase realism score and should be present for bootstr
 - If `extensions.json` exists, it must parse as a JSON object with an `addons` list.
 - Each addon `path` in `extensions.json` must exist in the profile directory.
 - `prefs.js` reflects runtime state; `user.js` is optional and read-only from Firefox perspective.
-- HSTS hosts in `SiteSecurityServiceState.txt` should align with HTTPS origins observed in `places.sqlite`.
+- HSTS hosts in `SiteSecurityServiceState.bin` should align with HTTPS origins observed in `places.sqlite`.
 - `favicons.sqlite` page rows should map to URLs present in `places.sqlite`.
 
 ## Scoring Model

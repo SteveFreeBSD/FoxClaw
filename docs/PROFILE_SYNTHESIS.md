@@ -41,7 +41,7 @@ To ensure testing fidelity remains unbroken for future iteration:
 - **NSS Certificate & Key Databases (`cert9.db` / `key4.db`)**:
   generated via `certutil` when available, with a SQLite fallback schema for
   environments without NSS tooling.
-- **HSTS State (`SiteSecurityServiceState.txt`)**:
+- **HSTS State (`SiteSecurityServiceState.bin`)**:
   serialized in Firefox-compatible tab-delimited format and aligned to HTTPS
   origins from `places.sqlite`.
 - **Local Storage & IndexedDB (`storage/default/`)**:
@@ -103,7 +103,7 @@ profile_dir/
 ├── storage/
 │   └── default/
 │       └── moz-extension+++uuid/
-├── SiteSecurityServiceState.txt
+├── SiteSecurityServiceState.bin
 ├── cert9.db
 ├── content-prefs.sqlite
 ├── cookies.sqlite
