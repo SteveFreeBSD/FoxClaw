@@ -25,8 +25,8 @@ def test_mutate_profile_script_has_valid_node_syntax() -> None:
 def test_generate_profiles_script_passes_scenario_and_seed_to_mutator() -> None:
     script_path = Path("scripts/windows_auth_gen/generate_profiles.ps1")
     payload = script_path.read_text(encoding="utf-8")
-    assert "--scenario $scenarioName" in payload
-    assert "--seed $profileSeed" in payload
+    assert '"--scenario", $work.ScenarioName' in payload or '"--scenario", $scenarioName' in payload
+    assert '"--seed", $work.ProfileSeed' in payload or '"--seed", $profileSeed' in payload
     assert "foxclaw-sim-metadata.json" in payload
 
 

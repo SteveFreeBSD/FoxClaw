@@ -14,6 +14,14 @@ This folder builds synthetic Firefox profiles on Windows for SMB/share scanning.
 - the current profile-generation run seeded 50 sibling profiles from
   `foxclaw-seed.default` under the active Firefox profile directory.
 
+## Parameters
+
+- `-Count <int>`: Total profiles to generate.
+- `-Workers <int>`: (Optional) PowerShell 7+ only. Launch `N` concurrent Playwright workers during the mutation phase. Defaults to `(CPU cores / 2)`, capped at 10.
+- `-Overwrite`: (Optional) Force delete existing destination profiles before cloning.
+- `-Resume`: (Optional) Skip generating profiles that already have a successful `status: "ok"` manifest.
+- `-StartIndex` / `-EndIndex`: (Optional) Bounds for resuming or chunking generation work.
+
 ## Scan-Driven Signals
 
 `mutate_profile.mjs` writes:
