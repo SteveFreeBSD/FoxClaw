@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import stat
@@ -18,6 +20,16 @@ from pathlib import Path
 from typing import TextIO
 
 from foxclaw.profiles import PROFILE_LOCK_FILES
+
+_SMB_FILESYSTEM_TYPES = frozenset(
+    {
+        "cifs",
+        "smb3",
+        "smbfs",
+        "fuse.smbnetfs",
+    }
+)
+_MOUNT_ESCAPE_RE = re.compile(r"\\([0-7]{3})")
 
 
 @dataclass
@@ -36,6 +48,27 @@ class StagedFileEntry:
     sha256: str
 
 
+@dataclass
+class WindowsShareStagePaths:
+    source_profile: Path
+    source_is_unc_path: bool
+    staging_root: Path
+    staged_profile: Path
+    output_dir: Path
+    json_out: Path
+    sarif_out: Path
+    scan_snapshot_out: Path
+    manifest_out: Path
+
+
+@dataclass
+class WindowsShareStageResult:
+    paths: WindowsShareStagePaths
+    lock_markers: list[str]
+    copy_stats: CopyStats
+    manifest_payload: dict[str, object]
+
+
 def _utc_now_iso() -> str:
     return datetime.now(tz=UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -46,6 +79,49 @@ def _default_snapshot_id() -> str:
 
 def _default_staging_root() -> Path:
     return Path(tempfile.gettempdir()) / "foxclaw-windows-share"
+
+
+def _decode_mount_token(token: str) -> str:
+    return _MOUNT_ESCAPE_RE.sub(lambda match: chr(int(match.group(1), 8)), token)
+
+
+@functools.lru_cache(maxsize=1)
+def _load_proc_mounts() -> tuple[tuple[Path, str], ...]:
+    mounts: list[tuple[Path, str]] = []
+    try:
+        lines = Path("/proc/mounts").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ()
+
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        mount_point = Path(_decode_mount_token(parts[1]))
+        fs_type = parts[2].lower()
+        mounts.append((mount_point, fs_type))
+
+    mounts.sort(key=lambda item: len(item[0].as_posix()), reverse=True)
+    return tuple(mounts)
+
+
+def _mount_fs_type_for_path(path: Path) -> str | None:
+    candidate = path.expanduser().resolve(strict=False).as_posix()
+    for mount_point, fs_type in _load_proc_mounts():
+        mount_prefix = mount_point.as_posix().rstrip("/") or "/"
+        if candidate == mount_prefix or candidate.startswith(f"{mount_prefix}/"):
+            return fs_type
+    return None
+
+
+def is_windows_share_profile_source(profile_path: Path) -> bool:
+    raw = str(profile_path)
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        return True
+    if os.name == "nt":
+        return False
+    fs_type = _mount_fs_type_for_path(profile_path)
+    return fs_type in _SMB_FILESYSTEM_TYPES
 
 
 def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
@@ -153,44 +229,54 @@ def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _resolve_paths(
-    args: argparse.Namespace,
-) -> tuple[Path, bool, Path, Path, Path, Path, Path, Path, Path]:
-    snapshot_id = args.snapshot_id or _default_snapshot_id()
-    source_profile_input = str(args.source_profile)
+def resolve_windows_share_stage_paths(
+    *,
+    source_profile: Path | str,
+    staging_root: Path | None = None,
+    snapshot_id: str | None = None,
+    output_dir: Path | None = None,
+    json_out: Path | None = None,
+    sarif_out: Path | None = None,
+    scan_snapshot_out: Path | None = None,
+    manifest_out: Path | None = None,
+) -> WindowsShareStagePaths:
+    resolved_snapshot_id = snapshot_id or _default_snapshot_id()
+    source_profile_input = str(source_profile)
     source_is_unc_path = source_profile_input.startswith("\\\\")
-    source_profile_candidate = Path(args.source_profile).expanduser()
+    source_profile_candidate = Path(source_profile).expanduser()
     if source_is_unc_path and os.name != "nt":
-        source_profile = source_profile_candidate
+        resolved_source_profile = source_profile_candidate
     else:
-        source_profile = source_profile_candidate.resolve()
-    staging_root = Path(args.staging_root).expanduser().resolve()
-    stage_root = staging_root / snapshot_id
+        resolved_source_profile = source_profile_candidate.resolve()
+
+    resolved_staging_root = (staging_root or _default_staging_root()).expanduser().resolve()
+    stage_root = resolved_staging_root / resolved_snapshot_id
     staged_profile = stage_root / "profile"
 
-    output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else stage_root / "artifacts"
-    json_out = Path(args.json_out).expanduser().resolve() if args.json_out else output_dir / "foxclaw.json"
-    sarif_out = Path(args.sarif_out).expanduser().resolve() if args.sarif_out else output_dir / "foxclaw.sarif"
-    scan_snapshot_out = (
-        Path(args.scan_snapshot_out).expanduser().resolve()
-        if args.scan_snapshot_out
-        else output_dir / "foxclaw.snapshot.json"
+    resolved_output_dir = output_dir.expanduser().resolve() if output_dir else stage_root / "artifacts"
+    resolved_json_out = json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
+    resolved_sarif_out = sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
+    resolved_scan_snapshot_out = (
+        scan_snapshot_out.expanduser().resolve()
+        if scan_snapshot_out
+        else resolved_output_dir / "foxclaw.snapshot.json"
     )
-    manifest_out = (
-        Path(args.manifest_out).expanduser().resolve()
-        if args.manifest_out
-        else output_dir / "stage-manifest.json"
+    resolved_manifest_out = (
+        manifest_out.expanduser().resolve()
+        if manifest_out
+        else resolved_output_dir / "stage-manifest.json"
     )
-    return (
-        source_profile,
-        source_is_unc_path,
-        staging_root,
-        staged_profile,
-        output_dir,
-        json_out,
-        sarif_out,
-        scan_snapshot_out,
-        manifest_out,
+
+    return WindowsShareStagePaths(
+        source_profile=resolved_source_profile,
+        source_is_unc_path=source_is_unc_path,
+        staging_root=resolved_staging_root,
+        staged_profile=staged_profile,
+        output_dir=resolved_output_dir,
+        json_out=resolved_json_out,
+        sarif_out=resolved_sarif_out,
+        scan_snapshot_out=resolved_scan_snapshot_out,
+        manifest_out=resolved_manifest_out,
     )
 
 
@@ -356,79 +442,78 @@ def _write_manifest(manifest_out: Path, payload: dict[str, object]) -> None:
     manifest_out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def run_windows_share_scan(
-    args: argparse.Namespace,
+def write_windows_share_manifest(manifest_out: Path, payload: dict[str, object]) -> None:
+    _write_manifest(manifest_out, payload)
+
+
+def stage_windows_share_profile(
     *,
-    out_stream: TextIO | None = None,
-    err_stream: TextIO | None = None,
-) -> int:
-    out_stream = out_stream or sys.stdout
-    err_stream = err_stream or sys.stderr
-
-    (
-        source_profile,
-        source_is_unc_path,
-        staging_root,
-        staged_profile,
-        output_dir,
-        json_out,
-        sarif_out,
-        scan_snapshot_out,
-        manifest_out,
-    ) = _resolve_paths(args)
-
-    if source_is_unc_path and os.name != "nt":
-        print(
-            "error: UNC source profile paths are not directly accessible on this platform; "
-            "mount the share and pass the mounted path.",
-            file=err_stream,
-        )
-        return 1
-
-    if not source_profile.exists() or not source_profile.is_dir():
-        print(f"error: source profile does not exist or is not a directory: {source_profile}", file=err_stream)
-        return 1
-
-    if args.intel_snapshot_id and not args.intel_store_dir:
-        print("error: --intel-snapshot-id requires --intel-store-dir", file=err_stream)
-        return 1
-
-    staging_root_error = _validate_staging_root(
+    source_profile: Path | str,
+    staging_root: Path | None = None,
+    snapshot_id: str | None = None,
+    output_dir: Path | None = None,
+    json_out: Path | None = None,
+    sarif_out: Path | None = None,
+    scan_snapshot_out: Path | None = None,
+    manifest_out: Path | None = None,
+    allow_active_profile: bool = False,
+    keep_stage_writeable: bool = False,
+) -> WindowsShareStageResult:
+    paths = resolve_windows_share_stage_paths(
         source_profile=source_profile,
         staging_root=staging_root,
+        snapshot_id=snapshot_id,
+        output_dir=output_dir,
+        json_out=json_out,
+        sarif_out=sarif_out,
+        scan_snapshot_out=scan_snapshot_out,
+        manifest_out=manifest_out,
+    )
+
+    if paths.source_is_unc_path and os.name != "nt":
+        raise ValueError(
+            "UNC source profile paths are not directly accessible on this platform; "
+            "mount the share and pass the mounted path."
+        )
+    if not paths.source_profile.exists() or not paths.source_profile.is_dir():
+        raise ValueError(
+            "source profile does not exist or is not a directory: "
+            f"{paths.source_profile}"
+        )
+
+    staging_root_error = _validate_staging_root(
+        source_profile=paths.source_profile,
+        staging_root=paths.staging_root,
     )
     if staging_root_error is not None:
-        print(f"error: {staging_root_error}", file=err_stream)
-        return 1
+        raise ValueError(staging_root_error)
 
-    lock_markers = _find_lock_markers(source_profile)
-    if lock_markers and not args.allow_active_profile:
+    lock_markers = _find_lock_markers(paths.source_profile)
+    if lock_markers and not allow_active_profile:
         marker_list = ", ".join(lock_markers)
-        print(
-            "error: active-profile lock markers detected in source profile "
-            f"({marker_list}). Close Firefox on the source host or collect from a crash-consistent "
-            "snapshot, then rerun. Use --allow-active-profile only for validated snapshots.",
-            file=err_stream,
+        raise ValueError(
+            "active-profile lock markers detected in source profile "
+            f"({marker_list}). Close Firefox on the source host or collect from a "
+            "crash-consistent snapshot, then rerun. Use --allow-active-profile only "
+            "for validated snapshots."
         )
-        return 1
 
     try:
-        copy_stats = _copy_tree(source_profile, staged_profile)
-        if not args.keep_stage_writeable:
-            _make_tree_read_only(staged_profile)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        copy_stats = _copy_tree(paths.source_profile, paths.staged_profile)
+        if not keep_stage_writeable:
+            _make_tree_read_only(paths.staged_profile)
+        paths.output_dir.mkdir(parents=True, exist_ok=True)
     except (OSError, RuntimeError) as exc:
-        print(f"error: failed to stage source profile: {exc}", file=err_stream)
-        return 1
+        raise RuntimeError(f"failed to stage source profile: {exc}") from exc
 
     manifest_payload: dict[str, object] = {
         "schema_version": "1.0.0",
         "captured_at_utc": _utc_now_iso(),
-        "source_profile": str(source_profile),
-        "source_is_unc_path": source_is_unc_path,
+        "source_profile": str(paths.source_profile),
+        "source_is_unc_path": paths.source_is_unc_path,
         "source_lock_markers": lock_markers,
-        "staged_profile": str(staged_profile),
-        "stage_writeable": bool(args.keep_stage_writeable),
+        "staged_profile": str(paths.staged_profile),
+        "stage_writeable": bool(keep_stage_writeable),
         "copy": {
             "directories": copy_stats.dirs_copied,
             "files": copy_stats.files_copied,
@@ -444,25 +529,75 @@ def run_windows_share_scan(
             for entry in copy_stats.file_entries
         ],
         "artifacts": {
-            "json": str(json_out),
-            "sarif": str(sarif_out),
-            "snapshot": str(scan_snapshot_out),
+            "json": str(paths.json_out),
+            "sarif": str(paths.sarif_out),
+            "snapshot": str(paths.scan_snapshot_out),
         },
         "scan": {
             "command": [],
             "exit_code": 0,
-            "status": "SKIPPED" if args.dry_run else "PENDING",
+            "status": "PENDING",
         },
     }
+    return WindowsShareStageResult(
+        paths=paths,
+        lock_markers=lock_markers,
+        copy_stats=copy_stats,
+        manifest_payload=manifest_payload,
+    )
+
+
+def run_windows_share_scan(
+    args: argparse.Namespace,
+    *,
+    out_stream: TextIO | None = None,
+    err_stream: TextIO | None = None,
+) -> int:
+    out_stream = out_stream or sys.stdout
+    err_stream = err_stream or sys.stderr
+
+    if args.intel_snapshot_id and not args.intel_store_dir:
+        print("error: --intel-snapshot-id requires --intel-store-dir", file=err_stream)
+        return 1
+
+    try:
+        stage_result = stage_windows_share_profile(
+            source_profile=Path(args.source_profile),
+            staging_root=Path(args.staging_root),
+            snapshot_id=args.snapshot_id or None,
+            output_dir=Path(args.output_dir) if args.output_dir else None,
+            json_out=Path(args.json_out) if args.json_out else None,
+            sarif_out=Path(args.sarif_out) if args.sarif_out else None,
+            scan_snapshot_out=Path(args.scan_snapshot_out) if args.scan_snapshot_out else None,
+            manifest_out=Path(args.manifest_out) if args.manifest_out else None,
+            allow_active_profile=bool(args.allow_active_profile),
+            keep_stage_writeable=bool(args.keep_stage_writeable),
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"error: {exc}", file=err_stream)
+        return 1
+    paths = stage_result.paths
+    manifest_payload = stage_result.manifest_payload
 
     if args.dry_run:
-        _write_manifest(manifest_out, manifest_payload)
-        print(f"[share-scan] staged profile at: {staged_profile}", file=out_stream)
-        print(f"[share-scan] dry-run: manifest written to {manifest_out}", file=out_stream)
+        manifest_payload["scan"] = {
+            "command": [],
+            "exit_code": 0,
+            "status": "SKIPPED",
+        }
+        _write_manifest(paths.manifest_out, manifest_payload)
+        print(f"[share-scan] staged profile at: {paths.staged_profile}", file=out_stream)
+        print(f"[share-scan] dry-run: manifest written to {paths.manifest_out}", file=out_stream)
         return 0
 
     try:
-        cmd = _build_scan_command(args, staged_profile, json_out, sarif_out, scan_snapshot_out)
+        cmd = _build_scan_command(
+            args,
+            paths.staged_profile,
+            paths.json_out,
+            paths.sarif_out,
+            paths.scan_snapshot_out,
+        )
     except RuntimeError as exc:
         print(f"error: failed to build scan command: {exc}", file=err_stream)
         return 1
@@ -491,11 +626,11 @@ def run_windows_share_scan(
         "exit_code": result.returncode,
         "status": scan_status,
     }
-    _write_manifest(manifest_out, manifest_payload)
+    _write_manifest(paths.manifest_out, manifest_payload)
 
-    print(f"[share-scan] staged profile: {staged_profile}", file=out_stream)
-    print(f"[share-scan] artifacts: {output_dir}", file=out_stream)
-    print(f"[share-scan] manifest: {manifest_out}", file=out_stream)
+    print(f"[share-scan] staged profile: {paths.staged_profile}", file=out_stream)
+    print(f"[share-scan] artifacts: {paths.output_dir}", file=out_stream)
+    print(f"[share-scan] manifest: {paths.manifest_out}", file=out_stream)
 
     if result.returncode == 2 and args.treat_high_findings_as_success:
         return 0

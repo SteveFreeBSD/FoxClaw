@@ -70,18 +70,28 @@ For enterprise workflows where profile data is staged on Windows SMB shares,
 FoxClaw now provides a deterministic stage-local-then-scan harness:
 
 ```bash
-foxclaw acquire windows-share-scan \
-  --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+foxclaw scan \
+  --profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
   --ruleset foxclaw/rulesets/strict.yml \
-  --output-dir /var/tmp/foxclaw-share-jdoe
+  --output /var/tmp/foxclaw-share-jdoe/foxclaw.json \
+  --sarif-out /var/tmp/foxclaw-share-jdoe/foxclaw.sarif \
+  --snapshot-out /var/tmp/foxclaw-share-jdoe/foxclaw.snapshot.json \
+  --stage-manifest-out /var/tmp/foxclaw-share-jdoe/stage-manifest.json
 ```
 
 Operational model:
 
-- copy source profile to local staging snapshot first (never scan live share in place),
+- auto-stage source profile to local snapshot first (never scan live share in place),
 - fail closed when active lock markers are present unless explicitly overridden,
 - remove write bits from staged copy by default,
 - emit JSON/SARIF/snapshot artifacts and stage manifest metadata.
+- current seed profile lineage for Windows-share generation:
+  `ejm2bj4s.foxclaw-test` renamed to `foxclaw-seed.default`, which seeded 50
+  sibling profiles in the current profile directory.
+
+For orchestration wrappers that need explicit `--snapshot-id` or
+`--treat-high-findings-as-success`, use `foxclaw acquire windows-share-scan`.
+For multi-profile loops, use `foxclaw acquire windows-share-batch`.
 
 Runbook:
 

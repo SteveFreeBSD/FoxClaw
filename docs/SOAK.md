@@ -41,12 +41,27 @@ make soak-stop
 Windows-share presoak preflight (recommended before long soak):
 
 ```bash
-foxclaw acquire windows-share-scan \
-  --source-profile /mnt/firefox-profiles/<profile-name> \
-  --output-dir /var/tmp/foxclaw-presoak-share/<profile-name> \
-  --allow-active-profile \
-  --treat-high-findings-as-success
+scan_exit=0
+foxclaw scan \
+  --profile /mnt/firefox-profiles/<profile-name> \
+  --output /var/tmp/foxclaw-presoak-share/<profile-name>/foxclaw.json \
+  --sarif-out /var/tmp/foxclaw-presoak-share/<profile-name>/foxclaw.sarif \
+  --snapshot-out /var/tmp/foxclaw-presoak-share/<profile-name>/foxclaw.snapshot.json \
+  --stage-manifest-out /var/tmp/foxclaw-presoak-share/<profile-name>/stage-manifest.json \
+  --allow-active-profile || scan_exit=$?
+
+if [ "${scan_exit}" -ne 0 ] && [ "${scan_exit}" -ne 2 ]; then
+  exit "${scan_exit}"
+fi
 ```
+
+If your presoak wrapper must treat `HIGH` findings as success (`0`), use
+`foxclaw acquire windows-share-scan --treat-high-findings-as-success`.
+
+Current Windows-share profile lineage:
+- `ejm2bj4s.foxclaw-test` was renamed to `foxclaw-seed.default`.
+- `foxclaw-seed.default` was used to seed 50 sibling profiles in the current
+  `/mnt/firefox-profiles` directory.
 
 Verify these outputs exist before starting the soak harness:
 

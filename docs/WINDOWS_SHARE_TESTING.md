@@ -27,6 +27,13 @@ MSIX path variant:
 
 - `%LOCALAPPDATA%\Packages\Mozilla.Firefox\LocalCache\Roaming\Mozilla\Firefox\Profiles\<profile-id>`
 
+Current profile lineage (canonical):
+
+- historical seed name: `ejm2bj4s.foxclaw-test`
+- renamed seed name: `foxclaw-seed.default`
+- `foxclaw-seed.default` seeded 50 generated sibling profiles in the current
+  profile directory.
+
 ## Acquisition options
 
 ### Option A: Windows host collector (recommended)
@@ -67,6 +74,8 @@ Outputs:
 
 - per-profile simulation manifest: `<profile>/foxclaw-sim-metadata.json`
 - batch summary: `<ProfilesRoot>/windows-auth-gen-summary.json`
+- with `-Count 50`, this creates 50 generated profiles seeded from
+  `foxclaw-seed.default` (renamed from `ejm2bj4s.foxclaw-test`).
 
 Then scan from Linux against mounted SMB share root with batch staging:
 
@@ -102,14 +111,23 @@ Generator contract:
 
 ## FoxClaw staged share scan
 
-Use `foxclaw acquire windows-share-scan` for deterministic staging + scan artifact generation:
+Preferred path: `foxclaw scan` now auto-stages share-hosted profile paths before collectors run.
+
+Command structure (current):
+
+- `foxclaw scan`: primary single-profile workflow (auto-stage + scan).
+- `foxclaw acquire windows-share-scan`: explicit staging wrapper for orchestration, explicit
+  `--snapshot-id`, or `--treat-high-findings-as-success`.
+- `foxclaw acquire windows-share-batch`: multi-profile loop under one mounted share root.
 
 ```bash
-foxclaw acquire windows-share-scan \
-  --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+foxclaw scan \
+  --profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
   --ruleset foxclaw/rulesets/strict.yml \
-  --output-dir /var/tmp/foxclaw-share-jdoe \
-  --snapshot-id jdoe-20260222T190000Z
+  --output /var/tmp/foxclaw-share-jdoe/foxclaw.json \
+  --sarif-out /var/tmp/foxclaw-share-jdoe/foxclaw.sarif \
+  --snapshot-out /var/tmp/foxclaw-share-jdoe/foxclaw.snapshot.json \
+  --stage-manifest-out /var/tmp/foxclaw-share-jdoe/stage-manifest.json
 ```
 
 Behavior:
@@ -121,11 +139,22 @@ Behavior:
 - writes staging manifest (`stage-manifest.json`) with source path, copy stats, and scan command/exit code,
 - returns scan exit code semantics (`0` no `HIGH`, `2` `HIGH` findings present, `1` operational error).
 
-If acquisition used a crash-consistent snapshot (for example VSS) and lock markers are expected, allow override:
+For explicit acquisition orchestration (scripted provenance, dry-runs, snapshot-id control), use:
 
 ```bash
 foxclaw acquire windows-share-scan \
-  --source-profile "\\\\fileserver\\forensics\\FirefoxProfiles\\jdoe.default-release" \
+  --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+  --ruleset foxclaw/rulesets/strict.yml \
+  --output-dir /var/tmp/foxclaw-share-jdoe \
+  --snapshot-id jdoe-20260222T190000Z
+```
+
+If source data came from a crash-consistent snapshot (for example VSS) and lock markers are expected, allow override:
+
+```bash
+foxclaw scan \
+  --profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
+  --stage-manifest-out /var/tmp/foxclaw-share-jdoe/stage-manifest.json \
   --allow-active-profile
 ```
 
@@ -171,9 +200,9 @@ scripts/soak_runner.sh \
 
 ## Operational guardrails
 
-- Never point production scans directly at mutable SMB profile paths.
+- Never bypass staging for mutable SMB profile paths.
 - Preserve staging manifests alongside scan outputs for audit and incident reconstruction.
-- Keep this lane out of default runtime scan paths to maintain FoxClaw offline-by-default guarantees.
+- Keep stage-local-then-scan behavior enabled for all share-hosted profile paths.
 
 ## References
 

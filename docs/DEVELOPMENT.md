@@ -25,12 +25,34 @@ python scripts/generate_testbed_fixtures.py --check
 Windows-share preflight scan (mounted SMB profile root):
 
 ```bash
+scan_exit=0
+python -m foxclaw scan \
+  --profile /mnt/firefox-profiles/<profile-name> \
+  --output /var/tmp/foxclaw-presoak-share/<profile-name>/foxclaw.json \
+  --sarif-out /var/tmp/foxclaw-presoak-share/<profile-name>/foxclaw.sarif \
+  --snapshot-out /var/tmp/foxclaw-presoak-share/<profile-name>/foxclaw.snapshot.json \
+  --stage-manifest-out /var/tmp/foxclaw-presoak-share/<profile-name>/stage-manifest.json \
+  --allow-active-profile || scan_exit=$?
+
+if [ "${scan_exit}" -ne 0 ] && [ "${scan_exit}" -ne 2 ]; then
+  exit "${scan_exit}"
+fi
+```
+
+If your acquisition pipeline must normalize scan exit code `2` (HIGH findings) into success, use:
+
+```bash
 python -m foxclaw acquire windows-share-scan \
   --source-profile /mnt/firefox-profiles/<profile-name> \
   --output-dir /var/tmp/foxclaw-presoak-share/<profile-name> \
   --allow-active-profile \
   --treat-high-findings-as-success
 ```
+
+Current Windows-share profile lineage:
+- `ejm2bj4s.foxclaw-test` renamed to `foxclaw-seed.default`.
+- `foxclaw-seed.default` seeded the 50 generated sibling profiles currently in
+  `/mnt/firefox-profiles`.
 
 Generate fixture outputs and keep exit-code semantics intact (`2` means findings, not crash):
 
