@@ -22,6 +22,16 @@ mypy foxclaw
 python scripts/generate_testbed_fixtures.py --check
 ```
 
+Windows-share preflight scan (mounted SMB profile root):
+
+```bash
+python -m foxclaw acquire windows-share-scan \
+  --source-profile /mnt/firefox-profiles/<profile-name> \
+  --output-dir /var/tmp/foxclaw-presoak-share/<profile-name> \
+  --allow-active-profile \
+  --treat-high-findings-as-success
+```
+
 Generate fixture outputs and keep exit-code semantics intact (`2` means findings, not crash):
 
 ```bash
@@ -221,6 +231,12 @@ Run a local smoke soak (single cycle):
 
 ```bash
 make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
+```
+
+Run smoke soak with adversary-profile lane enabled:
+
+```bash
+make soak-smoke-adversary SOAK_SUDO_PASSWORD='<sudo-password>'
 ```
 
 Run the same smoke cycle with 1000 fuzzed profiles (high-memory hosts):

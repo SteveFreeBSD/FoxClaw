@@ -30,6 +30,8 @@ Options:
   --fuzz-mode <name>       Fuzz mode: realistic|chaos (default: chaos).
   --fuzz-mutation-budget <N> Base mutations per fuzz profile (default: 3).
   --fuzz-fidelity-min-score <N> Min realism score for fuzz profiles (default: 50).
+  --adversary-runs <N>      Adversary testbed runs per cycle (default: 0).
+  --adversary-count <N>     Profiles per adversary scenario per run (default: 1).
   --matrix-runs <N>        Firefox matrix iterations per cycle (default: 1).
   --max-cycles <N>         Optional hard cap on cycle count (default: 0 = unlimited until deadline).
   -h, --help               Show this help.
@@ -65,6 +67,8 @@ FUZZ_SEED=525252
 FUZZ_MODE="chaos"
 FUZZ_MUTATION_BUDGET=3
 FUZZ_FIDELITY_MIN_SCORE=50
+ADVERSARY_RUNS=0
+ADVERSARY_COUNT=1
 REQUIRE_LAUNCH_GATE=0
 LAUNCH_GATE_MIN_SCORE=50
 MATRIX_RUNS=1
@@ -89,6 +93,8 @@ while [[ $# -gt 0 ]]; do
     --fuzz-mode)        FUZZ_MODE="${2:-}"; shift 2 ;;
     --fuzz-mutation-budget) FUZZ_MUTATION_BUDGET="${2:-}"; shift 2 ;;
     --fuzz-fidelity-min-score) FUZZ_FIDELITY_MIN_SCORE="${2:-}"; shift 2 ;;
+    --adversary-runs)   ADVERSARY_RUNS="${2:-}"; shift 2 ;;
+    --adversary-count)  ADVERSARY_COUNT="${2:-}"; shift 2 ;;
     --matrix-runs)      MATRIX_RUNS="${2:-}"; shift 2 ;;
     --max-cycles)       MAX_CYCLES="${2:-}"; shift 2 ;;
     -h|--help)          usage; exit 0 ;;
@@ -101,7 +107,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE MATRIX_RUNS MAX_CYCLES; do
+for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE ADVERSARY_RUNS ADVERSARY_COUNT MATRIX_RUNS MAX_CYCLES; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
@@ -192,6 +198,8 @@ fuzz_seed=${FUZZ_SEED}
 fuzz_mode=${FUZZ_MODE}
 fuzz_mutation_budget=${FUZZ_MUTATION_BUDGET}
 fuzz_fidelity_min_score=${FUZZ_FIDELITY_MIN_SCORE}
+adversary_runs_per_cycle=${ADVERSARY_RUNS}
+adversary_count_per_scenario=${ADVERSARY_COUNT}
 require_launch_gate=${REQUIRE_LAUNCH_GATE}
 launch_gate_min_score=${LAUNCH_GATE_MIN_SCORE}
 matrix_runs_per_cycle=${MATRIX_RUNS}
@@ -476,6 +484,28 @@ while true; do
     "${launch_gate_args[@]}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
+    break
+  fi
+
+  for ((a=1; a<=ADVERSARY_RUNS; a++)); do
+    adversary_cycle_dir="${RUN_DIR}/adversary/cycle-${cycle}-run-${a}"
+    mkdir -p "${adversary_cycle_dir}"
+    adversary_seed="$((606060 + (cycle * 100) + a))"
+    run_step_cmd "${cycle}" "adversary" "${a}" "${LOG_DIR}/cycle-${cycle}-adversary-${a}.log" \
+      "${PYTHON_BIN}" "${ROOT_DIR}/scripts/adversary_profiles.py" \
+      --output-dir "${adversary_cycle_dir}" \
+      --count-per-scenario "${ADVERSARY_COUNT}" \
+      --seed "${adversary_seed}" \
+      --mutation-budget 3 \
+      --max-mutation-severity high \
+      --ruleset "${ROOT_DIR}/foxclaw/rulesets/strict.yml" \
+      --quiet || overall_fail=1
+    if [[ "${stop_requested}" -eq 1 ]]; then
+      overall_fail=1
+      break
+    fi
+  done
+  if [[ "${stop_requested}" -eq 1 ]]; then
     break
   fi
 

@@ -9,6 +9,8 @@ FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux
   - preference files (`prefs.js`, `user.js`)
   - sensitive profile file permissions
   - enterprise policy files
+  - profile artifact metadata (`handlers.json`, `containers.json`, `compatibility.ini`, etc.)
+  - credential exposure signals (`logins.json`, `formhistory.sqlite`)
   - extension inventory and manifest permission posture (`extensions.json`, `extensions/`)
     - extensions are classified by source (`profile`, `system`, `builtin`, etc.)
     - unsigned/risk/debug checks default to profile-controlled extensions (system/builtin excluded)
@@ -150,6 +152,19 @@ foxclaw acquire windows-share-scan \
   --ruleset foxclaw/rulesets/strict.yml \
   --output-dir /var/tmp/foxclaw-share-jdoe
 ```
+
+Default behavior refuses active profile lock markers (`parent.lock`, `.parentlock`, `lock`).
+Use `--allow-active-profile` only for validated crash-consistent captures.
+
+Batch stage-and-scan many profile directories from one mounted share root:
+
+```bash
+foxclaw acquire windows-share-batch \
+  --source-root /mnt/forensics/FirefoxProfiles \
+  --staging-root /var/tmp/foxclaw-stage \
+  --out-root /var/tmp/foxclaw-share-batch \
+  --ruleset foxclaw/rulesets/strict.yml
+```
 ## Exit Codes
 
 Canonical CLI contract:
@@ -169,32 +184,57 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 
 ## Documentation Map
 
+### Architecture and Security
+
 - `docs/ARCHITECTURE.md`: runtime boundaries and extension points.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
-- `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
-- `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
-- `docs/PROFILE_HANDOFF.md`: canonical profile-system onboarding, status memory, and anti-loop guardrails.
+- `docs/WS24_LIVE_WORKFLOW_ARCHITECTURE.md`: `live` workflow orchestration design (sync + pinned scan).
+
+### Research and Planning
+
+- `docs/ROADMAP.md`: phased delivery plan (Phases 1–6, including 2.5 threat surface expansion and 2.6 adaptive intelligence).
+- `docs/WORKSLICES.md`: ordered implementation slices (WS-01 through WS-56) with dependencies and acceptance criteria.
+- `docs/RESEARCH.md`: source-backed research matrix for priority components (index of all research).
+- `docs/RESEARCH_2026-02-20.md`: ecosystem alignment snapshot (Arkenfox, AMO, KEV/NVD feeds).
+- `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`: Rust appliance transition research (build hygiene, signed distribution, contracts).
+- `docs/RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md`: enterprise Windows-share Firefox audit research and tactical controls.
+- `docs/RESEARCH_2026-02-24_ADVERSARY_TESTBED.md`: adversary-profile testbed research baselines and harness integration.
+- `docs/RESEARCH_2026-02-24_THREAT_SURFACE_EXPANSION.md`: threat surface gap analysis, CVE landscape, ATT&CK mappings, and self-learning architecture.
+- `docs/VULNERABILITY_INTEL.md`: intelligence integration strategy (Mozilla CVE, NVD, KEV, EPSS, AMO, extension blocklist).
+
+### Testing and Profiles
+
+- `docs/TESTBED.md`: deterministic Firefox testbed fixtures and container smoke lane.
 - `docs/PROFILE_SYNTHESIS.md`: profile generation architecture and runtime usage.
 - `docs/PROFILE_FIDELITY_SPEC.md`: profile realism scoring contract and fidelity gate behavior.
+- `docs/PROFILE_HANDOFF.md`: canonical profile-system onboarding, status memory, and anti-loop guardrails.
 - `docs/PROFILE_REVIEW_CHECKLIST.md`: merge/CTO review checklist for profile realism changes.
-- `docs/ROADMAP.md`: phased delivery plan for next-level capabilities.
-- `docs/RESEARCH.md`: source-backed research matrix for priority components.
-- `docs/RESEARCH_2026-02-20.md`: dated ecosystem alignment checkpoint (2026 snapshot).
-- `docs/RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md`: enterprise Windows-share Firefox audit research and tactical controls.
-- `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
-- `docs/WORKSLICES.md`: ordered implementation slices with dependencies and acceptance criteria.
-- `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
+- `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
+- `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`: latest deep-soak outcomes, bottlenecks, and prioritized actions.
+- `docs/SCAN_LEARNING_LOOP.md`: deterministic plan for learning from historical scan outputs.
+- `docs/WINDOWS_SHARE_TESTING.md`: enterprise runbook for staged Firefox profile scans from Windows shares.
+
+### Operations and Governance
+
+- `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
+- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and immediate planning queue.
+- `docs/DEVELOPMENT.md`: local setup and quality gates.
+- `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
 - `docs/RULESET_TRUST.md`: ruleset trust-manifest schema, signature policy, and CLI usage.
+- `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
+- `docs/MISTAKES.md`: post-incident log of past mistakes and preventive actions.
+
+### Release and Compliance
+
+- `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
+- `docs/GITHUB_ACTIONS.md`: CI/CD workflow documentation and job descriptions.
 - `docs/RELEASE_PROVENANCE.md`: release attestation and trusted-publishing verification runbook.
 - `docs/SBOM.md`: CycloneDX SBOM generation/verification runbook for local and release workflows.
 - `docs/DEPENDENCY_AUDIT.md`: scheduled dependency-vulnerability sweep workflow and triage runbook.
-- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and immediate planning queue.
-- `docs/VULNERABILITY_INTEL.md`: Mozilla CVE and extension intelligence integration strategy.
-- `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
-- `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
-- `docs/DEVELOPMENT.md`: local setup and quality gates.
-- `docs/TESTBED.md`: deterministic Firefox testbed fixtures and container smoke lane.
-- `docs/WINDOWS_SHARE_TESTING.md`: enterprise runbook for staged Firefox profile scans from Windows shares.
+
+### Reviews (Historical)
+
+- `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
 
 ## License
 

@@ -75,6 +75,13 @@ The pre-push hook runs `./scripts/certify.sh` automatically.
 - Docs updated for any CLI, schema, or trust-boundary change.
 - Commit messages are scoped and auditable.
 
+For deep-soak rounds (daytime/overnight), also require:
+
+- soak summary reports `overall_status=PASS`.
+- `steps_failed=0` in soak summary.
+- a dated soak review doc is added/updated with runtime distribution and next actions
+  (example: `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`).
+
 For full merge-hold workflow and immediate planning queue, see:
 
 - `docs/PREMERGE_READINESS.md`

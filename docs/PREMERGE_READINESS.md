@@ -59,10 +59,16 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Immediate Planning Queue (Post-WS26)
+## Immediate Planning Queue
 
 Ordered next implementation targets:
 
-1. **WS-27**: Policy language expansion spike (CEL/OPA behind strict interface).
-2. **WS-28**: Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines).
-3. **WS-29**: Refresh planning docs with post-WS26 queue (complete).
+1. **WS-55A**: Implement append-only scan-history ingestion and deterministic learning artifact output.
+2. **WS-55B**: Add per-rule trend/novelty summaries from history snapshots.
+3. **WS-47..WS-53**: Finish pending threat-surface collectors/rules with deterministic regression tests.
+4. **WS-31 + WS-32**: Rust workspace bootstrap and contract canonicalization lock for migration parity.
+
+Current evidence basis:
+
+- `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md` confirms stability and highlights
+  runtime bottleneck concentration in fuzz workloads.

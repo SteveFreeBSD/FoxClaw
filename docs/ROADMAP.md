@@ -2,9 +2,11 @@
 
 This roadmap is FoxClaw's execution map for becoming a reference-grade browser security appliance, with Rust as the long-term runtime and deterministic contracts as the stability backbone.
 
-Primary research inputs (online, current as of February 22, 2026):
+Primary research inputs (online, current as of February 24, 2026):
 - `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`
 - `docs/RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md`
+- `docs/RESEARCH_2026-02-24_THREAT_SURFACE_EXPANSION.md`
+- `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`
 
 ## End-State Definition
 
@@ -82,6 +84,60 @@ Exit criteria:
 - Rust workspace compiles in CI and runs contract-smoke tests against canonical fixtures.
 - Windows-share runbook and staging harness are in place for enterprise remote-profile acquisition workflows.
 
+### Phase 2.5: Threat Surface Expansion (Q1 to Q2 2026)
+
+Objectives:
+
+- Complete WS-47 protocol handler hijack detection (`handlers.json` parsing, local executable flags).
+- Complete WS-48 NSS certificate store audit (`cert9.db` rogue root CA detection).
+- Complete WS-49 PKCS#11 module injection detection (`pkcs11.txt` validation).
+- Complete WS-50 session restore data exposure (`sessionstore.jsonlz4` sensitive data detection).
+- Complete WS-51 search engine integrity (`search.json.mozlz4` default engine validation).
+- Complete WS-52 cookie security posture (`cookies.sqlite` session theft signals).
+- Complete WS-53 HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection).
+- Complete WS-54 CVE advisory simulation scenarios in Windows and Python profile generators.
+- Complete WS-33 ATT&CK technique mapping for all finding classes.
+
+Exit criteria:
+
+- All new collectors have deterministic regression tests.
+- New rules are present in both `balanced.yml` and `strict.yml`.
+- Every new finding class maps to at least one ATT&CK technique.
+- CVE simulation scenarios produce profiles that trigger the corresponding new rules.
+- Soak harness covers new collectors without regression.
+
+### Phase 2.6: Adaptive Scan Intelligence (Q2 2026)
+
+Objectives:
+
+- Complete WS-55A scan-history ingestion (append-only local SQLite; deterministic ordering).
+- Complete WS-55B per-rule trend and novelty analysis from history snapshots.
+- Complete WS-56 fleet-wide pattern correlation and prevalence enrichment.
+- Add deterministic enrichment fields:
+  - `trend_direction`
+  - `novelty_score`
+  - `fleet_prevalence`
+
+Execution priority (next best step):
+
+1. WS-55A scan-history ingestion and report artifact generation.
+2. WS-55B trend/novelty summary surfaced in non-blocking outputs.
+3. WS-56 fleet prevalence once WS-55A/B data quality is proven.
+
+Exit criteria:
+
+- Scan remains fully deterministic for identical inputs and identical history state.
+- History database is local, append-only, and never consulted during rule evaluation.
+- Enrichment fields (`trend_direction`, `novelty_score`, `fleet_prevalence`) are schema-validated.
+- Soak harness validates self-learning enrichment without regression.
+
+Phase 2.6 gating evidence baseline:
+
+- Latest deep soak (`docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`) completed
+  with `120/120` passing steps and zero operational failures.
+- Runtime bottleneck is clearly identified (`fuzz` ~88.7% of runtime), giving a
+  concrete optimization target while preserving stable deterministic gates.
+
 ### Phase 3: Rust Core and Differential Execution (Q2 to Q3 2026)
 
 Objectives:
@@ -105,16 +161,18 @@ Exit criteria:
 
 Objectives:
 
-- Add ATT&CK technique mapping coverage for browser-specific finding classes.
+- ATT&CK technique mappings (accelerated from Phase 2.5) are ported to Rust with parity.
 - Strengthen KEV/EPSS/CVSS signal normalization and explanation fields.
 - Add OCSF-aligned export profile for downstream SIEM/XDR ingestion.
 - Expand multi-profile fleet reporting with deterministic aggregation identity.
+- Port self-learning enrichment layer to Rust.
 
 Exit criteria:
 
 - Threat-context fields are present, schema-validated, and deterministic.
 - OCSF export mode is documented and covered by integration tests.
 - Fleet outputs remain stable under versioned compatibility policy.
+- Self-learning enrichment produces identical output in both Python and Rust engines.
 
 ### Phase 5: Signed Distribution and Cutover Readiness (Q4 2026)
 

@@ -20,6 +20,7 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - `1` trust-manifest smoke stage (scan/fleet positive + fail-closed negatives)
 - `1` synth run (`50` realistic profiles; fidelity-gated)
 - `1` fuzz run (`500` realistic+mutated profiles; fidelity-gated)
+- `0` adversary runs by default (enable with `--adversary-runs`)
 - `1` Firefox matrix run (`esr`, `beta`, `nightly`)
 
 ## Launch (overnight)
@@ -28,6 +29,7 @@ Quick commands:
 
 ```bash
 make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
+make soak-smoke-adversary SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-smoke-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-daytime-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
@@ -35,6 +37,23 @@ make soak-daytime-detached SOAK_SUDO_PASSWORD='<sudo-password>'
 make soak-status
 make soak-stop
 ```
+
+Windows-share presoak preflight (recommended before long soak):
+
+```bash
+foxclaw acquire windows-share-scan \
+  --source-profile /mnt/firefox-profiles/<profile-name> \
+  --output-dir /var/tmp/foxclaw-presoak-share/<profile-name> \
+  --allow-active-profile \
+  --treat-high-findings-as-success
+```
+
+Verify these outputs exist before starting the soak harness:
+
+- `foxclaw.json`
+- `foxclaw.sarif`
+- `foxclaw.snapshot.json`
+- `stage-manifest.json`
 
 Recommended (survives terminal logout):
 
@@ -160,3 +179,39 @@ A run is considered stable when:
    - failing stage
    - first observed cycle/iteration
    - command log path
+
+## Post-Run Learning Extraction
+
+Use every deep soak as a planning input, even when all steps pass.
+
+Recommended extraction checklist:
+
+1. Runtime concentration by stage:
+
+```bash
+awk -F'\t' 'NR>1{count[$2]++; dur[$2]+=$6} END{for (s in count) printf "%s\tcount=%d\tduration=%ds\n", s, count[s], dur[s]}' \
+  /var/tmp/foxclaw-soak/<run-id>/results.tsv | sort
+```
+
+2. Determinism confirmation:
+
+```bash
+for c in /var/tmp/foxclaw-soak/<run-id>/snapshots/cycle-*; do
+  echo "$(basename "$c") unique_hashes=$(awk '{print $1}' "$c/sha256.txt" | sort -u | wc -l)"
+done
+```
+
+3. Fuzz/synth fidelity pressure points:
+
+- review `fuzz/cycle-*/fidelity-summary.json`
+- review `synth/cycle-*/fidelity-summary.json`
+- inspect top recurring issue strings in `logs/cycle-*-fuzz.log`
+
+4. Adversary scenario signal stability:
+
+- review `adversary/cycle-*/adversary-summary.json`
+- compare `findings_high_count` by scenario across cycles
+
+For the latest 8h baseline and decisions, see:
+
+- `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`

@@ -153,4 +153,24 @@ This matrix tracks high-value components for evolving FoxClaw into a feature-ric
 - Revisit this matrix each release cycle.
 - Promote completed items into architecture/workflow docs with implementation notes.
 - Record deferred/dropped items with explicit rationale.
-- Latest ecosystem deep-dive snapshot: `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`.
+
+## Research Document Index
+
+This file (`RESEARCH.md`) is the **master research matrix**. Dated research documents below capture deep dives into specific topics at a point in time:
+
+| Document | Focus | Date |
+|---|---|---|
+| `RESEARCH_2026-02-20.md` | Ecosystem alignment (Arkenfox, AMO, KEV/NVD feeds, osquery/Fleet) | 2026-02-20 |
+| `RESEARCH_2026-02-22_RUST_APPLIANCE.md` | Rust appliance transition (build hygiene, contracts, signed distribution) | 2026-02-22 |
+| `RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md` | Enterprise Windows-share audit (SMB staging, lock handling) | 2026-02-22 |
+| `RESEARCH_2026-02-24_ADVERSARY_TESTBED.md` | Adversary scenario profiles and soak integration | 2026-02-24 |
+| `RESEARCH_2026-02-24_THREAT_SURFACE_EXPANSION.md` | Threat surface gap analysis, CVE landscape, ATT&CK mappings, self-learning | 2026-02-24 |
+
+## Related Documents (Not Research)
+
+These docs implement or operationalize research findings — they are not research themselves:
+
+- `VULNERABILITY_INTEL.md`: **implementation strategy** for the intelligence pipeline (sync, correlation, storage schema). Implements research items 1–6 from this matrix.
+- `ROADMAP.md`: **execution plan** that sequences research into phased delivery.
+- `WORKSLICES.md`: **ordered task queue** with dependencies and acceptance criteria.
+

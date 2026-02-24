@@ -1,5 +1,5 @@
 name: balanced
-version: 0.6.0
+version: 0.7.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -158,4 +158,40 @@ rules:
         include_system: false
     rationale: Extension intelligence snapshots can flag known risky or delisted addons.
     recommendation: Remove or replace extensions flagged with high-risk intel reputation.
+    confidence: medium
+
+  - id: FC-CRED-001
+    title: Saved logins should not include known vulnerable passwords
+    severity: MEDIUM
+    category: credentials
+    check:
+      credential_metric_max:
+        metric: vulnerable_passwords_count
+        max: 0
+    rationale: Firefox leak telemetry indicates credentials that appear in breach datasets.
+    recommendation: Rotate vulnerable saved passwords and review account compromise indicators.
+    confidence: high
+
+  - id: FC-CRED-002
+    title: Saved logins should avoid insecure HTTP origins
+    severity: MEDIUM
+    category: credentials
+    check:
+      credential_metric_max:
+        metric: insecure_http_login_count
+        max: 0
+    rationale: Credentials tied to cleartext HTTP origins are at elevated interception risk.
+    recommendation: Remove or update saved logins for HTTP-only origins.
+    confidence: medium
+
+  - id: FC-CRED-003
+    title: Breach alert dismissals should be reviewed
+    severity: INFO
+    category: credentials
+    check:
+      credential_metric_max:
+        metric: dismissed_breach_alerts_count
+        max: 0
+    rationale: Dismissed breach alerts can hide unresolved credential exposure.
+    recommendation: Review dismissed breach alerts and confirm password rotation occurred.
     confidence: medium

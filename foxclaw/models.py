@@ -148,6 +148,22 @@ class ProfileArtifactEvidence(BaseModel):
     entries: list[ProfileArtifactEntry] = Field(default_factory=list)
 
 
+class CredentialEvidence(BaseModel):
+    """Credential and password-leak posture evidence derived from profile artifacts."""
+
+    logins_present: bool = False
+    logins_parse_error: str | None = None
+    saved_logins_count: int = 0
+    vulnerable_passwords_count: int = 0
+    dismissed_breach_alerts_count: int = 0
+    insecure_http_login_count: int = 0
+    formhistory_present: bool = False
+    formhistory_opened_ro: bool = False
+    formhistory_parse_error: str | None = None
+    formhistory_password_field_count: int = 0
+    formhistory_credential_field_count: int = 0
+
+
 class Finding(BaseModel):
     """Single posture finding produced by rule evaluation."""
 
@@ -314,6 +330,7 @@ class EvidenceBundle(BaseModel):
     extensions: ExtensionEvidence = Field(default_factory=ExtensionEvidence)
     sqlite: SqliteEvidence
     artifacts: ProfileArtifactEvidence = Field(default_factory=ProfileArtifactEvidence)
+    credentials: CredentialEvidence = Field(default_factory=CredentialEvidence)
     intel: IntelCorrelationEvidence = Field(default_factory=IntelCorrelationEvidence)
     summary: ScanSummary
     high_findings: list[str] = Field(default_factory=list)

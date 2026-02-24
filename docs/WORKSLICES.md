@@ -9,6 +9,17 @@ This plan converts the current review and research into sequenced, testable exec
 - No scan-runtime network access regression is allowed.
 - Every changed behavior must be covered by deterministic assertions.
 
+## Current Direction (2026-02-24)
+
+- Latest deep soak baseline is documented in:
+  - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`
+- Immediate execution focus:
+  - WS-55A (append-only scan-history ingestion and deterministic learning artifact)
+  - WS-55B (trend/novelty analysis from history snapshots)
+- Rationale:
+  - soak stability is already strong (`120/120` pass)
+  - largest runtime concentration is fuzz (~88.7%), so learning-driven mutation tuning is highest ROI
+
 ## Slice Queue
 
 | ID | Status | Depends On | Outcome |
@@ -59,6 +70,16 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-44 | pending | WS-40, WS-43 | Shadow-mode rollout for Rust engine with parity, reliability, and SLO thresholds. |
 | WS-45 | pending | WS-44 | Make Rust the default runtime and deprecate Python fallback path. |
 | WS-46 | complete | WS-28 | Enterprise Windows-share profile acquisition lane with deterministic local staging scans. |
+| WS-47 | pending | WS-30 | Protocol handler hijack detection (`handlers.json` parsing, executable path flags). |
+| WS-48 | pending | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
+| WS-49 | pending | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
+| WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
+| WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
+| WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
+| WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection). |
+| WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
+| WS-55A | in-progress | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |\n| WS-55B | pending | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
+| WS-56 | pending | WS-55, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
 
 ## Slice Details
 
@@ -623,6 +644,117 @@ This plan converts the current review and research into sequenced, testable exec
 
 - Status: pending.
 - Goal: make Rust the default runtime and retire Python fallback according to deprecation and rollback policy.
+
+### WS-47 - Protocol Handler Hijack Detection
+
+- Status: pending.
+- Goal: detect custom protocol handlers in `handlers.json` pointing to local executables that could enable code execution via crafted links.
+- Scope:
+  - new collector `foxclaw/collect/handlers.py`.
+  - parse `handlers.json` for custom protocol handler entries.
+  - flag handlers with `ask=false` pointing to local executables (`.exe`, `.bat`, `.ps1`, `.cmd`, `.sh`).
+  - new rules in `balanced.yml` and `strict.yml`.
+  - ATT&CK mapping: T1204 (User Execution).
+
+### WS-48 - NSS Certificate Store Audit
+
+- Status: pending.
+- Goal: detect rogue or unexpected root CA certificates injected into Firefox's NSS certificate store (`cert9.db`).
+- Scope:
+  - new collector `foxclaw/collect/certificates.py`.
+  - parse `cert9.db` (SQLite-backed NSS store) for root CA entries.
+  - flag non-Mozilla, non-OS-standard root CAs.
+  - flag self-signed root CAs with recent issuance dates.
+  - new rules in `balanced.yml` and `strict.yml`.
+  - ATT&CK mapping: T1553.004 (Install Root Certificate).
+
+### WS-49 - PKCS#11 Module Injection Detection
+
+- Status: pending.
+- Goal: detect PKCS#11 modules registered in `pkcs11.txt` that point to non-Mozilla library paths, which could enable DLL injection into the Firefox process.
+- Scope:
+  - extend existing `pkcs11.txt` awareness (currently only generated in profile synthesis).
+  - new collector logic to parse `pkcs11.txt` and validate module paths.
+  - flag modules outside Firefox install directory or OS-standard crypto paths.
+  - ATT&CK mapping: T1129 (Shared Modules).
+
+### WS-50 - Session Restore Data Exposure
+
+- Status: pending.
+- Goal: detect sensitive form data, authentication tokens, and active session state stored in `sessionstore.jsonlz4` that could enable session replay attacks.
+- Scope:
+  - new collector `foxclaw/collect/session.py`.
+  - decompress and parse Mozilla LZ4 format (`sessionstore.jsonlz4`).
+  - detect sensitive form field content (passwords, tokens, credit card patterns).
+  - flag profiles with session restore enabled and sensitive data present.
+  - ATT&CK mapping: T1005 (Data from Local System), T1185 (Browser Session Hijacking).
+
+### WS-51 - Search Engine Integrity
+
+- Status: pending.
+- Goal: detect search engine hijacking by validating the default search engine in `search.json.mozlz4`.
+- Scope:
+  - extend artifacts or prefs collector.
+  - decompress and parse `search.json.mozlz4`.
+  - maintain allowlist of standard search engines (Google, Bing, DuckDuckGo, Yahoo, etc.).
+  - flag non-standard default search engines and custom search URLs.
+  - ATT&CK mapping: T1583.001 (Acquire Infrastructure: Domains).
+
+### WS-52 - Cookie Security Posture
+
+- Status: pending.
+- Goal: detect cookie security weaknesses in `cookies.sqlite` that could enable session theft or tracking.
+- Scope:
+  - new collector `foxclaw/collect/cookies.py`.
+  - parse `cookies.sqlite` for security posture signals.
+  - detect: long-lived session cookies (>1 year), `SameSite=None` on sensitive domains, missing `HttpOnly` on authentication cookies, excessive third-party tracking cookies.
+  - ATT&CK mapping: T1539 (Steal Web Session Cookie).
+
+### WS-53 - HSTS State Integrity
+
+- Status: pending.
+- Goal: detect HSTS downgrade attacks by validating `SiteSecurityServiceState.txt` for missing or removed entries.
+- Scope:
+  - extend filesystem/artifacts collector.
+  - parse `SiteSecurityServiceState.txt` for HSTS pin entries.
+  - maintain baseline of domains that should enforce HTTPS (banking, email, corporate).
+  - flag missing HSTS entries for critical domains.
+  - detect manual removal patterns (file truncation, selective entry deletion).
+  - ATT&CK mapping: T1557 (Adversary-in-the-Middle).
+
+### WS-54 - CVE Advisory Simulation Scenarios
+
+- Status: pending.
+- Goal: add CVE-inspired adversary scenarios to both the Windows (`mutate_profile.mjs`) and Python (`adversary_profiles.py`) profile generators.
+- Scope:
+  - new scenarios: `cve_sandbox_escape`, `cve_extension_abuse`, `cve_session_hijack`, `cve_cert_injection`, `cve_handler_hijack`, `cve_hsts_downgrade`, `cve_search_hijack`.
+  - each scenario produces profiles designed to trigger the corresponding new WS-47 through WS-53 collectors.
+  - deterministic seeds and offline generation preserved.
+  - round-trip verification: generated profiles must trigger expected findings when scanned.
+
+### WS-55 - Adaptive Scan Intelligence (Self-Learning)
+
+- Status: pending.
+- Goal: implement a local, deterministic self-learning feedback loop where FoxClaw accumulates scan history and enriches future scan outputs with trend analysis and novelty detection.
+- Scope:
+  - new module `foxclaw/learning/history.py`: append-only SQLite scan history store.
+  - new module `foxclaw/learning/trends.py`: finding trend direction analysis.
+  - new module `foxclaw/learning/novel.py`: novelty scoring for first-seen findings.
+  - CLI flags: `--history-db`, `--enable-trend-analysis`, `--flag-novel-findings`.
+  - output enrichment fields: `trend_direction`, `first_seen_at`, `novelty_score`.
+  - constraints: deterministic, offline, append-only, optional enrichment layer.
+  - ATT&CK mapping: enriches all existing technique mappings with temporal context.
+
+### WS-56 - Fleet Pattern Correlation
+
+- Status: pending.
+- Goal: extend self-learning enrichment to fleet-wide scanning, adding cross-profile pattern correlation and finding prevalence metrics.
+- Scope:
+  - extend `foxclaw/learning/history.py` with fleet-level aggregation queries.
+  - new module `foxclaw/learning/fleet_patterns.py`: cross-profile finding correlation.
+  - output enrichment field: `fleet_prevalence` (percentage of scanned profiles sharing a finding).
+  - enable automatic priority elevation for findings with low fleet prevalence (outlier detection).
+  - constraints: same deterministic/offline/append-only guarantees as WS-55.
 
 ## Workslice Update Protocol
 

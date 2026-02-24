@@ -63,6 +63,20 @@ These are non-negotiable for the scan runtime:
   - Control: job-scoped `security-events: write` and fork PR upload skip logic.
 - Release publishing misuse.
   - Control: OIDC trusted publishing + environment-scoped release workflow + provenance attestation.
+- Protocol handler hijacking via `handlers.json` manipulation.
+  - Control: handler collector flags executable targets (planned, WS-47).
+- Rogue root CA injection into NSS `cert9.db`.
+  - Control: certificate store audit against known-good CA baselines (planned, WS-48).
+- PKCS#11 DLL injection via `pkcs11.txt` manipulation.
+  - Control: module path validation against Firefox install directory (planned, WS-49).
+- Session replay via `sessionstore.jsonlz4` sensitive data exposure.
+  - Control: session restore parser with sensitive data detection (planned, WS-50).
+- Search engine hijacking via `search.json.mozlz4` modification.
+  - Control: default engine validation against allowlist (planned, WS-51).
+- Cookie security posture weaknesses enabling session theft.
+  - Control: cookie attribute analysis for SameSite, HttpOnly, and expiry (planned, WS-52).
+- HSTS downgrade via `SiteSecurityServiceState.txt` manipulation.
+  - Control: HSTS entry integrity checks for critical domains (planned, WS-53).
 
 ## Data Handling
 
@@ -87,6 +101,9 @@ These are non-negotiable for the scan runtime:
 - Continuous verification of release attestations in downstream deployment pipelines.
 - Ongoing hardening for multi-source CVE/KEV/EPSS ingestion integrity and provenance policy.
 - Any network-backed intelligence refresh must run in explicit update commands, never scan runtime.
+- Expanded artifact parsing for protocol handlers, certificates, PKCS#11, session restore, search engines, cookies, and HSTS state.
+- Self-learning scan history with deterministic trend analysis and novelty detection.
+- Fleet-wide pattern correlation and finding prevalence enrichment.
 
 ## References
 

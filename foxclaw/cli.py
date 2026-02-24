@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from foxclaw.acquire.windows_share import run_windows_share_scan_from_argv
+from foxclaw.acquire.windows_share_batch import run_windows_share_batch
 from foxclaw.intel.sync import sync_sources
 from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
@@ -175,6 +177,16 @@ def scan(
         "--snapshot-out",
         help="Write deterministic snapshot JSON to this path.",
     ),
+    history_db: Path | None = typer.Option(
+        None,
+        "--history-db",
+        help="Append scan results to this local history database (WS-55A learning store).",
+    ),
+    learning_artifact_out: Path | None = typer.Option(
+        None,
+        "--learning-artifact-out",
+        help="Write deterministic learning artifact JSON summarizing history.",
+    ),
     deterministic: bool = typer.Option(
         False,
         "--deterministic",
@@ -300,6 +312,33 @@ def scan(
             console.print(f"SARIF report written to: {sarif_out}")
         if snapshot_out is not None:
             console.print(f"Snapshot report written to: {snapshot_out}")
+
+    # WS-55A: Scan history ingestion
+    if history_db is not None:
+        try:
+            from foxclaw.learning.history import ScanHistoryStore
+
+            store = ScanHistoryStore(history_db)
+            history_scan_id = store.ingest(evidence)
+            console.print(
+                f"[dim]Scan history ingested: {history_scan_id} "
+                f"({store.scan_count()} total scans)[/dim]"
+            )
+            if learning_artifact_out is not None:
+                learning_artifact_out.parent.mkdir(parents=True, exist_ok=True)
+                artifact = store.generate_learning_artifact()
+                learning_artifact_out.write_text(
+                    json.dumps(artifact, indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
+                console.print(
+                    f"[dim]Learning artifact written to: {learning_artifact_out}[/dim]"
+                )
+            store.close()
+        except Exception as exc:
+            console.print(
+                f"[yellow]Warning: scan history ingestion failed: {exc}[/yellow]"
+            )
 
     raise typer.Exit(
         code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
@@ -642,6 +681,115 @@ def acquire_windows_share_scan(
         argv.append("--treat-high-findings-as-success")
 
     raise typer.Exit(code=run_windows_share_scan_from_argv(argv))
+
+
+@acquire_app.command("windows-share-batch")
+def acquire_windows_share_batch(
+    source_root: Path = typer.Option(
+        ...,
+        "--source-root",
+        help="Directory containing many Firefox profile directories as immediate children.",
+    ),
+    staging_root: Path = typer.Option(
+        ...,
+        "--staging-root",
+        help="Root directory where each profile snapshot is staged.",
+    ),
+    out_root: Path = typer.Option(
+        ...,
+        "--out-root",
+        help="Root directory for per-profile outputs (<out-root>/<profile_name>/).",
+    ),
+    max_profiles: int | None = typer.Option(
+        None,
+        "--max",
+        min=1,
+        help="Optional limit on number of profile directories processed.",
+    ),
+    allow_active_profile: bool = typer.Option(
+        False,
+        "--allow-active-profile",
+        help=(
+            "Allow staging when lock markers are present. Use only when source is a "
+            "crash-consistent snapshot."
+        ),
+    ),
+    snapshot_id_prefix: str | None = typer.Option(
+        None,
+        "--snapshot-id-prefix",
+        help="Optional prefix for per-profile snapshot identifiers.",
+    ),
+    foxclaw_cmd: str | None = typer.Option(
+        None,
+        "--foxclaw-cmd",
+        help="Command used to invoke FoxClaw scan (defaults to current python -m foxclaw).",
+    ),
+    ruleset: Path | None = typer.Option(
+        None,
+        "--ruleset",
+        help="Ruleset path passed to foxclaw scan.",
+    ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help="Optional repeatable policy override path.",
+    ),
+    suppression_path: list[Path] | None = typer.Option(
+        None,
+        "--suppression-path",
+        help="Optional repeatable suppression policy path.",
+    ),
+    intel_store_dir: Path | None = typer.Option(
+        None,
+        "--intel-store-dir",
+        help="Optional intel snapshot store directory.",
+    ),
+    intel_snapshot_id: str | None = typer.Option(
+        None,
+        "--intel-snapshot-id",
+        help="Optional intel snapshot id (requires --intel-store-dir).",
+    ),
+    keep_stage_writeable: bool = typer.Option(
+        False,
+        "--keep-stage-writeable",
+        help="Do not remove write bits from staged files.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Validate paths and write manifests without launching foxclaw scan.",
+    ),
+    treat_high_findings_as_success: bool = typer.Option(
+        False,
+        "--treat-high-findings-as-success",
+        help="Treat per-profile scan exit code 2 as success (0) for batch counting.",
+    ),
+) -> None:
+    """Stage and scan multiple Firefox profile directories from a share root."""
+    try:
+        exit_code = run_windows_share_batch(
+            source_root=source_root,
+            staging_root=staging_root,
+            out_root=out_root,
+            max_profiles=max_profiles,
+            allow_active_profile=allow_active_profile,
+            snapshot_id_prefix=snapshot_id_prefix,
+            foxclaw_cmd=foxclaw_cmd,
+            ruleset=ruleset,
+            policy_path=policy_path,
+            suppression_path=suppression_path,
+            intel_store_dir=intel_store_dir,
+            intel_snapshot_id=intel_snapshot_id,
+            keep_stage_writeable=keep_stage_writeable,
+            dry_run=dry_run,
+            treat_high_findings_as_success=treat_high_findings_as_success,
+            out_stream=sys.stdout,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    raise typer.Exit(code=exit_code)
 
 
 @fleet_app.command("aggregate")
