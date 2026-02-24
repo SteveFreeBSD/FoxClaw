@@ -266,8 +266,8 @@ def test_scan_governance_v1_1_0_success(tmp_path: Path) -> None:
                             "approved_by": "lead@example.com",
                             "approved_at": "2026-01-02T00:00:00+00:00",
                             "ticket": "SEC-1234",
-                            "justification_type": "accepted_risk"
-                        }
+                            "justification_type": "accepted_risk",
+                        },
                     }
                 ],
             },
@@ -276,7 +276,19 @@ def test_scan_governance_v1_1_0_success(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = runner.invoke(app, ["scan", "--profile", str(profile), "--ruleset", str(ruleset), "--suppression-path", str(suppressions), "--json"])
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile),
+            "--ruleset",
+            str(ruleset),
+            "--suppression-path",
+            str(suppressions),
+            "--json",
+        ],
+    )
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["summary"]["findings_suppressed_count"] == 1
@@ -327,10 +339,10 @@ def test_scan_governance_v1_1_0_fails_time_ordering(tmp_path: Path) -> None:
                             "requested_by": "analyst@example.com",
                             "requested_at": "2026-01-01T00:00:00+00:00",
                             "approved_by": "lead@example.com",
-                            "approved_at": "2026-01-05T00:00:00+00:00", # later than expires!
+                            "approved_at": "2026-01-05T00:00:00+00:00",  # later than expires!
                             "ticket": "SEC-1234",
-                            "justification_type": "accepted_risk"
-                        }
+                            "justification_type": "accepted_risk",
+                        },
                     }
                 ],
             }

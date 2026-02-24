@@ -15,7 +15,9 @@ _GOLDEN_STAGE_MANIFEST = (
 def _write_fake_profile(root: Path, *, with_lock_marker: bool = False) -> Path:
     profile = root / "source_profile"
     profile.mkdir(parents=True, exist_ok=True)
-    (profile / "prefs.js").write_text('user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8")
+    (profile / "prefs.js").write_text(
+        'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+    )
     (profile / "cookies.sqlite").write_bytes(b"sqlite-binary")
     if with_lock_marker:
         (profile / "parent.lock").write_text("locked\n", encoding="utf-8")

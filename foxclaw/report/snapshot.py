@@ -7,12 +7,11 @@ import json
 from pathlib import Path
 
 from foxclaw.models import (
+    SEVERITY_ORDER,
     EvidenceBundle,
     ScanSnapshot,
     SnapshotRulesetMetadata,
 )
-
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 
 
 def render_scan_snapshot(
@@ -50,7 +49,7 @@ def build_scan_snapshot(
     findings = sorted(
         bundle.findings,
         key=lambda finding: (
-            _SEVERITY_ORDER[finding.severity],
+            SEVERITY_ORDER[finding.severity],
             finding.id,
             tuple(finding.evidence),
         ),

@@ -134,12 +134,8 @@ class TestScanHistoryStore:
         db = tmp_path / "history.sqlite"
         store = ScanHistoryStore(db)
 
-        e1 = _make_evidence(
-            generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC)
-        )
-        e2 = _make_evidence(
-            generated_at=datetime(2026, 2, 24, 13, 0, 0, tzinfo=UTC)
-        )
+        e1 = _make_evidence(generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC))
+        e2 = _make_evidence(generated_at=datetime(2026, 2, 24, 13, 0, 0, tzinfo=UTC))
 
         store.ingest(e1)
         store.ingest(e2)

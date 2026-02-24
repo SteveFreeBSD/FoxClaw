@@ -95,7 +95,9 @@ def collect_extensions(profile_dir: Path) -> ExtensionEvidence:
     return evidence
 
 
-def _build_entry(profile_dir: Path, *, addon: dict[str, object], index: int) -> ExtensionEntry | None:
+def _build_entry(
+    profile_dir: Path, *, addon: dict[str, object], index: int
+) -> ExtensionEntry | None:
     addon_type = _optional_str(addon.get("type"))
     if addon_type is not None and addon_type != "extension":
         return None
@@ -203,7 +205,9 @@ def _load_manifest(
     return _ManifestData(parse_error="manifest not found")
 
 
-def _manifest_candidates(profile_dir: Path, *, addon: dict[str, object], addon_id: str) -> list[Path]:
+def _manifest_candidates(
+    profile_dir: Path, *, addon: dict[str, object], addon_id: str
+) -> list[Path]:
     candidates: list[Path] = []
 
     addon_path = _optional_str(addon.get("path"))

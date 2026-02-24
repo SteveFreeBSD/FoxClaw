@@ -25,7 +25,11 @@ def _run_single_windows_share_scan(argv: list[str]) -> RunnerResult:
 
 
 def _extract_error_line(*, stdout_payload: str, stderr_payload: str) -> str | None:
-    lines = [line.strip() for line in (stderr_payload + "\n" + stdout_payload).splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in (stderr_payload + "\n" + stdout_payload).splitlines()
+        if line.strip()
+    ]
     if not lines:
         return None
 
@@ -66,7 +70,7 @@ def _build_windows_share_scan_argv(
     suppression_path: list[Path] | None,
     intel_store_dir: Path | None,
     intel_snapshot_id: str | None,
-    keep_stage_writeable: bool,
+    keep_stage_writable: bool,
     dry_run: bool,
     treat_high_findings_as_success: bool,
 ) -> list[str]:
@@ -97,8 +101,8 @@ def _build_windows_share_scan_argv(
         argv.extend(["--intel-snapshot-id", intel_snapshot_id])
     if allow_active_profile:
         argv.append("--allow-active-profile")
-    if keep_stage_writeable:
-        argv.append("--keep-stage-writeable")
+    if keep_stage_writable:
+        argv.append("--keep-stage-writable")
     if dry_run:
         argv.append("--dry-run")
     if treat_high_findings_as_success:
@@ -121,7 +125,7 @@ def run_windows_share_batch(
     suppression_path: list[Path] | None = None,
     intel_store_dir: Path | None = None,
     intel_snapshot_id: str | None = None,
-    keep_stage_writeable: bool = False,
+    keep_stage_writable: bool = False,
     dry_run: bool = False,
     treat_high_findings_as_success: bool = False,
     runner: WindowsShareScanRunner = _run_single_windows_share_scan,
@@ -140,7 +144,9 @@ def run_windows_share_batch(
 
     out_root.mkdir(parents=True, exist_ok=True)
 
-    child_dirs = sorted((path for path in source_root.iterdir() if path.is_dir()), key=lambda path: path.name)
+    child_dirs = sorted(
+        (path for path in source_root.iterdir() if path.is_dir()), key=lambda path: path.name
+    )
     total_profiles_seen = len(child_dirs)
     selected_profiles = child_dirs[:max_profiles] if max_profiles is not None else child_dirs
 
@@ -171,7 +177,7 @@ def run_windows_share_batch(
             suppression_path=suppression_path,
             intel_store_dir=intel_store_dir,
             intel_snapshot_id=intel_snapshot_id,
-            keep_stage_writeable=keep_stage_writeable,
+            keep_stage_writable=keep_stage_writable,
             dry_run=dry_run,
             treat_high_findings_as_success=treat_high_findings_as_success,
         )
@@ -185,7 +191,9 @@ def run_windows_share_batch(
             stderr_payload = f"error: runner raised exception: {exc}"
         runtime_seconds = round(perf_counter() - profile_started, 3)
 
-        error_line = _extract_error_line(stdout_payload=stdout_payload, stderr_payload=stderr_payload)
+        error_line = _extract_error_line(
+            stdout_payload=stdout_payload, stderr_payload=stderr_payload
+        )
         staged_path = _read_staged_path(profile_out)
 
         profile_result: dict[str, object] = {

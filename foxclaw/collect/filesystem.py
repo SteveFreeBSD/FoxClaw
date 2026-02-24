@@ -46,9 +46,7 @@ def collect_file_permissions(profile_dir: Path) -> list[FilePermEvidence]:
         group_writable = bool(mode_bits & stat.S_IWGRP)
         world_readable = bool(mode_bits & stat.S_IROTH)
         world_writable = bool(mode_bits & stat.S_IWOTH)
-        needs_hardening = (
-            group_readable or group_writable or world_readable or world_writable
-        )
+        needs_hardening = group_readable or group_writable or world_readable or world_writable
 
         evidence.append(
             FilePermEvidence(

@@ -176,9 +176,7 @@ def _read_http_payload(origin: str, *, allow_insecure_http: bool) -> bytes:
         response = connection.getresponse()
         body = cast(bytes, response.read())
         if response.status < 200 or response.status >= 300:
-            raise OSError(
-                f"source '{origin}' returned HTTP {response.status} {response.reason}"
-            )
+            raise OSError(f"source '{origin}' returned HTTP {response.status} {response.reason}")
         return body
     except OSError as exc:
         raise OSError(f"unable to fetch source '{origin}': {exc}") from exc

@@ -38,6 +38,7 @@ def test_live_orchestration_cli_success(tmp_path: Path):
     assert "Executingdeterministicscan" in normalized_stdout
     assert "ScanSummary" in normalized_stdout
 
+
 def test_live_orchestration_cli_sync_failure(tmp_path: Path):
     """Test that `foxclaw live` fails closed if sync fails."""
     result = subprocess.run(

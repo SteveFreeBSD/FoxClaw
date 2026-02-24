@@ -13,6 +13,8 @@ from foxclaw.intel.models import IntelCorrelationEvidence
 PrefSource = Literal["prefs.js", "user.js", "unset"]
 PrefRawType = Literal["bool", "int", "string"]
 FindingSeverity = Literal["INFO", "MEDIUM", "HIGH"]
+SEVERITY_ORDER: dict[FindingSeverity, int] = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
+
 FindingConfidence = Literal["low", "medium", "high"]
 RiskPriority = Literal["low", "medium", "high", "critical"]
 

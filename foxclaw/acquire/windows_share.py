@@ -192,7 +192,7 @@ def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--keep-stage-writeable",
+        "--keep-stage-writable",
         action="store_true",
         help="Do not remove write bits from staged files.",
     )
@@ -253,9 +253,15 @@ def resolve_windows_share_stage_paths(
     stage_root = resolved_staging_root / resolved_snapshot_id
     staged_profile = stage_root / "profile"
 
-    resolved_output_dir = output_dir.expanduser().resolve() if output_dir else stage_root / "artifacts"
-    resolved_json_out = json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
-    resolved_sarif_out = sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
+    resolved_output_dir = (
+        output_dir.expanduser().resolve() if output_dir else stage_root / "artifacts"
+    )
+    resolved_json_out = (
+        json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
+    )
+    resolved_sarif_out = (
+        sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
+    )
     resolved_scan_snapshot_out = (
         scan_snapshot_out.expanduser().resolve()
         if scan_snapshot_out
@@ -310,7 +316,9 @@ def _copy_tree(source_root: Path, target_root: Path) -> CopyStats:
         for directory in dirs:
             src_child = src_dir / directory
             if src_child.is_symlink():
-                raise RuntimeError(f"symlinked directory not allowed in source profile: {src_child}")
+                raise RuntimeError(
+                    f"symlinked directory not allowed in source profile: {src_child}"
+                )
 
         for file_name in sorted(files):
             src_file = src_dir / file_name
@@ -457,7 +465,7 @@ def stage_windows_share_profile(
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
     allow_active_profile: bool = False,
-    keep_stage_writeable: bool = False,
+    keep_stage_writable: bool = False,
 ) -> WindowsShareStageResult:
     paths = resolve_windows_share_stage_paths(
         source_profile=source_profile,
@@ -477,8 +485,7 @@ def stage_windows_share_profile(
         )
     if not paths.source_profile.exists() or not paths.source_profile.is_dir():
         raise ValueError(
-            "source profile does not exist or is not a directory: "
-            f"{paths.source_profile}"
+            f"source profile does not exist or is not a directory: {paths.source_profile}"
         )
 
     staging_root_error = _validate_staging_root(
@@ -500,7 +507,7 @@ def stage_windows_share_profile(
 
     try:
         copy_stats = _copy_tree(paths.source_profile, paths.staged_profile)
-        if not keep_stage_writeable:
+        if not keep_stage_writable:
             _make_tree_read_only(paths.staged_profile)
         paths.output_dir.mkdir(parents=True, exist_ok=True)
     except (OSError, RuntimeError) as exc:
@@ -513,7 +520,7 @@ def stage_windows_share_profile(
         "source_is_unc_path": paths.source_is_unc_path,
         "source_lock_markers": lock_markers,
         "staged_profile": str(paths.staged_profile),
-        "stage_writeable": bool(keep_stage_writeable),
+        "stage_writable": bool(keep_stage_writable),
         "copy": {
             "directories": copy_stats.dirs_copied,
             "files": copy_stats.files_copied,
@@ -571,7 +578,7 @@ def run_windows_share_scan(
             scan_snapshot_out=Path(args.scan_snapshot_out) if args.scan_snapshot_out else None,
             manifest_out=Path(args.manifest_out) if args.manifest_out else None,
             allow_active_profile=bool(args.allow_active_profile),
-            keep_stage_writeable=bool(args.keep_stage_writeable),
+            keep_stage_writable=bool(args.keep_stage_writable),
         )
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=err_stream)

@@ -9,13 +9,12 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from foxclaw import __version__
-from foxclaw.models import EvidenceBundle, Finding
+from foxclaw.models import SEVERITY_ORDER, EvidenceBundle, Finding
 
 SARIF_SCHEMA_URL = (
     "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json"
 )
 SARIF_VERSION = "2.1.0"
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 _SEVERITY_TO_LEVEL = {"HIGH": "error", "MEDIUM": "warning", "INFO": "note"}
 _SEVERITY_TO_SECURITY_SCORE = {"HIGH": "8.9", "MEDIUM": "5.0", "INFO": "1.0"}
 _FILE_URI_RE = re.compile(r"file://[^\s,;()]+")
@@ -37,7 +36,7 @@ def build_scan_sarif(
     profile_root = Path(bundle.profile.path).expanduser()
     findings = sorted(
         bundle.findings,
-        key=lambda item: (_SEVERITY_ORDER[item.severity], item.id, tuple(item.evidence)),
+        key=lambda item: (SEVERITY_ORDER[item.severity], item.id, tuple(item.evidence)),
     )
     rules, rule_indices = _build_rules(findings)
     results = [
@@ -95,9 +94,7 @@ def _build_rules(findings: list[Finding]) -> tuple[list[dict[str, object]], dict
                 "fullDescription": {"text": finding.rationale},
                 "help": {"text": finding.recommendation},
                 "helpUri": _rule_help_uri(finding.id),
-                "defaultConfiguration": {
-                    "level": _SEVERITY_TO_LEVEL[finding.severity]
-                },
+                "defaultConfiguration": {"level": _SEVERITY_TO_LEVEL[finding.severity]},
                 "properties": {
                     "category": finding.category,
                     "confidence": finding.confidence,

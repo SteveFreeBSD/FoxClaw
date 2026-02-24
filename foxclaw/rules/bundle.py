@@ -20,7 +20,9 @@ def fetch_bundle(url: str, dest_path: Path, *, allow_insecure_http: bool = False
     if parsed.scheme not in {"http", "https"}:
         raise ValueError(f"Unsupported URL scheme: {url}")
     if parsed.scheme == "http" and not allow_insecure_http:
-        raise ValueError("Insecure HTTP transport is forbidden. Use --allow-insecure-http to override.")
+        raise ValueError(
+            "Insecure HTTP transport is forbidden. Use --allow-insecure-http to override."
+        )
     if not parsed.netloc:
         raise ValueError(f"Invalid bundle URL (missing host): {url}")
 

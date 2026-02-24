@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from foxclaw.models import (
+    SEVERITY_ORDER,
     Finding,
     ScanSnapshot,
     ScanSnapshotDiff,
@@ -16,8 +17,6 @@ from foxclaw.models import (
     SnapshotFindingChange,
     SnapshotMetadata,
 )
-
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 
 
 def load_scan_snapshot(path: Path) -> ScanSnapshot:
@@ -43,7 +42,9 @@ def build_scan_snapshot_diff(before: ScanSnapshot, after: ScanSnapshot) -> ScanS
     before_ids = set(before_by_id.keys())
     after_ids = set(after_by_id.keys())
 
-    added_findings = _sort_findings([after_by_id[rule_id] for rule_id in sorted(after_ids - before_ids)])
+    added_findings = _sort_findings(
+        [after_by_id[rule_id] for rule_id in sorted(after_ids - before_ids)]
+    )
     removed_findings = _sort_findings(
         [before_by_id[rule_id] for rule_id in sorted(before_ids - after_ids)]
     )
@@ -119,7 +120,11 @@ def _snapshot_metadata(snapshot: ScanSnapshot) -> SnapshotMetadata:
 def _sort_findings(findings: list[Finding]) -> list[Finding]:
     return sorted(
         findings,
-        key=lambda finding: (_SEVERITY_ORDER[finding.severity], finding.id, tuple(finding.evidence)),
+        key=lambda finding: (
+            SEVERITY_ORDER[finding.severity],
+            finding.id,
+            tuple(finding.evidence),
+        ),
     )
 
 

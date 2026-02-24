@@ -135,9 +135,7 @@ def test_scan_rejects_unc_profile_path_by_default() -> None:
         assert "UNC source profile paths are not directly accessible" in result.stdout
 
 
-def test_scan_stages_share_profile_before_collection(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_scan_stages_share_profile_before_collection(tmp_path: Path, monkeypatch) -> None:
     source_profile = tmp_path / "source-profile"
     _prepare_profile(source_profile)
 
@@ -205,9 +203,7 @@ def test_scan_stages_share_profile_before_collection(
     assert scan_payload["profile"]["path"] != str(source_profile.resolve())
 
 
-def test_scan_share_staging_fails_closed_on_lock_marker(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_scan_share_staging_fails_closed_on_lock_marker(tmp_path: Path, monkeypatch) -> None:
     source_profile = tmp_path / "source-profile"
     _prepare_profile(source_profile)
     (source_profile / "parent.lock").write_text("locked\n", encoding="utf-8")

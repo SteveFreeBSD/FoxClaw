@@ -9,6 +9,7 @@ import socket
 from pathlib import Path
 
 from foxclaw.models import (
+    SEVERITY_ORDER,
     EvidenceBundle,
     FleetAggregateSummary,
     FleetAggregationReport,
@@ -17,8 +18,6 @@ from foxclaw.models import (
     FleetProfileIdentity,
     FleetProfileReport,
 )
-
-_SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "INFO": 2}
 
 
 def build_fleet_report(bundles: list[EvidenceBundle]) -> FleetAggregationReport:
@@ -90,7 +89,9 @@ def _build_aggregate_summary(
     return FleetAggregateSummary(
         profiles_total=len(profiles),
         profiles_with_findings=sum(1 for item in profiles if item.summary.findings_total > 0),
-        profiles_with_high_findings=sum(1 for item in profiles if item.summary.findings_high_count > 0),
+        profiles_with_high_findings=sum(
+            1 for item in profiles if item.summary.findings_high_count > 0
+        ),
         findings_total=sum(item.summary.findings_total for item in profiles),
         findings_high_count=sum(item.summary.findings_high_count for item in profiles),
         findings_medium_count=sum(item.summary.findings_medium_count for item in profiles),
@@ -156,7 +157,7 @@ def _normalize_profile_path(path: Path) -> str:
 
 def _finding_sort_key(item: FleetFindingRecord) -> tuple[int, str, str, tuple[str, ...]]:
     return (
-        _SEVERITY_ORDER.get(item.severity, 99),
+        SEVERITY_ORDER.get(item.severity, 99),
         item.rule_id,
         item.profile_uid,
         tuple(item.evidence),
