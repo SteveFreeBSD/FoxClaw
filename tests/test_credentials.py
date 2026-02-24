@@ -63,13 +63,13 @@ def test_collect_credential_exposure_parses_logins_and_formhistory(tmp_path: Pat
                         "id": 1,
                         "hostname": "https://accounts.example.com",
                         "encryptedUsername": "enc-user-1",
-                        "encryptedPassword": "enc-pass-1",
+                        "encryptedPassword": "enc-cred-1",  # pragma: allowlist secret
                     },
                     {
                         "id": 2,
                         "hostname": "http://legacy.example.net",
                         "encryptedUsername": "enc-user-2",
-                        "encryptedPassword": "enc-pass-2",
+                        "encryptedPassword": "enc-cred-2",  # pragma: allowlist secret
                     },
                 ],
                 "potentiallyVulnerablePasswords": [
@@ -127,7 +127,7 @@ def test_scan_credential_metric_high_finding_and_exit_code(tmp_path: Path) -> No
                         "id": 1,
                         "hostname": "https://accounts.example.com",
                         "encryptedUsername": "enc-user-1",
-                        "encryptedPassword": "enc-pass-1",
+                        "encryptedPassword": "enc-cred-1",  # pragma: allowlist secret
                     }
                 ],
                 "potentiallyVulnerablePasswords": [{"guid": "login-guid-1"}],

@@ -615,9 +615,9 @@ function seedCredentialArtifacts(profileDir, scenarioName, rng, actionLog) {
             httpRealm: null,
             formSubmitURL: hostname,
             usernameField: "username",
-            passwordField: "password",
+            passwordField: "pwd", // pragma: allowlist secret
             encryptedUsername: "MDoEEPgAAAAAAAAAAAAAAAAAAAEwFAYIKoZIhvcNAwcECM8synth-user",
-            encryptedPassword: "MDoEEPgAAAAAAAAAAAAAAAAAAAEwFAYIKoZIhvcNAwcECM8synth-pass",
+            encryptedPassword: "MDoEEPgAAAAAAAAAAAAAAAAAAAEwFAYIKoZIhvcNAwcECM8synth-token", // pragma: allowlist secret
             guid,
             encType: 1,
             timeCreated: now,

@@ -123,7 +123,7 @@ class ScanHistoryStore:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._init_schema()
 
-    def __enter__(self) -> "ScanHistoryStore":
+    def __enter__(self) -> ScanHistoryStore:
         return self
 
     def __exit__(self, *exc: object) -> None:
