@@ -26,8 +26,9 @@ def test_live_orchestration_cli_success(tmp_path: Path):
         ],
         capture_output=True,
         text=True,
+        check=False,
     )
-    
+
     # The default firefox_profile has 1 HIGH finding (FC-FILE-001) so we expect exit code 2
     assert result.returncode == 2, result.stderr
     # `rich` wraps text, so strip all whitespace for reliable matching
@@ -56,8 +57,9 @@ def test_live_orchestration_cli_sync_failure(tmp_path: Path):
         ],
         capture_output=True,
         text=True,
+        check=False,
     )
-    
+
     # 1 indicates operational error (sync failed)
     assert result.returncode == 1, result.stderr
     normalized_stdout = result.stdout.replace("\n", "").replace(" ", "")

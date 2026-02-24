@@ -60,7 +60,7 @@ def _create_bundle_tarball(
         ti.size = len(manifest_bytes)
         import io
         tar.addfile(ti, io.BytesIO(manifest_bytes))
-        
+
         if extra_files:
             for name, content in extra_files.items():
                 content_bytes = content.encode("utf-8")
@@ -72,22 +72,22 @@ def _create_bundle_tarball(
 def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path) -> None:
     _pub_key, priv_key = test_keypair
     private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
-    
+
     rulesets_manifest = RulesetTrustManifest(
         schema_version="1.0.0",
         keys=[],
         rulesets=[],
     )
-    
+
     payload_bytes = json.dumps(
         rulesets_manifest.model_dump(mode="json"),
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
-    
+
     signature = private_key.sign(payload_bytes)
     sig_b64 = base64.b64encode(signature).decode("ascii")
-    
+
     bundle_manifest = {
         "schema_version": "1.0.0",
         "bundle_name": "foxclaw-test",
@@ -99,10 +99,10 @@ def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_k
         },
         "rulesets_manifest": rulesets_manifest.model_dump(mode="json"),
     }
-    
+
     archive_path = tmp_path / "bundle.tar.gz"
     _create_bundle_tarball(archive_path, bundle_manifest, extra_files={"strict.yml": "name: strict\nversion: 1.0.0\nrules: []\n"})
-    
+
     install_dir = tmp_path / "installed"
     manifest = verify_and_unpack_bundle(
         archive_path=archive_path,
@@ -110,7 +110,7 @@ def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_k
         key_id="test-root",
         keyring_path=valid_keyring,
     )
-    
+
     assert manifest.bundle_name == "foxclaw-test"
     assert (install_dir / "strict.yml").exists()
 
@@ -118,7 +118,7 @@ def test_verify_and_unpack_bundle_success(test_keypair: tuple[str, str], valid_k
 def test_verify_and_unpack_bundle_revoked_key(test_keypair: tuple[str, str], tmp_path: Path) -> None:
     pub_key, priv_key = test_keypair
     private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
-    
+
     # Key is revoked in keyring
     payload = {
         "schema_version": "1.1.0",
@@ -133,11 +133,11 @@ def test_verify_and_unpack_bundle_revoked_key(test_keypair: tuple[str, str], tmp
     }
     keyring_path = tmp_path / "keyring.json"
     keyring_path.write_text(json.dumps(payload))
-    
+
     rulesets_manifest = RulesetTrustManifest(schema_version="1.0.0", keys=[], rulesets=[])
     payload_bytes = json.dumps(rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode("utf-8")
     sig_b64 = base64.b64encode(private_key.sign(payload_bytes)).decode("ascii")
-    
+
     bundle_manifest = {
         "schema_version": "1.0.0",
         "bundle_name": "foxclaw-test",
@@ -149,10 +149,10 @@ def test_verify_and_unpack_bundle_revoked_key(test_keypair: tuple[str, str], tmp
         },
         "rulesets_manifest": rulesets_manifest.model_dump(mode="json"),
     }
-    
+
     archive_path = tmp_path / "bundle.tar.gz"
     _create_bundle_tarball(archive_path, bundle_manifest)
-    
+
     install_dir = tmp_path / "installed"
     with pytest.raises(ValueError, match="is revoked"):
         verify_and_unpack_bundle(
@@ -164,9 +164,9 @@ def test_verify_and_unpack_bundle_invalid_signature(test_keypair: tuple[str, str
     _pub_key, _ = test_keypair
     # Forge a bad signature
     bad_sig = base64.b64encode(b"a" * 64).decode("ascii")
-    
+
     rulesets_manifest = RulesetTrustManifest(schema_version="1.0.0", keys=[], rulesets=[])
-    
+
     bundle_manifest = {
         "schema_version": "1.0.0",
         "bundle_name": "foxclaw-test",
@@ -178,10 +178,10 @@ def test_verify_and_unpack_bundle_invalid_signature(test_keypair: tuple[str, str
         },
         "rulesets_manifest": rulesets_manifest.model_dump(mode="json"),
     }
-    
+
     archive_path = tmp_path / "bundle.tar.gz"
     _create_bundle_tarball(archive_path, bundle_manifest)
-    
+
     install_dir = tmp_path / "installed"
     with pytest.raises(ValueError, match="ed25519 signature verification failed"):
         verify_and_unpack_bundle(
@@ -192,11 +192,11 @@ def test_verify_and_unpack_bundle_invalid_signature(test_keypair: tuple[str, str
 def test_verify_and_unpack_bundle_wrong_expected_key(test_keypair: tuple[str, str], valid_keyring: Path, tmp_path: Path) -> None:
     _pub_key, priv_key = test_keypair
     private_key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(priv_key))
-    
+
     rulesets_manifest = RulesetTrustManifest(schema_version="1.0.0", keys=[], rulesets=[])
     payload_bytes = json.dumps(rulesets_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode("utf-8")
     sig_b64 = base64.b64encode(private_key.sign(payload_bytes)).decode("ascii")
-    
+
     bundle_manifest = {
         "schema_version": "1.0.0",
         "bundle_name": "foxclaw-test",
@@ -208,10 +208,10 @@ def test_verify_and_unpack_bundle_wrong_expected_key(test_keypair: tuple[str, st
         },
         "rulesets_manifest": rulesets_manifest.model_dump(mode="json"),
     }
-    
+
     archive_path = tmp_path / "bundle.tar.gz"
     _create_bundle_tarball(archive_path, bundle_manifest)
-    
+
     install_dir = tmp_path / "installed"
     with pytest.raises(ValueError, match="manifest signed by 'test-root', but expected 'wrong-key'"):
         verify_and_unpack_bundle(

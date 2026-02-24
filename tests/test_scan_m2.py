@@ -30,7 +30,7 @@ def test_prefs_parser_supports_bool_int_string_and_userjs_precedence(tmp_path: P
     profile_dir.mkdir(parents=True)
 
     (profile_dir / "prefs.js").write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'user_pref("fox.bool", true);',
                 'user_pref("fox.int", 42);',
@@ -41,7 +41,7 @@ def test_prefs_parser_supports_bool_int_string_and_userjs_precedence(tmp_path: P
         encoding="utf-8",
     )
     (profile_dir / "user.js").write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'user_pref("fox.int", 7);',
                 'user_pref("fox.extra", "from-user");',

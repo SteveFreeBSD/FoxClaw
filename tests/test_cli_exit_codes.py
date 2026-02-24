@@ -129,3 +129,27 @@ def test_scan_rejects_unc_profile_path_by_default() -> None:
 
     assert result.exit_code == 1
     assert "UNC profile paths are disabled by default" in result.stdout
+
+
+def test_live_rejects_unc_profile_path_by_default() -> None:
+    source_fixture = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "intel"
+        / "mozilla_firefox_advisories.v1.json"
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "live",
+            "--source",
+            f"example={source_fixture}",
+            "--profile",
+            r"\\server\forensics\profile.default-release",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "UNC profile paths are disabled by default" in result.stdout

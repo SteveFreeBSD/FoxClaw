@@ -49,6 +49,57 @@ Notes:
 
 Mount the share read-only in the collector OS, then use the FoxClaw staging script against the mount path.
 
+### Option C: Windows adversary-profile generation (for soak/test simulation)
+
+Create richer, scenario-driven Firefox profiles on Windows before exporting to SMB:
+
+```powershell
+pwsh -File scripts/windows_auth_gen/generate_profiles.ps1 `
+  -Count 50 `
+  -ProfilesRoot "$env:APPDATA\Mozilla\Firefox\Profiles" `
+  -SeedName "foxclaw-seed.default" `
+  -Scenario mixed `
+  -Seed 424242 `
+  -Overwrite
+```
+
+Outputs:
+
+- per-profile simulation manifest: `<profile>/foxclaw-sim-metadata.json`
+- batch summary: `<ProfilesRoot>/windows-auth-gen-summary.json`
+
+Then scan from Linux against mounted SMB share root with batch staging:
+
+```bash
+foxclaw acquire windows-share-batch \
+  --source-root /mnt/firefox-profiles \
+  --staging-root /var/tmp/foxclaw-stage \
+  --out-root /var/tmp/foxclaw-share-batch
+```
+
+### Generator feedback loop (required for soak realism)
+
+After each generation batch, run at least one staged scan and map scan output back to
+the generation scenario. Use this to keep profile mutation aligned with FoxClaw coverage.
+
+Key fields to review in `foxclaw.json`:
+
+- `credentials.saved_logins_count`
+- `credentials.vulnerable_passwords_count`
+- `credentials.dismissed_breach_alerts_count`
+- `credentials.insecure_http_login_count`
+- `summary.extensions_found`, `summary.extensions_active`
+- `sqlite.checks[*].quick_check_result`
+- `artifacts.entries[*].rel_path` and parser metadata
+
+Generator contract:
+
+- `scripts/windows_auth_gen/mutate_profile.mjs` writes `foxclaw-sim-metadata.json`.
+- `foxclaw-sim-metadata.json.expected_scan_signals.credentials` is the generator-side
+  expectation for credential evidence.
+- If scan evidence diverges from expected signals, treat as generator drift and fix scripts
+  before long soak runs.
+
 ## FoxClaw staged share scan
 
 Use `foxclaw acquire windows-share-scan` for deterministic staging + scan artifact generation:
@@ -90,6 +141,16 @@ Script compatibility wrapper remains available:
 
 ```bash
 python scripts/windows_share_scan.py --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release
+```
+
+Batch mode for multiple profile directories in one source root:
+
+```bash
+foxclaw acquire windows-share-batch \
+  --source-root /mnt/forensics/FirefoxProfiles \
+  --staging-root /var/tmp/foxclaw-stage \
+  --out-root /var/tmp/foxclaw-share-batch \
+  --max 25
 ```
 
 ## Mini soak for this lane

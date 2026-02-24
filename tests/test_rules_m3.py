@@ -398,7 +398,7 @@ def test_require_quiet_profile_exits_before_sqlite_checks(
     assert "quiet profile required" in result.stdout
 
 
-def test_high_findings_ids_and_summary_counts_align(tmp_path: Path, monkeypatch) -> None:
+def test_high_findings_ids_and_summary_counts_align(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "prefs.js").write_text("", encoding="utf-8")

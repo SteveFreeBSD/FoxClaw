@@ -40,13 +40,13 @@ def load_ruleset(path: Path) -> Ruleset:
         raise ValueError(f"Ruleset validation failed: {path}: {exc}") from exc
 
     _validate_unique_rule_ids(ruleset)
-    
+
     # Bundle provenance extraction
     manifest_path = path.parent / "__manifest__.json"
     if manifest_path.exists():
         from foxclaw.models import BundleProvenance
         from foxclaw.rules.trust import RulesetBundleManifest
-        
+
         try:
             raw_manifest = json.loads(manifest_path.read_bytes().decode("utf-8"))
             bundle_manifest = RulesetBundleManifest.model_validate(raw_manifest)

@@ -1,5 +1,5 @@
 name: strict
-version: 0.4.0
+version: 0.5.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -169,4 +169,40 @@ rules:
         include_system: false
     rationale: Strict baselines should block extensions with external intel risk or delisting signals.
     recommendation: Remove extensions flagged by extension intelligence risk metadata.
+    confidence: high
+
+  - id: FC-STRICT-CRED-001
+    title: Saved logins must not include known vulnerable passwords
+    severity: HIGH
+    category: credentials
+    check:
+      credential_metric_max:
+        metric: vulnerable_passwords_count
+        max: 0
+    rationale: Known vulnerable credentials represent active account takeover risk.
+    recommendation: Rotate flagged credentials immediately and enforce unique passwords.
+    confidence: high
+
+  - id: FC-STRICT-CRED-002
+    title: Saved logins must not target insecure HTTP origins
+    severity: HIGH
+    category: credentials
+    check:
+      credential_metric_max:
+        metric: insecure_http_login_count
+        max: 0
+    rationale: Strict baselines disallow password persistence for cleartext HTTP targets.
+    recommendation: Remove HTTP-origin saved credentials and migrate services to HTTPS.
+    confidence: high
+
+  - id: FC-STRICT-CRED-003
+    title: Breach alert dismissals must be zero
+    severity: HIGH
+    category: credentials
+    check:
+      credential_metric_max:
+        metric: dismissed_breach_alerts_count
+        max: 0
+    rationale: Dismissed leak alerts can mask unresolved exposure in strict environments.
+    recommendation: Reopen and remediate dismissed breach alerts with verified rotations.
     confidence: high

@@ -23,7 +23,7 @@ def test_json_and_sarif_are_deterministic(tmp_path: Path) -> None:
     for file_path in profile.rglob("*"):
         if file_path.is_file():
             file_path.chmod(0o600)
-    
+
     dir_a = tmp_path / "a"
     dir_b = tmp_path / "b"
     dir_a.mkdir()
@@ -31,7 +31,7 @@ def test_json_and_sarif_are_deterministic(tmp_path: Path) -> None:
 
     json_a = dir_a / "scan.json"
     sarif_a = dir_a / "scan.sarif"
-    
+
     json_b = dir_b / "scan.json"
     sarif_b = dir_b / "scan.sarif"
 
@@ -46,10 +46,10 @@ def test_json_and_sarif_are_deterministic(tmp_path: Path) -> None:
 
     # Run from dir_a to see if CWD leaks into absolute paths
     res_a = runner.invoke(app, [*base_cmd, "--output", str(json_a), "--sarif-out", str(sarif_a)])
-    
+
     # Run from dir_b
     res_b = runner.invoke(app, [*base_cmd, "--output", str(json_b), "--sarif-out", str(sarif_b)])
-    
+
     assert res_a.exit_code == 0
     assert res_b.exit_code == 0
 

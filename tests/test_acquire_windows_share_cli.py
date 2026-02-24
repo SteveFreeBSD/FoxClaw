@@ -145,6 +145,31 @@ def test_acquire_windows_share_scan_fails_closed_on_lock_marker(tmp_path: Path) 
     assert "active-profile lock markers detected" in (result.stdout + result.stderr)
 
 
+def test_acquire_windows_share_scan_fails_closed_on_parentlock_marker(tmp_path: Path) -> None:
+    source_profile = _write_source_profile(tmp_path)
+    (source_profile / ".parentlock").write_text("locked\n", encoding="utf-8")
+
+    fake_foxclaw = tmp_path / "fake_foxclaw.py"
+    _write_fake_foxclaw(fake_foxclaw, exit_code=0)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-scan",
+            "--source-profile",
+            str(source_profile),
+            "--foxclaw-cmd",
+            f"{sys.executable} {fake_foxclaw}",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "active-profile lock markers detected" in (result.stdout + result.stderr)
+    assert ".parentlock" in (result.stdout + result.stderr)
+
+
 def test_acquire_windows_share_scan_lock_marker_fail_closed_then_allow_override(tmp_path: Path) -> None:
     source_profile = _write_source_profile(tmp_path, with_lock_marker=True)
 

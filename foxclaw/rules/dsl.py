@@ -29,6 +29,14 @@ SQLITE_NAME_MAP: dict[str, str] = {
 }
 _RISK_LEVEL_ORDER = {"medium": 0, "high": 1}
 _EXTENSION_INTEL_RISK_LEVEL_ORDER = {"low": 0, "medium": 1, "high": 2}
+_CREDENTIAL_METRIC_NAMES: tuple[str, ...] = (
+    "saved_logins_count",
+    "vulnerable_passwords_count",
+    "dismissed_breach_alerts_count",
+    "insecure_http_login_count",
+    "formhistory_password_field_count",
+    "formhistory_credential_field_count",
+)
 
 
 @dataclass(slots=True)
@@ -65,6 +73,8 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_extension_blocklisted_absent(bundle, config)
     if check_name == "extension_intel_reputation_absent":
         return _check_extension_intel_reputation_absent(bundle, config)
+    if check_name == "credential_metric_max":
+        return _check_credential_metric_max(bundle, _as_dict(config, check_name))
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -334,6 +344,23 @@ def _check_extension_intel_reputation_absent(
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 
+def _check_credential_metric_max(bundle: EvidenceBundle, config: dict[str, object]) -> CheckResult:
+    metric = _required_str(config, "metric")
+    if metric not in _CREDENTIAL_METRIC_NAMES:
+        allowed_metrics = ", ".join(_CREDENTIAL_METRIC_NAMES)
+        raise ValueError(
+            "credential_metric_max metric must be one of: "
+            f"{allowed_metrics}"
+        )
+
+    max_value = _required_int(config, "max")
+    observed = int(getattr(bundle.credentials, metric))
+    evidence_line = f"{metric}: observed={observed}, max={max_value}"
+    if observed <= max_value:
+        return CheckResult(passed=True, evidence=[evidence_line])
+    return CheckResult(passed=False, evidence=[evidence_line])
+
+
 def _match_file_evidence(
     filesystem: list[FilePermEvidence], *, path_glob: object, key: object
 ) -> list[FilePermEvidence]:
@@ -461,6 +488,13 @@ def _as_dict(config: object, check_name: str) -> dict[str, object]:
 def _required_str(data: dict[str, object], key: str) -> str:
     value = data.get(key)
     return _require_value_type(value, str, key)
+
+
+def _required_int(data: dict[str, object], key: str) -> int:
+    value = data.get(key)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{key} must be an integer")
+    return value
 
 
 def _pref_values_equal(observed: bool | int | str, expected: bool | int | str) -> bool:

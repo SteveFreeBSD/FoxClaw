@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from foxclaw.acquire.windows_share import run_windows_share_scan_from_argv
+from foxclaw.acquire.windows_share_batch import run_windows_share_batch
 from foxclaw.intel.sync import sync_sources
 from foxclaw.profiles import FirefoxProfile, discover_profiles
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
@@ -70,7 +72,7 @@ def profiles_list() -> None:
 
     for profile in sorted(report.profiles, key=lambda item: item.profile_id):
         mtime = (
-            datetime.fromtimestamp(profile.directory_mtime).isoformat(timespec="seconds")
+            datetime.fromtimestamp(profile.directory_mtime, tz=UTC).isoformat(timespec="seconds")
             if profile.directory_mtime > 0
             else "-"
         )
@@ -174,6 +176,16 @@ def scan(
         None,
         "--snapshot-out",
         help="Write deterministic snapshot JSON to this path.",
+    ),
+    history_db: Path | None = typer.Option(
+        None,
+        "--history-db",
+        help="Append scan results to this local history database (WS-55A learning store).",
+    ),
+    learning_artifact_out: Path | None = typer.Option(
+        None,
+        "--learning-artifact-out",
+        help="Write deterministic learning artifact JSON summarizing history.",
     ),
     deterministic: bool = typer.Option(
         False,
@@ -301,6 +313,34 @@ def scan(
         if snapshot_out is not None:
             console.print(f"Snapshot report written to: {snapshot_out}")
 
+    # WS-55A: Scan history ingestion
+    if history_db is not None:
+        try:
+            from foxclaw.learning.history import ScanHistoryStore
+
+            with ScanHistoryStore(history_db) as store:
+                history_scan_id = store.ingest(evidence)
+                console.print(
+                    f"[dim]Scan history ingested: {history_scan_id} "
+                    f"({store.scan_count()} total scans)[/dim]"
+                )
+                if learning_artifact_out is not None:
+                    learning_artifact_out.parent.mkdir(parents=True, exist_ok=True)
+                    artifact = store.generate_learning_artifact(
+                        evidence_generated_at_utc=evidence.generated_at.isoformat() if deterministic else None
+                    )
+                    learning_artifact_out.write_text(
+                        json.dumps(artifact, indent=2, sort_keys=True),
+                        encoding="utf-8",
+                    )
+                    console.print(
+                        f"[dim]Learning artifact written to: {learning_artifact_out}[/dim]"
+                    )
+        except Exception as exc:
+            console.print(
+                f"[yellow]Warning: scan history ingestion failed: {exc}[/yellow]"
+            )
+
     raise typer.Exit(
         code=EXIT_HIGH_FINDINGS if evidence.summary.findings_high_count > 0 else EXIT_OK
     )
@@ -335,6 +375,12 @@ def live(
         False,
         "--require-quiet-profile",
         help="Fail if the selected profile appears active (lock file or firefox process).",
+    ),
+    allow_unc_profile: bool = typer.Option(
+        False,
+        "--allow-unc-profile",
+        help="Allow UNC profile paths; disabled by default. Use only for lab-only workflows.",
+        hidden=True,
     ),
     ruleset: Path | None = typer.Option(
         None, "--ruleset", help="Path to YAML ruleset (default: balanced ruleset)."
@@ -385,6 +431,14 @@ def live(
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
+    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
+        console.print(
+            "[red]Operational error: UNC profile paths are disabled by default. "
+            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
+            "--allow-unc-profile for lab-only workflows.[/red]"
+        )
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
     console.print("[blue]Step 1/2: Synchronizing intelligence sources...[/blue]")
     try:
         sync_result = sync_sources(
@@ -405,7 +459,7 @@ def live(
 
     # Pass the locked snapshot_id into the scan entrypoint manually to prevent duplication
     # We call the scan function's internal logic directly but inject the ID.
-    
+
     # We must replicate the active profile checks from scan() to keep the CLI clean
     selected_profile: FirefoxProfile | None = None
     if profile is not None:
@@ -642,6 +696,115 @@ def acquire_windows_share_scan(
         argv.append("--treat-high-findings-as-success")
 
     raise typer.Exit(code=run_windows_share_scan_from_argv(argv))
+
+
+@acquire_app.command("windows-share-batch")
+def acquire_windows_share_batch(
+    source_root: Path = typer.Option(
+        ...,
+        "--source-root",
+        help="Directory containing many Firefox profile directories as immediate children.",
+    ),
+    staging_root: Path = typer.Option(
+        ...,
+        "--staging-root",
+        help="Root directory where each profile snapshot is staged.",
+    ),
+    out_root: Path = typer.Option(
+        ...,
+        "--out-root",
+        help="Root directory for per-profile outputs (<out-root>/<profile_name>/).",
+    ),
+    max_profiles: int | None = typer.Option(
+        None,
+        "--max",
+        min=1,
+        help="Optional limit on number of profile directories processed.",
+    ),
+    allow_active_profile: bool = typer.Option(
+        False,
+        "--allow-active-profile",
+        help=(
+            "Allow staging when lock markers are present. Use only when source is a "
+            "crash-consistent snapshot."
+        ),
+    ),
+    snapshot_id_prefix: str | None = typer.Option(
+        None,
+        "--snapshot-id-prefix",
+        help="Optional prefix for per-profile snapshot identifiers.",
+    ),
+    foxclaw_cmd: str | None = typer.Option(
+        None,
+        "--foxclaw-cmd",
+        help="Command used to invoke FoxClaw scan (defaults to current python -m foxclaw).",
+    ),
+    ruleset: Path | None = typer.Option(
+        None,
+        "--ruleset",
+        help="Ruleset path passed to foxclaw scan.",
+    ),
+    policy_path: list[Path] | None = typer.Option(
+        None,
+        "--policy-path",
+        help="Optional repeatable policy override path.",
+    ),
+    suppression_path: list[Path] | None = typer.Option(
+        None,
+        "--suppression-path",
+        help="Optional repeatable suppression policy path.",
+    ),
+    intel_store_dir: Path | None = typer.Option(
+        None,
+        "--intel-store-dir",
+        help="Optional intel snapshot store directory.",
+    ),
+    intel_snapshot_id: str | None = typer.Option(
+        None,
+        "--intel-snapshot-id",
+        help="Optional intel snapshot id (requires --intel-store-dir).",
+    ),
+    keep_stage_writeable: bool = typer.Option(
+        False,
+        "--keep-stage-writeable",
+        help="Do not remove write bits from staged files.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Validate paths and write manifests without launching foxclaw scan.",
+    ),
+    treat_high_findings_as_success: bool = typer.Option(
+        False,
+        "--treat-high-findings-as-success",
+        help="Treat per-profile scan exit code 2 as success (0) for batch counting.",
+    ),
+) -> None:
+    """Stage and scan multiple Firefox profile directories from a share root."""
+    try:
+        exit_code = run_windows_share_batch(
+            source_root=source_root,
+            staging_root=staging_root,
+            out_root=out_root,
+            max_profiles=max_profiles,
+            allow_active_profile=allow_active_profile,
+            snapshot_id_prefix=snapshot_id_prefix,
+            foxclaw_cmd=foxclaw_cmd,
+            ruleset=ruleset,
+            policy_path=policy_path,
+            suppression_path=suppression_path,
+            intel_store_dir=intel_store_dir,
+            intel_snapshot_id=intel_snapshot_id,
+            keep_stage_writeable=keep_stage_writeable,
+            dry_run=dry_run,
+            treat_high_findings_as_success=treat_high_findings_as_success,
+            out_stream=sys.stdout,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Operational error: {exc}[/red]")
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+
+    raise typer.Exit(code=exit_code)
 
 
 @fleet_app.command("aggregate")
@@ -952,9 +1115,9 @@ def suppression_audit(
             if entry.id in seen_ids:
                 results["duplicate_ids"].append({"id": entry.id, "source": source.source_path.as_posix()})
             seen_ids.add(entry.id)
-            
+
         delta = entry.expires_at.astimezone(UTC) - now
-        
+
         info: dict[str, Any] = {
             "id": entry.id,
             "rule_id": entry.rule_id,
@@ -962,7 +1125,7 @@ def suppression_audit(
             "expires_at": entry.expires_at.isoformat(),
             "source": source.source_path.as_posix()
         }
-        
+
         if delta.total_seconds() < 0:
             results["expired"].append(info)
         elif delta.days <= 30:
@@ -987,7 +1150,7 @@ def suppression_audit(
     table.add_row("Expiring <= 30d", f"[yellow]{len(results['expiring_soon'])}[/yellow]" if results["expiring_soon"] else "0")
     table.add_row("Duplicate IDs", f"[red]{len(results['duplicate_ids'])}[/red]" if results["duplicate_ids"] else "0")
     console.print(table)
-    
+
     if results["expired"] or results["duplicate_ids"]:
         raise typer.Exit(code=EXIT_HIGH_FINDINGS)
     raise typer.Exit(code=EXIT_OK)
@@ -1005,14 +1168,14 @@ def bundle_fetch(
 ) -> None:
     """Download a ruleset bundle archive without verification or extraction."""
     from foxclaw.rules.bundle import fetch_bundle
-    
+
     console.print(f"[blue]Fetching bundle from: {url}[/blue]")
     try:
         fetch_bundle(url=url, dest_path=output_path, allow_insecure_http=allow_insecure_http)
     except (OSError, ValueError) as exc:
         console.print(f"[red]Fetch failed: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
-        
+
     console.print(f"[green]Successfully downloaded bundle to {output_path}[/green]")
 
 
@@ -1025,7 +1188,7 @@ def bundle_install(
 ) -> None:
     """Verify an external bundle's signatures and unpack it locally."""
     from foxclaw.rules.bundle import verify_and_unpack_bundle
-    
+
     console.print("[blue]Verifying and unpacking external ruleset bundle...[/blue]")
     try:
         manifest = verify_and_unpack_bundle(
@@ -1037,7 +1200,7 @@ def bundle_install(
     except (OSError, ValueError) as exc:
         console.print(f"[red]Bundle installation failed: {exc}[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
-        
+
     console.print(f"[green]Successfully installed '{manifest.bundle_name}' (v{manifest.bundle_version}) to {dest}[/green]")
 
 
@@ -1052,7 +1215,7 @@ def bundle_verify(
     import tempfile
 
     from foxclaw.rules.bundle import verify_and_unpack_bundle
-    
+
     tmp_path = Path(tempfile.mkdtemp())
     try:
         manifest = verify_and_unpack_bundle(
@@ -1107,8 +1270,9 @@ def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxPro
 
 def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -> FirefoxProfile:
     resolved = profile_path.expanduser().resolve()
+    from foxclaw.profiles import PROFILE_LOCK_FILES
     lock_files = [
-        name for name in ("parent.lock", "lock") if (resolved / name).exists()
+        name for name in PROFILE_LOCK_FILES if (resolved / name).exists()
     ]
     return FirefoxProfile(
         profile_id=profile_id,
@@ -1129,7 +1293,10 @@ def _manual_profile_id(path: Path) -> str:
 
 
 def _is_unc_path(path: Path) -> bool:
-    return str(path).startswith("\\\\")
+    raw = str(path)
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        return True
+    return any(part.startswith("\\\\") or part.startswith("//") for part in path.parts)
 
 
 if __name__ == "__main__":

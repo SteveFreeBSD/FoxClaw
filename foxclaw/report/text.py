@@ -40,10 +40,10 @@ def render_scan_summary(console: Console, bundle: EvidenceBundle) -> None:
     table.add_row("Intel advisory matches", str(bundle.summary.intel_matches_count))
     table.add_row("Findings suppressed", str(bundle.summary.findings_suppressed_count))
     table.add_row("Total HIGH findings", str(bundle.summary.findings_high_count))
-    
+
     if bundle.bundle_provenance:
         table.add_row("Bundle loaded", f"{bundle.bundle_provenance.bundle_name}@{bundle.bundle_provenance.bundle_version}")
-        
+
     console.print(table)
     _render_extension_posture(console, bundle)
     _render_intel_summary(console, bundle)

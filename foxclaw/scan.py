@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from foxclaw.collect.artifacts import collect_profile_artifacts
+from foxclaw.collect.credentials import collect_credential_exposure
 from foxclaw.collect.extensions import collect_extensions
 from foxclaw.collect.filesystem import collect_file_permissions
 from foxclaw.collect.policies import collect_policies
@@ -21,7 +22,7 @@ from foxclaw.models import (
     ProfileEvidence,
     ScanSummary,
 )
-from foxclaw.profiles import FirefoxProfile
+from foxclaw.profiles import PROFILE_LOCK_FILES, FirefoxProfile
 from foxclaw.rules.engine import (
     DEFAULT_RULESET_PATH,
     evaluate_rules,
@@ -30,7 +31,7 @@ from foxclaw.rules.engine import (
 )
 from foxclaw.rules.suppressions import apply_suppressions
 
-_PROFILE_LOCK_FILES = ("parent.lock", "lock")
+# Imported from foxclaw.profiles
 
 
 def run_scan(
@@ -61,6 +62,7 @@ def run_scan(
     )
     extensions = collect_extensions(profile_dir)
     artifacts = collect_profile_artifacts(profile_dir)
+    credentials = collect_credential_exposure(profile_dir)
     if intel.enabled and intel.store_dir is not None and intel.snapshot_id is not None:
         apply_extension_blocklist_from_snapshot(
             extensions=extensions,
@@ -131,6 +133,7 @@ def run_scan(
         extensions=extensions,
         sqlite=sqlite,
         artifacts=artifacts,
+        credentials=credentials,
         intel=intel,
         summary=provisional_summary,
     )
@@ -174,6 +177,7 @@ def run_scan(
         extensions=extensions,
         sqlite=sqlite,
         artifacts=artifacts,
+        credentials=credentials,
         intel=intel,
         summary=summary,
         high_findings=high_finding_ids,
@@ -236,7 +240,7 @@ def _count_findings_by_severity(findings: list[Finding]) -> dict[str, int]:
 def detect_active_profile_reason(profile_dir: Path) -> str | None:
     """Return activity reason for a profile, or None when profile appears quiet."""
     lock_files = [
-        lock_name for lock_name in _PROFILE_LOCK_FILES if (profile_dir / lock_name).exists()
+        lock_name for lock_name in PROFILE_LOCK_FILES if (profile_dir / lock_name).exists()
     ]
     if lock_files:
         return f"lock file(s) present: {', '.join(lock_files)}"

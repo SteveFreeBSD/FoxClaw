@@ -76,7 +76,7 @@ def verify_bundle_manifest(
             f"bundle verification failed: manifest signed by '{signature_entry.key_id}', "
             f"but expected '{expected_key_id}'"
         )
-    
+
     # We verify the signature over the strict JSON representation of the rulesets_manifest
     # This ensures deterministic byte comparison.
     payload_bytes = json.dumps(
@@ -102,5 +102,3 @@ def verify_bundle_manifest(
         )
     except ValueError as exc:
         raise ValueError(f"bundle verification failed for key_id '{key_id}': {exc}") from exc
-
-    return None

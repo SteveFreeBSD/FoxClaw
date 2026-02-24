@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-_PROFILE_LOCK_FILES = ("parent.lock", "lock")
+PROFILE_LOCK_FILES = ("parent.lock", ".parentlock", "lock")
 _DEFAULT_RELEASE_SUFFIX = ".default-release"
 
 
@@ -159,7 +159,7 @@ def _parse_profiles_ini(*, base_dir: Path, profiles_ini: Path) -> list[FirefoxPr
 
 def _detect_lock_files(profile_dir: Path) -> list[str]:
     lock_files: list[str] = []
-    for lock_name in _PROFILE_LOCK_FILES:
+    for lock_name in PROFILE_LOCK_FILES:
         if (profile_dir / lock_name).exists():
             lock_files.append(lock_name)
     return lock_files

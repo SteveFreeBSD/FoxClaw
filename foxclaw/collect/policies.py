@@ -49,9 +49,7 @@ def _summarize_policy_file(policy_path: Path) -> PolicyFileSummary:
     top_level_keys = sorted(str(key) for key in payload.keys())
     policies_count: int | None = None
     policies_obj = payload.get("policies")
-    if isinstance(policies_obj, dict):
-        policies_count = len(policies_obj)
-    elif isinstance(policies_obj, list):
+    if isinstance(policies_obj, (dict, list)):
         policies_count = len(policies_obj)
 
     return PolicyFileSummary(

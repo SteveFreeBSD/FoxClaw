@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
-LOCK_MARKERS = ("parent.lock", ".parentlock", "lock")
+from foxclaw.profiles import PROFILE_LOCK_FILES
 
 
 @dataclass
@@ -196,7 +196,7 @@ def _resolve_paths(
 
 def _find_lock_markers(profile_root: Path) -> list[str]:
     present: list[str] = []
-    for marker in LOCK_MARKERS:
+    for marker in PROFILE_LOCK_FILES:
         if (profile_root / marker).exists():
             present.append(marker)
     return present
@@ -391,7 +391,7 @@ def run_windows_share_scan(
 
     if args.intel_snapshot_id and not args.intel_store_dir:
         print("error: --intel-snapshot-id requires --intel-store-dir", file=err_stream)
-        return 2
+        return 1
 
     staging_root_error = _validate_staging_root(
         source_profile=source_profile,

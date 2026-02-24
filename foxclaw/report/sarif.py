@@ -54,7 +54,7 @@ def build_scan_sarif(
     run_properties = {}
     if bundle.bundle_provenance:
         run_properties["bundleProvenance"] = bundle.bundle_provenance.model_dump(mode="json")
-        
+
     run: dict[str, object] = {
         "tool": {
             "driver": {
@@ -66,7 +66,7 @@ def build_scan_sarif(
         },
         "results": results,
     }
-    
+
     if run_properties:
         run["properties"] = run_properties
 
