@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from foxclaw.collect.safe_paths import ProfilePathSymlinkError
 from foxclaw.models import PolicyEvidence, PolicyFileSummary
+
+class PolicyPathSymlinkError(ValueError):
+    """Raised when a candidate policy path traverses a symlink."""
 
 DEFAULT_POLICY_PATHS: tuple[Path, ...] = (
     Path("/etc/firefox/policies/policies.json"),
@@ -90,4 +92,4 @@ def _reject_symlink_path(policy_path: Path) -> None:
     for token in parts:
         current = current / token
         if current.is_symlink():
-            raise ProfilePathSymlinkError(f"symlinked profile path is not allowed: {current}")
+            raise PolicyPathSymlinkError(f"symlinked policy path is not allowed: {current}")

@@ -116,7 +116,7 @@ Behavior:
 
 - fails closed by default if lock markers (`parent.lock`, `.parentlock`, `lock`) are present,
 - copies profile into `<staging-root>/<snapshot-id>/profile`,
-- removes write bits from staged files unless `--keep-stage-writeable` is set,
+- removes write bits from staged files unless `--keep-stage-writable` is set,
 - runs deterministic FoxClaw JSON/SARIF/snapshot outputs,
 - writes staging manifest (`stage-manifest.json`) with source path, copy stats, and scan command/exit code,
 - returns scan exit code semantics (`0` no `HIGH`, `2` `HIGH` findings present, `1` operational error).

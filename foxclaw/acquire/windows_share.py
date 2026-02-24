@@ -116,7 +116,7 @@ def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--keep-stage-writeable",
+        "--keep-stage-writable",
         action="store_true",
         help="Do not remove write bits from staged files.",
     )
@@ -414,7 +414,7 @@ def run_windows_share_scan(
 
     try:
         copy_stats = _copy_tree(source_profile, staged_profile)
-        if not args.keep_stage_writeable:
+        if not args.keep_stage_writable:
             _make_tree_read_only(staged_profile)
         output_dir.mkdir(parents=True, exist_ok=True)
     except (OSError, RuntimeError) as exc:

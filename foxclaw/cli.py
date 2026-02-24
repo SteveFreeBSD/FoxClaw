@@ -619,9 +619,9 @@ def acquire_windows_share_scan(
             "crash-consistent snapshot."
         ),
     ),
-    keep_stage_writeable: bool = typer.Option(
+    keep_stage_writable: bool = typer.Option(
         False,
-        "--keep-stage-writeable",
+        "--keep-stage-writable",
         help="Do not remove write bits from staged files.",
     ),
     json_out: Path | None = typer.Option(
@@ -680,8 +680,8 @@ def acquire_windows_share_scan(
         argv.extend(["--intel-snapshot-id", intel_snapshot_id])
     if allow_active_profile:
         argv.append("--allow-active-profile")
-    if keep_stage_writeable:
-        argv.append("--keep-stage-writeable")
+    if keep_stage_writable:
+        argv.append("--keep-stage-writable")
     if json_out is not None:
         argv.extend(["--json-out", str(json_out)])
     if sarif_out is not None:
@@ -764,9 +764,9 @@ def acquire_windows_share_batch(
         "--intel-snapshot-id",
         help="Optional intel snapshot id (requires --intel-store-dir).",
     ),
-    keep_stage_writeable: bool = typer.Option(
+    keep_stage_writable: bool = typer.Option(
         False,
-        "--keep-stage-writeable",
+        "--keep-stage-writable",
         help="Do not remove write bits from staged files.",
     ),
     dry_run: bool = typer.Option(
@@ -795,7 +795,7 @@ def acquire_windows_share_batch(
             suppression_path=suppression_path,
             intel_store_dir=intel_store_dir,
             intel_snapshot_id=intel_snapshot_id,
-            keep_stage_writeable=keep_stage_writeable,
+            keep_stage_writable=keep_stage_writable,
             dry_run=dry_run,
             treat_high_findings_as_success=treat_high_findings_as_success,
             out_stream=sys.stdout,

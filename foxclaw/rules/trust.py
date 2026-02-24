@@ -133,7 +133,7 @@ def verify_ruleset_with_manifest(
             errors.append(f"signature references unknown key_id='{signature.key_id}'")
             continue
 
-        availability_error = _validate_key_availability(
+        availability_error = validate_key_availability(
             key=key,
             reference_time=reference_time,
         )
@@ -142,7 +142,7 @@ def verify_ruleset_with_manifest(
             continue
 
         try:
-            _verify_ed25519_signature(
+            verify_ed25519_signature(
                 public_key_b64=key.public_key,
                 signature_b64=signature.signature,
                 payload=ruleset_bytes,
@@ -162,7 +162,7 @@ def verify_ruleset_with_manifest(
         )
 
 
-def _validate_key_availability(*, key: RulesetTrustKey, reference_time: datetime) -> str | None:
+def validate_key_availability(*, key: RulesetTrustKey, reference_time: datetime) -> str | None:
     if key.status == "revoked":
         return "key is revoked"
 
@@ -266,7 +266,7 @@ def _build_key_map(*, manifest: RulesetTrustManifest) -> dict[str, RulesetTrustK
     return key_map
 
 
-def _verify_ed25519_signature(
+def verify_ed25519_signature(
     *,
     public_key_b64: str,
     signature_b64: str,

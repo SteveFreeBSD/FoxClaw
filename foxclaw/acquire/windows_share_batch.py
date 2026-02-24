@@ -97,8 +97,8 @@ def _build_windows_share_scan_argv(
         argv.extend(["--intel-snapshot-id", intel_snapshot_id])
     if allow_active_profile:
         argv.append("--allow-active-profile")
-    if keep_stage_writeable:
-        argv.append("--keep-stage-writeable")
+    if keep_stage_writable:
+        argv.append("--keep-stage-writable")
     if dry_run:
         argv.append("--dry-run")
     if treat_high_findings_as_success:
@@ -121,7 +121,7 @@ def run_windows_share_batch(
     suppression_path: list[Path] | None = None,
     intel_store_dir: Path | None = None,
     intel_snapshot_id: str | None = None,
-    keep_stage_writeable: bool = False,
+    keep_stage_writable: bool = False,
     dry_run: bool = False,
     treat_high_findings_as_success: bool = False,
     runner: WindowsShareScanRunner = _run_single_windows_share_scan,

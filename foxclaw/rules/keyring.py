@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field, ValidationError
 from foxclaw.rules.trust import (
     RulesetBundleManifest,
     RulesetTrustKey,
-    _validate_key_availability,
-    _verify_ed25519_signature,
+    validate_key_availability,
+    verify_ed25519_signature,
 )
 
 _SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0"}
@@ -90,12 +90,12 @@ def verify_bundle_manifest(
     if key is None:
         raise ValueError(f"bundle verification failed: key_id '{key_id}' not found in keyring")
 
-    availability_error = _validate_key_availability(key=key, reference_time=reference_time)
+    availability_error = validate_key_availability(key=key, reference_time=reference_time)
     if availability_error is not None:
         raise ValueError(f"bundle verification failed: key_id '{key_id}' is unavailable: {availability_error}")
 
     try:
-        _verify_ed25519_signature(
+        verify_ed25519_signature(
             public_key_b64=key.public_key,
             signature_b64=signature_entry.signature,
             payload=payload_bytes,
