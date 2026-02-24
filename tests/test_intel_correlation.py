@@ -153,11 +153,13 @@ def test_scan_with_multi_source_intel_applies_deterministic_merge_policy(
     evidence = finding["evidence"]
     assert "intel_provenance_sources=cvelist,kev,mozilla,nvd" in evidence
     assert (
-        "severity_resolution=selected:HIGH,source:mozilla,policy:mozilla>nvd>cve_list"
-        in evidence
+        "severity_resolution=selected:HIGH,source:mozilla,policy:mozilla>nvd>cve_list" in evidence
     )
     assert "severity_conflict=1, candidates=mozilla:HIGH;nvd:MEDIUM;cve_list:INFO" in evidence
-    assert "kev:kev:listed=1,vendor=Mozilla,product=Firefox,due_date=2026-03-07,ransomware_use=Unknown" in evidence
+    assert (
+        "kev:kev:listed=1,vendor=Mozilla,product=Firefox,due_date=2026-03-07,ransomware_use=Unknown"
+        in evidence
+    )
 
 
 def test_scan_with_epss_source_uplifts_risk_priority_deterministically(

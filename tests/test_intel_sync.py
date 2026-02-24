@@ -111,9 +111,7 @@ def test_sync_sources_indexes_extension_blocklist_schema(tmp_path: Path) -> None
 
     with sqlite3.connect(store_dir / "intel.db") as connection:
         index_rows = connection.execute("SELECT COUNT(*) FROM source_indexes").fetchone()
-        blocklist_rows = connection.execute(
-            "SELECT COUNT(*) FROM extension_blocklist"
-        ).fetchone()
+        blocklist_rows = connection.execute("SELECT COUNT(*) FROM extension_blocklist").fetchone()
         assert index_rows == (1,)
         assert blocklist_rows == (2,)
 

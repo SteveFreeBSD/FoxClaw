@@ -207,7 +207,9 @@ def test_testbed_fleet_aggregate_multi_profile_contract() -> None:
 
     profile_uids = {item["identity"]["profile_uid"] for item in payload["profiles"]}
     assert {item["profile_uid"] for item in payload["finding_records"]} <= profile_uids
-    assert {"TB-FILE-001", *_MISSING_POLICY_FINDINGS} <= set(payload["aggregate"]["unique_rule_ids"])
+    assert {"TB-FILE-001", *_MISSING_POLICY_FINDINGS} <= set(
+        payload["aggregate"]["unique_rule_ids"]
+    )
 
 
 def test_testbed_scan_with_trust_manifest_passes(tmp_path: Path) -> None:

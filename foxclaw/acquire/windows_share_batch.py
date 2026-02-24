@@ -25,7 +25,11 @@ def _run_single_windows_share_scan(argv: list[str]) -> RunnerResult:
 
 
 def _extract_error_line(*, stdout_payload: str, stderr_payload: str) -> str | None:
-    lines = [line.strip() for line in (stderr_payload + "\n" + stdout_payload).splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in (stderr_payload + "\n" + stdout_payload).splitlines()
+        if line.strip()
+    ]
     if not lines:
         return None
 
@@ -140,7 +144,9 @@ def run_windows_share_batch(
 
     out_root.mkdir(parents=True, exist_ok=True)
 
-    child_dirs = sorted((path for path in source_root.iterdir() if path.is_dir()), key=lambda path: path.name)
+    child_dirs = sorted(
+        (path for path in source_root.iterdir() if path.is_dir()), key=lambda path: path.name
+    )
     total_profiles_seen = len(child_dirs)
     selected_profiles = child_dirs[:max_profiles] if max_profiles is not None else child_dirs
 
@@ -185,7 +191,9 @@ def run_windows_share_batch(
             stderr_payload = f"error: runner raised exception: {exc}"
         runtime_seconds = round(perf_counter() - profile_started, 3)
 
-        error_line = _extract_error_line(stdout_payload=stdout_payload, stderr_payload=stderr_payload)
+        error_line = _extract_error_line(
+            stdout_payload=stdout_payload, stderr_payload=stderr_payload
+        )
         staged_path = _read_staged_path(profile_out)
 
         profile_result: dict[str, object] = {

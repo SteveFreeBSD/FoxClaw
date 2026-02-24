@@ -261,7 +261,4 @@ def test_scan_with_trust_manifest_signature_threshold_fail_is_operational_error(
     )
 
     assert result.exit_code == 1
-    assert (
-        "min_valid_signatures is configured as 2"
-        in _normalized_output(result.stdout)
-    )
+    assert "min_valid_signatures is configured as 2" in _normalized_output(result.stdout)

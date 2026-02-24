@@ -104,9 +104,7 @@ def test_sqlite_quick_check_on_temp_db_reports_ok(tmp_path: Path) -> None:
     assert cookies_check.quick_check_result == "ok"
 
 
-def test_scan_json_schema_includes_expected_sections(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_scan_json_schema_includes_expected_sections(tmp_path: Path, monkeypatch) -> None:
     home = tmp_path / "home"
     base_dir = home / ".mozilla" / "firefox"
     profile_rel = Path("Profiles/main.default-release")
@@ -123,9 +121,7 @@ Default=1
     )
 
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "prefs.js").write_text(
-        'user_pref("scan.pref", true);\n', encoding="utf-8"
-    )
+    (profile_dir / "prefs.js").write_text('user_pref("scan.pref", true);\n', encoding="utf-8")
     (profile_dir / "prefs.js").chmod(0o600)
 
     (profile_dir / "key4.db").write_text("k", encoding="utf-8")

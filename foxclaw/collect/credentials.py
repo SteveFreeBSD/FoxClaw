@@ -58,7 +58,11 @@ def _collect_logins_metrics(path: Path) -> tuple[int, int, int, int, str | None]
         return 0, 0, 0, 0, "top-level JSON is not an object"
 
     logins_obj = payload.get("logins")
-    logins = [item for item in logins_obj if isinstance(item, dict)] if isinstance(logins_obj, list) else []
+    logins = (
+        [item for item in logins_obj if isinstance(item, dict)]
+        if isinstance(logins_obj, list)
+        else []
+    )
 
     vulnerable_count = _count_list(payload.get("potentiallyVulnerablePasswords"))
     dismissed_count = _count_collection(payload.get("dismissedBreachAlertsByLoginGUID"))
@@ -115,9 +119,7 @@ def _collect_formhistory_metrics(path: Path) -> tuple[bool, int, int, str | None
     return True, password_field_count, credential_field_count, None
 
 
-def _query_count(
-    connection: sqlite3.Connection, query: str, params: tuple[str, ...]
-) -> int:
+def _query_count(connection: sqlite3.Connection, query: str, params: tuple[str, ...]) -> int:
     row = connection.execute(query, params).fetchone()
     if row is None or not row:
         return 0

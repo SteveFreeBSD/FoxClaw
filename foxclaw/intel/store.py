@@ -59,11 +59,15 @@ def write_snapshot(
             update={
                 "artifact_path": str(artifact_path),
                 "schema_version": (
-                    source_index.schema_version if source_index is not None else source.schema_version
+                    source_index.schema_version
+                    if source_index is not None
+                    else source.schema_version
                 ),
                 "adapter": source_index.adapter if source_index is not None else source.adapter,
                 "records_indexed": (
-                    source_index.record_count if source_index is not None else source.records_indexed
+                    source_index.record_count
+                    if source_index is not None
+                    else source.records_indexed
                 ),
             }
         )

@@ -54,7 +54,7 @@ def load_ruleset(path: Path) -> Ruleset:
                 bundle_name=bundle_manifest.bundle_name,
                 bundle_version=bundle_manifest.bundle_version,
                 manifest_signature=bundle_manifest.manifest_signature.signature,
-                verified_at=bundle_manifest.created_at, # This uses the bundle's creation time, could be verified time if we stored it
+                verified_at=bundle_manifest.created_at,  # This uses the bundle's creation time, could be verified time if we stored it
             )
         except (OSError, ValueError, ValidationError, json.JSONDecodeError) as exc:
             # Runtime scan stays fail-open for provenance metadata parsing;

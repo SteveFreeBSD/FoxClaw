@@ -18,10 +18,14 @@ def _create_sqlite(path: Path) -> None:
     connection.close()
 
 
-def _write_source_profile(root: Path, *, with_lock_marker: bool = False, weak_key4: bool = False) -> Path:
+def _write_source_profile(
+    root: Path, *, with_lock_marker: bool = False, weak_key4: bool = False
+) -> Path:
     profile = root / "source_profile"
     profile.mkdir(parents=True, exist_ok=True)
-    (profile / "prefs.js").write_text('user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8")
+    (profile / "prefs.js").write_text(
+        'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+    )
     _create_sqlite(profile / "places.sqlite")
     _create_sqlite(profile / "cookies.sqlite")
     if weak_key4:
@@ -170,7 +174,9 @@ def test_acquire_windows_share_scan_fails_closed_on_parentlock_marker(tmp_path: 
     assert ".parentlock" in (result.stdout + result.stderr)
 
 
-def test_acquire_windows_share_scan_lock_marker_fail_closed_then_allow_override(tmp_path: Path) -> None:
+def test_acquire_windows_share_scan_lock_marker_fail_closed_then_allow_override(
+    tmp_path: Path,
+) -> None:
     source_profile = _write_source_profile(tmp_path, with_lock_marker=True)
 
     fake_foxclaw = tmp_path / "fake_foxclaw.py"
@@ -343,7 +349,9 @@ def test_acquire_windows_share_scan_rejects_staging_root_home_directory(tmp_path
     assert "staging root cannot be home directory root" in (result.stdout + result.stderr)
 
 
-def test_acquire_windows_share_scan_rejects_staging_root_inside_source_profile(tmp_path: Path) -> None:
+def test_acquire_windows_share_scan_rejects_staging_root_inside_source_profile(
+    tmp_path: Path,
+) -> None:
     source_profile = _write_source_profile(tmp_path)
 
     runner = CliRunner()
@@ -364,7 +372,9 @@ def test_acquire_windows_share_scan_rejects_staging_root_inside_source_profile(t
     assert "staging root cannot be inside source profile" in (result.stdout + result.stderr)
 
 
-def test_acquire_windows_share_scan_rejects_source_profile_inside_staging_root(tmp_path: Path) -> None:
+def test_acquire_windows_share_scan_rejects_source_profile_inside_staging_root(
+    tmp_path: Path,
+) -> None:
     staging_root = tmp_path / "staging-root"
     source_profile = _write_source_profile(staging_root)
 

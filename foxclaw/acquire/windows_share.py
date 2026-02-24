@@ -253,9 +253,15 @@ def resolve_windows_share_stage_paths(
     stage_root = resolved_staging_root / resolved_snapshot_id
     staged_profile = stage_root / "profile"
 
-    resolved_output_dir = output_dir.expanduser().resolve() if output_dir else stage_root / "artifacts"
-    resolved_json_out = json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
-    resolved_sarif_out = sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
+    resolved_output_dir = (
+        output_dir.expanduser().resolve() if output_dir else stage_root / "artifacts"
+    )
+    resolved_json_out = (
+        json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
+    )
+    resolved_sarif_out = (
+        sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
+    )
     resolved_scan_snapshot_out = (
         scan_snapshot_out.expanduser().resolve()
         if scan_snapshot_out
@@ -310,7 +316,9 @@ def _copy_tree(source_root: Path, target_root: Path) -> CopyStats:
         for directory in dirs:
             src_child = src_dir / directory
             if src_child.is_symlink():
-                raise RuntimeError(f"symlinked directory not allowed in source profile: {src_child}")
+                raise RuntimeError(
+                    f"symlinked directory not allowed in source profile: {src_child}"
+                )
 
         for file_name in sorted(files):
             src_file = src_dir / file_name
@@ -477,8 +485,7 @@ def stage_windows_share_profile(
         )
     if not paths.source_profile.exists() or not paths.source_profile.is_dir():
         raise ValueError(
-            "source profile does not exist or is not a directory: "
-            f"{paths.source_profile}"
+            f"source profile does not exist or is not a directory: {paths.source_profile}"
         )
 
     staging_root_error = _validate_staging_root(

@@ -44,7 +44,9 @@ def _summarize_policy_file(policy_path: Path) -> PolicyFileSummary:
         return PolicyFileSummary(path=str(policy_path), parse_error=str(exc))
 
     if not isinstance(payload, dict):
-        return PolicyFileSummary(path=str(policy_path), parse_error="top-level JSON is not an object")
+        return PolicyFileSummary(
+            path=str(policy_path), parse_error="top-level JSON is not an object"
+        )
 
     top_level_keys = sorted(str(key) for key in payload.keys())
     policies_count: int | None = None
