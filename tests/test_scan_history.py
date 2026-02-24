@@ -20,9 +20,7 @@ from foxclaw.models import (
     SqliteEvidence,
     CredentialEvidence,
     ProfileArtifactEvidence,
-    FilePermEvidence,
 )
-from foxclaw.intel.correlation import IntelCorrelationEvidence
 
 
 def _make_evidence(
