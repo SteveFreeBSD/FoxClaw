@@ -14,7 +14,8 @@ param(
   [switch]$Resume,
   [int]$StartIndex = 1,
   [int]$EndIndex = 0,
-  [int]$Workers = 0
+  [int]$Workers = 0,
+  [switch]$Fast
 )
 
 # ── Preflight checks ─────────────────────────────────────────────────
@@ -213,6 +214,14 @@ Write-Host "--- Phase 2: Mutating $($mutateItems.Count) profiles ($Workers worke
 
 $mutateStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
+$extCachePath = ""
+if ($Fast) {
+  $extCachePath = Join-Path $env:TEMP "foxclaw-ext-cache-$([Guid]::NewGuid().ToString().Substring(0,8))"
+  Write-Host "  Building extension cache at $extCachePath..."
+  New-Item -ItemType Directory -Path $extCachePath -Force | Out-Null
+  node $Mutator $extCachePath --build-cache | Out-Null
+}
+
 # Thread-safe result collection.
 $results = [System.Collections.Concurrent.ConcurrentBag[pscustomobject]]::new()
 
@@ -230,6 +239,15 @@ if ($isPSCore -and $Workers -gt 1 -and $mutateItems.Count -gt 1) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     $args = @("$mutatorPath", "$dest", "--scenario", $work.ScenarioName, "--seed", $work.ProfileSeed, "--profile-name", $name, "--manifest-out", "$manifestOut")
+    $jsonlPath = Join-Path $dest "foxclaw-mutate.jsonl"
+    $args += "--jsonl-log"
+    $args += "$jsonlPath"
+
+    if ($using:Fast) {
+      $args += "--fast"
+      $args += "--extensions-cache"
+      $args += $using:extCachePath
+    }
 
     $output = & node @args 2>&1
     $exitCode = $LASTEXITCODE
@@ -280,6 +298,15 @@ if ($isPSCore -and $Workers -gt 1 -and $mutateItems.Count -gt 1) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     $nodeArgs = @("$Mutator", "$dest", "--scenario", $work.ScenarioName, "--seed", $work.ProfileSeed, "--profile-name", $name, "--manifest-out", "$manifestOut")
+    $jsonlPath = Join-Path $dest "foxclaw-mutate.jsonl"
+    $nodeArgs += "--jsonl-log"
+    $nodeArgs += "$jsonlPath"
+
+    if ($Fast) {
+      $nodeArgs += "--fast"
+      $nodeArgs += "--extensions-cache"
+      $nodeArgs += $extCachePath
+    }
 
     node @nodeArgs 2>&1 | Tee-Object -FilePath $mutatorLogPath
     $exitCode = $LASTEXITCODE
@@ -340,6 +367,7 @@ $summary = [ordered]@{
   seed                     = $Seed
   node_version             = $nodeVersion
   mutator_path             = $Mutator
+  fast                     = [bool]$Fast
   overwrite                = [bool]$Overwrite
   fail_fast                = [bool]$FailFast
   resume                   = [bool]$Resume
@@ -370,6 +398,7 @@ Write-Host "  Created:  $created / $totalInRange"
 Write-Host "  Skipped:  $cloneSkipped existing, $cloneResumed resumed"
 Write-Host "  Failures: $($cloneFailed + $failed)"
 Write-Host "  Clone:    $($summary.clone_seconds)s  Mutate: $($summary.mutate_seconds)s  Total: $($summary.total_elapsed_seconds)s"
+if ($Fast) { Write-Host "  Fast:     ON (Cache: $extCachePath)" }
 if ($Workers -gt 1) {
   Write-Host "  Workers:  $Workers parallel"
 }

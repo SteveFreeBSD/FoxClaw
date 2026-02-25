@@ -3,8 +3,83 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
+// ── Globals & Fast Mode ──────────────────────────────────────────────
+let FAST_MODE = false;
+let JSONL_STREAM = null;
+let JSONL_PROFILE = "";
+let JSONL_SCENARIO = "";
+
+function emitJsonl(entry) {
+    if (!JSONL_STREAM) return;
+    JSONL_STREAM.write(
+        JSON.stringify({ ts: new Date().toISOString(), profile: JSONL_PROFILE, scenario: JSONL_SCENARIO, ...entry }) + "\n"
+    );
+}
+
+const ALLOWED_DOMAINS = new Set([
+    "duckduckgo.com",
+    "en.wikipedia.org",
+    "news.ycombinator.com",
+    "httpbin.org",
+    "example.com",
+    "www.openstreetmap.org",
+    "www.reuters.com",
+    "www.nytimes.com",
+    "www.cnet.com",
+    "www.techradar.com",
+    "www.majorgeeks.com",
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "www.eff.org",
+    "privacyinternational.org",
+    "pastebin.com",
+    "ghostbin.com"
+]);
+
+function assertAllowedUrl(urlStr) {
+    try {
+        const u = new URL(urlStr);
+        let allowed = false;
+        for (const domain of ALLOWED_DOMAINS) {
+            if (u.hostname === domain || u.hostname.endsWith(`.${domain}`)) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) throw new Error(`URL ${urlStr} not in allowlist`);
+    } catch (e) {
+        throw new Error(`Invalid or blocked URL: ${urlStr} - ${e.message}`);
+    }
+}
+
+async function retryGoto(page, url, options, maxRetries = 2) {
+    assertAllowedUrl(url);
+    if (FAST_MODE && (!options || !options.timeout)) {
+        options = { ...options, timeout: 5000 };
+    }
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            await page.goto(url, options);
+            return;
+        } catch (err) {
+            if (attempt === maxRetries) throw err;
+            await sleep(1000 * (attempt + 1));
+        }
+    }
+}
+
+function computeConfigHash() {
+    const configData = JSON.stringify({
+        // Minimal set to detect major drift; can extend later
+        allowedDomains: [...ALLOWED_DOMAINS].sort()
+    });
+    return crypto.createHash("sha256").update(configData).digest("hex").slice(0, 16);
+}
+
 function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    const duration = FAST_MODE ? Math.min(100, Math.floor(ms / 10)) : ms;
+    return new Promise((resolve) => setTimeout(resolve, duration));
 }
 
 function hashToSeedInt(seedInput) {
@@ -47,10 +122,12 @@ function safeMkdir(dirPath) {
 }
 
 function appendAction(actionLog, payload) {
-    actionLog.push({
+    const entry = {
         at_utc: new Date().toISOString(),
         ...payload,
-    });
+    };
+    actionLog.push(entry);
+    emitJsonl(entry);
 }
 
 function summarizeStages(actionLog) {
@@ -187,6 +264,11 @@ function parseArgs(argv) {
     let profileName = path.basename(profileDir);
     let manifestOut = "";
 
+    let fast = false;
+    let extensionsCache = "";
+    let jsonlLog = "";
+    let buildCache = false;
+
     for (let i = 1; i < argv.length; i++) {
         const arg = argv[i];
         const next = argv[i + 1];
@@ -210,10 +292,28 @@ function parseArgs(argv) {
             i += 1;
             continue;
         }
+        if (arg === "--extensions-cache" && next) {
+            extensionsCache = next;
+            i += 1;
+            continue;
+        }
+        if (arg === "--jsonl-log" && next) {
+            jsonlLog = next;
+            i += 1;
+            continue;
+        }
+        if (arg === "--fast") {
+            fast = true;
+            continue;
+        }
+        if (arg === "--build-cache") {
+            buildCache = true;
+            continue;
+        }
         throw new Error(`unknown argument: ${arg}`);
     }
 
-    return { profileDir, scenario, seed, profileName, manifestOut };
+    return { profileDir, scenario, seed, profileName, manifestOut, fast, extensionsCache, jsonlLog, buildCache };
 }
 
 function selectScenario(name, rng) {
@@ -252,7 +352,7 @@ async function wanderSites(context, scenarioConfig, rng, actionLog) {
         const page = await context.newPage();
         pages.push(page);
         try {
-            await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+            await retryGoto(page, url, { waitUntil: "domcontentloaded", timeout: 30000 });
             appendAction(actionLog, { stage: "navigate", status: "ok", url });
 
             const scrollLoops = randInt(rng, 1, 4);
@@ -304,7 +404,7 @@ async function simulateSearches(context, rng, actionLog) {
     const page = await context.newPage();
     const count = randInt(rng, 1, 3);
     try {
-        await page.goto("https://duckduckgo.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
+        await retryGoto(page, "https://duckduckgo.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
         for (let i = 0; i < count; i++) {
             const term = SEARCH_TERMS[randInt(rng, 0, SEARCH_TERMS.length - 1)];
             await page.fill("input[name='q']", term);
@@ -314,7 +414,7 @@ async function simulateSearches(context, rng, actionLog) {
             await tryClickFirst(page, ["a[data-testid='result-title-a']:visible", "h2 a:visible", "a:visible"]);
             appendAction(actionLog, { stage: "search", status: "ok", term });
             await sleep(randInt(rng, 400, 1200));
-            await page.goto("https://duckduckgo.com/", { waitUntil: "domcontentloaded", timeout: 10000 }).catch(() => null);
+            await retryGoto(page, "https://duckduckgo.com/", { waitUntil: "domcontentloaded", timeout: 10000 }).catch(() => null);
         }
     } catch (err) {
         appendAction(actionLog, { stage: "search", status: "error", message: err.message });
@@ -329,7 +429,7 @@ async function simulateFormSubmissions(context, rng, actionLog) {
         if (chance(rng, 0.55)) {
             const page = await context.newPage();
             try {
-                await page.goto("https://news.ycombinator.com/login", { waitUntil: "domcontentloaded", timeout: 15000 });
+                await retryGoto(page, "https://news.ycombinator.com/login", { waitUntil: "domcontentloaded", timeout: 15000 });
                 await page.fill("input[name='acct']", `user_${Date.now()}_${randInt(rng, 100, 999)}`);
                 await page.fill("input[name='pw']", "password123!");
                 await page.click("input[value='login']", { timeout: 5000 });
@@ -343,7 +443,7 @@ async function simulateFormSubmissions(context, rng, actionLog) {
         } else {
             const page = await context.newPage();
             try {
-                await page.goto("https://httpbin.org/forms/post", { waitUntil: "domcontentloaded", timeout: 20000 });
+                await retryGoto(page, "https://httpbin.org/forms/post", { waitUntil: "domcontentloaded", timeout: 20000 });
                 await page.fill("input[name='custname']", `Alex ${randInt(rng, 10, 99)}`);
                 await page.fill("input[name='custtel']", `555-010${randInt(rng, 0, 9)}`);
                 await page.fill("input[name='custemail']", `foxclaw${randInt(rng, 100, 999)}@example.com`);
@@ -374,7 +474,7 @@ async function simulateDownloads(context, profileDir, rng, actionLog) {
         const filename = DOWNLOAD_NAMES[randInt(rng, 0, DOWNLOAD_NAMES.length - 1)];
         const page = await context.newPage();
         try {
-            await page.goto("https://example.com/", { waitUntil: "domcontentloaded", timeout: 15000 });
+            await retryGoto(page, "https://example.com/", { waitUntil: "domcontentloaded", timeout: 15000 });
             const [download] = await Promise.all([
                 page.waitForEvent("download", { timeout: 7000 }),
                 page.evaluate((name) => {
@@ -513,6 +613,78 @@ function writeScenarioArtifacts(profileDir, scenarioName, seed, riskySettings, a
     }
 }
 
+function _copyDirSync(src, dest) {
+    if (!fs.existsSync(src)) return;
+    safeMkdir(dest);
+    for (const file of fs.readdirSync(src)) {
+        const pSrc = path.join(src, file);
+        const pDest = path.join(dest, file);
+        if (fs.statSync(pSrc).isDirectory()) {
+            _copyDirSync(pSrc, pDest);
+        } else {
+            fs.copyFileSync(pSrc, pDest);
+        }
+    }
+}
+
+function copyExtensionsFromCache(profileDir, cacheDir, actionLog) {
+    const srcExt = path.join(cacheDir, "extensions");
+    const destExt = path.join(profileDir, "extensions");
+    const srcJson = path.join(cacheDir, "extensions.json");
+    const destJson = path.join(profileDir, "extensions.json");
+
+    if (fs.existsSync(srcExt)) _copyDirSync(srcExt, destExt);
+    if (fs.existsSync(srcJson)) fs.copyFileSync(srcJson, destJson);
+
+    let count = 0;
+    try {
+        if (fs.existsSync(destJson)) {
+            const data = JSON.parse(fs.readFileSync(destJson, "utf8"));
+            count = data.addons?.length || 0;
+        }
+    } catch { }
+
+    appendAction(actionLog, {
+        stage: "extension_cache_copy",
+        status: "ok",
+        extensions_copied: count
+    });
+    return { extensions_found: count, extensions_active: count };
+}
+
+function seedExtensionArtifacts(profileDir, scenarioName, rng, actionLog) {
+    const extDir = path.join(profileDir, "extensions");
+    safeMkdir(extDir);
+    const count = randInt(rng, 2, 5);
+    const addons = [];
+
+    for (let i = 0; i < count; i++) {
+        const id = `ext_${crypto.randomBytes(4).toString("hex")}@example.com`;
+        const addonDir = path.join(extDir, id);
+        safeMkdir(addonDir);
+        fs.writeFileSync(
+            path.join(addonDir, "manifest.json"),
+            JSON.stringify({ manifest_version: 2, name: `Synthed Ext ${i}`, version: "1.0", browser_action: {} })
+        );
+        addons.push({
+            id,
+            active: true,
+            defaultLocale: { name: `Synthed Ext ${i}` },
+            sourceURI: `file:///${addonDir}`
+        });
+    }
+
+    const extJsonPath = path.join(profileDir, "extensions.json");
+    fs.writeFileSync(extJsonPath, JSON.stringify({ addons }, null, 2));
+
+    appendAction(actionLog, {
+        stage: "extension_seed",
+        status: "ok",
+        extensions_seeded: count
+    });
+    return { extensions_found: count, extensions_active: count };
+}
+
 function seedCredentialArtifacts(profileDir, scenarioName, rng, actionLog) {
     const shouldSeed =
         scenarioName === "credential_reuse" ||
@@ -592,8 +764,8 @@ function seedCredentialArtifacts(profileDir, scenarioName, rng, actionLog) {
         : [];
     const existingDismissed =
         payload.dismissedBreachAlertsByLoginGUID &&
-        typeof payload.dismissedBreachAlertsByLoginGUID === "object" &&
-        !Array.isArray(payload.dismissedBreachAlertsByLoginGUID)
+            typeof payload.dismissedBreachAlertsByLoginGUID === "object" &&
+            !Array.isArray(payload.dismissedBreachAlertsByLoginGUID)
             ? { ...payload.dismissedBreachAlertsByLoginGUID }
             : {};
 
@@ -683,10 +855,17 @@ async function main() {
         process.exit(2);
     }
 
-    const { profileDir, scenario: scenarioArg, seed, profileName, manifestOut } = parsed;
+    const { profileDir, scenario: scenarioArg, seed, profileName, manifestOut, fast, extensionsCache, jsonlLog } = parsed;
     if (!fs.existsSync(profileDir)) {
         console.error(`profileDir not found: ${profileDir}`);
         process.exit(2);
+    }
+
+    FAST_MODE = fast;
+    if (jsonlLog) {
+        JSONL_PROFILE = profileName;
+        JSONL_SCENARIO = scenarioArg;
+        JSONL_STREAM = fs.createWriteStream(jsonlLog, { flags: "a" });
     }
 
     const rng = makeRng(seed);
@@ -702,7 +881,30 @@ async function main() {
         scenario: scenarioName,
         seed: String(seed),
         profile_name: profileName,
+        fast_mode: FAST_MODE,
+        build_cache: buildCache,
     });
+
+    if (buildCache) {
+        seedExtensionArtifacts(profileDir, scenarioName, rng, actionLog);
+        const manifestPayload = {
+            schema_version: "1.0.0",
+            profile_dir: path.resolve(profileDir),
+            profile_name: profileName,
+            scenario: scenarioName,
+            seed: String(seed),
+            started_at_utc: new Date(startedAt).toISOString(),
+            completed_at_utc: new Date().toISOString(),
+            runtime_seconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+            actions_total: actionLog.length,
+            action_stage_counts: summarizeStages(actionLog),
+            actions: actionLog,
+        };
+        writeManifest(manifestOut || path.join(profileDir, "foxclaw-sim-metadata.json"), manifestPayload);
+        if (JSONL_STREAM) JSONL_STREAM.end();
+        console.log(`[+] mutate_profile built extension cache at ${profileDir}`);
+        process.exit(0);
+    }
 
     let context;
     try {
@@ -743,6 +945,13 @@ async function main() {
     writeScenarioArtifacts(profileDir, scenarioName, seed, scenarioConfig.risky_settings, actionLog);
     const credentialSignals = seedCredentialArtifacts(profileDir, scenarioName, rng, actionLog);
 
+    let extensionSignals;
+    if (extensionsCache) {
+        extensionSignals = copyExtensionsFromCache(profileDir, extensionsCache, actionLog);
+    } else {
+        extensionSignals = seedExtensionArtifacts(profileDir, scenarioName, rng, actionLog);
+    }
+
     const completedAt = Date.now();
     const manifestPayload = {
         schema_version: "1.0.0",
@@ -751,6 +960,8 @@ async function main() {
         scenario: scenarioName,
         requested_scenario: scenarioArg,
         seed: String(seed),
+        fast_mode: FAST_MODE,
+        config_hash: computeConfigHash(),
         started_at_utc: new Date(startedAt).toISOString(),
         completed_at_utc: new Date(completedAt).toISOString(),
         runtime_seconds: Number(((completedAt - startedAt) / 1000).toFixed(3)),
@@ -758,6 +969,7 @@ async function main() {
         action_stage_counts: summarizeStages(actionLog),
         expected_scan_signals: {
             credentials: credentialSignals,
+            extensions: extensionSignals,
         },
         actions: actionLog,
     };
@@ -765,8 +977,12 @@ async function main() {
     const defaultManifestOut = path.join(profileDir, "foxclaw-sim-metadata.json");
     writeManifest(manifestOut || defaultManifestOut, manifestPayload);
     console.log(
-        `[+] mutate_profile completed profile=${profileName} scenario=${scenarioName} seed=${seed}`
+        `[+] mutate_profile completed profile=${profileName} scenario=${scenarioName} seed=${seed} hash=${manifestPayload.config_hash}`
     );
+
+    if (JSONL_STREAM) {
+        JSONL_STREAM.end();
+    }
 }
 
 main().catch((err) => {

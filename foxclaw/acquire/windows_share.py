@@ -326,7 +326,15 @@ def _copy_tree(source_root: Path, target_root: Path) -> CopyStats:
                 raise RuntimeError(f"symlinked file not allowed in source profile: {src_file}")
 
             dst_file = dst_dir / file_name
-            shutil.copy2(src_file, dst_file)
+            try:
+                shutil.copy2(src_file, dst_file)
+            except OSError as e:
+                if file_name in PROFILE_LOCK_FILES:
+                    # Ignore locked lock-markers on SMB shares when copying
+                    continue
+                else:
+                    raise e
+                    
             file_stat = dst_file.stat()
             bytes_copied += file_stat.st_size
             files_copied += 1
