@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from foxclaw.cli import app
+from foxclaw.acquire.windows_share import _copy_tree
 from typer.testing import CliRunner
 
 
@@ -35,6 +36,50 @@ def _write_source_profile(
         (profile / "parent.lock").write_text("locked\n", encoding="utf-8")
     return profile
 
+def test_copy_tree_retries_on_oserror_and_succeeds(tmp_path: Path, monkeypatch) -> None:
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    source_profile = _write_source_profile(source_root)
+    
+    import shutil
+    original_copy2 = shutil.copy2
+    
+    attempts = 0
+    def mock_copy2(src, dst, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise OSError("mock transient smb drop")
+        original_copy2(src, dst, **kwargs)
+
+    monkeypatch.setattr("foxclaw.acquire.windows_share.shutil.copy2", mock_copy2)
+    monkeypatch.setattr("foxclaw.acquire.windows_share.time.sleep", lambda x: None)  # speed up test
+    
+    stats = _copy_tree(source_profile, target_root)
+    
+    assert stats.files_copied >= 3
+    assert attempts >= 3 # proved it retried
+    assert (target_root / "prefs.js").exists()
+
+def test_copy_tree_fails_after_max_retries(tmp_path: Path, monkeypatch) -> None:
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    source_profile = _write_source_profile(source_root)
+    
+    attempts = 0
+    def mock_copy2_always_fail(src, dst, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        raise OSError("mock hard smb failure")
+
+    monkeypatch.setattr("foxclaw.acquire.windows_share.shutil.copy2", mock_copy2_always_fail)
+    monkeypatch.setattr("foxclaw.acquire.windows_share.time.sleep", lambda x: None)
+    
+    import pytest
+    with pytest.raises(OSError, match="mock hard smb failure"):
+        _copy_tree(source_profile, target_root)
+        
+    assert attempts == 4  # exact max_attempts
 
 def _write_fake_foxclaw(path: Path, *, exit_code: int) -> None:
     script = f"""#!/usr/bin/env python3
