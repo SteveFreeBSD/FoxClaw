@@ -42,12 +42,13 @@ if ($nodeMajor -lt 16) {
 }
 
 try {
-  node -e "require('playwright')" 2>$null
-} catch {
-  throw "Playwright is not installed. Run 'npm install' inside scripts/windows_auth_gen first."
+  node -e "require('better-sqlite3')" 2>$null
+}
+catch {
+  throw "better-sqlite3 is not installed. Run 'npm install' in the foxclaw-gen directory first."
 }
 if ($LASTEXITCODE -ne 0) {
-  throw "Playwright is not installed. Run 'npm install' inside scripts/windows_auth_gen first."
+  throw "better-sqlite3 is not installed. Run 'npm install' in the foxclaw-gen directory first."
 }
 
 $SeedDir = Join-Path $ProfilesRoot $SeedName
@@ -59,6 +60,19 @@ foreach ($lockName in @("parent.lock", ".parentlock", "lock")) {
   }
 }
 
+# ── Seed profile completeness validation ─────────────────────────────
+$requiredSeedFiles = @("places.sqlite", "cookies.sqlite", "key4.db", "cert9.db", "prefs.js")
+$missingSeedFiles = @()
+foreach ($seedFile in $requiredSeedFiles) {
+  $seedFilePath = Join-Path $SeedDir $seedFile
+  if (!(Test-Path $seedFilePath)) { $missingSeedFiles += $seedFile }
+}
+if ($missingSeedFiles.Count -gt 0) {
+  $missing = $missingSeedFiles -join ", "
+  throw "Seed profile is incomplete — missing: $missing. Launch Firefox ESR with this profile at least once to initialize it."
+}
+Write-Host "[OK] Seed profile validated: $($requiredSeedFiles.Count) critical files present."
+
 $Mutator = Join-Path $PSScriptRoot "mutate_profile.mjs"
 if (!(Test-Path $Mutator)) { throw "Mutator script not found: $Mutator" }
 
@@ -69,7 +83,8 @@ try {
   $testFile = Join-Path $ProfilesRoot ".foxclaw-write-test"
   [IO.File]::WriteAllText($testFile, "test")
   Remove-Item $testFile -Force -ErrorAction SilentlyContinue
-} catch {
+}
+catch {
   throw "Profiles root is not writable: $ProfilesRoot"
 }
 
@@ -119,11 +134,11 @@ for ($i = $StartIndex; $i -le $EndIndex; $i++) {
   $profileSeed = $Seed + $i
   $scenarioName = Get-ScenarioName -ScenarioMode $Scenario -Random $rng
   $workItems += [pscustomobject]@{
-    Index         = $i
-    Name          = $name
-    Dest          = $dest
-    ProfileSeed   = $profileSeed
-    ScenarioName  = $scenarioName
+    Index        = $i
+    Name         = $name
+    Dest         = $dest
+    ProfileSeed  = $profileSeed
+    ScenarioName = $scenarioName
   }
 }
 
@@ -159,7 +174,8 @@ foreach ($work in $workItems) {
           $cloneResumed++
           continue
         }
-      } catch { }
+      }
+      catch { }
     }
   }
 
@@ -179,7 +195,8 @@ foreach ($work in $workItems) {
         continue
       }
       Remove-Item -Recurse -Force -Path $dest
-    } else {
+    }
+    else {
       $cloneSkipped++
       continue
     }
@@ -200,6 +217,25 @@ foreach ($work in $workItems) {
   foreach ($lockName in @("parent.lock", ".parentlock", "lock")) {
     $lock = Join-Path $dest $lockName
     if (Test-Path $lock) { Remove-Item $lock -Force -ErrorAction SilentlyContinue }
+  }
+
+  # Remove session restore files — these cause Playwright to try restoring
+  # the seed's open tabs, triggering "Unexpected number of tabs" errors
+  # when multiple workers launch in parallel.
+  foreach ($sessionFile in @(
+      "sessionstore.jsonlz4",
+      "sessionstore.js",
+      "sessionstore.bak",
+      "sessionstore-backups"
+    )) {
+    $sf = Join-Path $dest $sessionFile
+    if (Test-Path $sf) { Remove-Item $sf -Recurse -Force -ErrorAction SilentlyContinue }
+  }
+
+  # Remove startup cache and shader cache to avoid stale state conflicts.
+  foreach ($cacheDir in @("startupCache", "shader-cache", "cache2")) {
+    $cd = Join-Path $dest $cacheDir
+    if (Test-Path $cd) { Remove-Item $cd -Recurse -Force -ErrorAction SilentlyContinue }
   }
 
   [void]$mutateItems.Add($work)
@@ -261,27 +297,29 @@ if ($isPSCore -and $Workers -gt 1 -and $mutateItems.Count -gt 1) {
     if ($exitCode -ne 0) {
       $status = "mutate_failed"
       $msg = "exit=$exitCode"
-    } elseif (!(Test-Path $manifestOut)) {
+    }
+    elseif (!(Test-Path $manifestOut)) {
       $status = "missing_manifest"
       $msg = "no manifest"
     }
 
     ($using:results).Add([pscustomobject]@{
-      profile       = $name
-      path          = $dest
-      scenario      = $work.ScenarioName
-      seed          = $work.ProfileSeed
-      status        = $status
-      exit_code     = $exitCode
-      elapsed_seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
-      mutator_log   = $mutatorLogPath
-      message       = $msg
-    })
+        profile         = $name
+        path            = $dest
+        scenario        = $work.ScenarioName
+        seed            = $work.ProfileSeed
+        status          = $status
+        exit_code       = $exitCode
+        elapsed_seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+        mutator_log     = $mutatorLogPath
+        message         = $msg
+      })
 
     $posLabel = "W$([System.Threading.Thread]::CurrentThread.ManagedThreadId)"
     Write-Host "  [$posLabel] $status $name ($(([math]::Round($sw.Elapsed.TotalSeconds, 1)))s) scenario=$($work.ScenarioName)"
   }
-} else {
+}
+else {
   # ── Sequential fallback ────────────────────────────────────────
   $completedCount = 0
   $elapsedTimes = @()
@@ -320,23 +358,24 @@ if ($isPSCore -and $Workers -gt 1 -and $mutateItems.Count -gt 1) {
       $status = "mutate_failed"
       $msg = "exit=$exitCode"
       if ($FailFast) { throw "Mutator failed for $name" }
-    } elseif (!(Test-Path $manifestOut)) {
+    }
+    elseif (!(Test-Path $manifestOut)) {
       $status = "missing_manifest"
       $msg = "no manifest"
       if ($FailFast) { throw "Missing manifest for $name" }
     }
 
     $results.Add([pscustomobject]@{
-      profile       = $name
-      path          = $dest
-      scenario      = $work.ScenarioName
-      seed          = $work.ProfileSeed
-      status        = $status
-      exit_code     = $exitCode
-      elapsed_seconds = $elapsedSec
-      mutator_log   = $mutatorLogPath
-      message       = $msg
-    })
+        profile         = $name
+        path            = $dest
+        scenario        = $work.ScenarioName
+        seed            = $work.ProfileSeed
+        status          = $status
+        exit_code       = $exitCode
+        elapsed_seconds = $elapsedSec
+        mutator_log     = $mutatorLogPath
+        message         = $msg
+      })
 
     # ETA.
     $avgSec = ($elapsedTimes | Measure-Object -Average).Average
@@ -355,35 +394,35 @@ $created = ($allResults | Where-Object { $_.status -eq "created" }).Count
 $failed = ($allResults | Where-Object { $_.status -ne "created" }).Count
 
 $summary = [ordered]@{
-  schema_version           = "1.0.0"
-  generated_at_utc         = (Get-Date).ToUniversalTime().ToString("o")
-  completed_at_utc         = (Get-Date).ToUniversalTime().ToString("o")
-  profiles_root            = $ProfilesRoot
-  seed_profile             = $SeedName
+  schema_version             = "1.0.0"
+  generated_at_utc           = (Get-Date).ToUniversalTime().ToString("o")
+  completed_at_utc           = (Get-Date).ToUniversalTime().ToString("o")
+  profiles_root              = $ProfilesRoot
+  seed_profile               = $SeedName
   seed_profile_previous_name = "ejm2bj4s.foxclaw-test"
-  requested_count          = $Count
-  effective_range          = "${StartIndex}..${EndIndex}"
-  scenario_mode            = $Scenario
-  seed                     = $Seed
-  node_version             = $nodeVersion
-  mutator_path             = $Mutator
-  fast                     = [bool]$Fast
-  overwrite                = [bool]$Overwrite
-  fail_fast                = [bool]$FailFast
-  resume                   = [bool]$Resume
-  workers                  = $Workers
-  attempted                = $totalInRange
-  cloned                   = $mutateItems.Count
-  created                  = $created
-  skipped_existing         = $cloneSkipped
-  skipped_complete         = $cloneResumed
-  clone_failed             = $cloneFailed
-  mutate_failed            = $failed
-  failures                 = $cloneFailed + $failed
-  clone_seconds            = [math]::Round($cloneStopwatch.Elapsed.TotalSeconds, 1)
-  mutate_seconds           = [math]::Round($mutateStopwatch.Elapsed.TotalSeconds, 1)
-  total_elapsed_seconds    = [math]::Round($cloneStopwatch.Elapsed.TotalSeconds + $mutateStopwatch.Elapsed.TotalSeconds, 1)
-  profiles                 = $allResults | Sort-Object profile
+  requested_count            = $Count
+  effective_range            = "${StartIndex}..${EndIndex}"
+  scenario_mode              = $Scenario
+  seed                       = $Seed
+  node_version               = $nodeVersion
+  mutator_path               = $Mutator
+  fast                       = [bool]$Fast
+  overwrite                  = [bool]$Overwrite
+  fail_fast                  = [bool]$FailFast
+  resume                     = [bool]$Resume
+  workers                    = $Workers
+  attempted                  = $totalInRange
+  cloned                     = $mutateItems.Count
+  created                    = $created
+  skipped_existing           = $cloneSkipped
+  skipped_complete           = $cloneResumed
+  clone_failed               = $cloneFailed
+  mutate_failed              = $failed
+  failures                   = $cloneFailed + $failed
+  clone_seconds              = [math]::Round($cloneStopwatch.Elapsed.TotalSeconds, 1)
+  mutate_seconds             = [math]::Round($mutateStopwatch.Elapsed.TotalSeconds, 1)
+  total_elapsed_seconds      = [math]::Round($cloneStopwatch.Elapsed.TotalSeconds + $mutateStopwatch.Elapsed.TotalSeconds, 1)
+  profiles                   = $allResults | Sort-Object profile
 }
 
 $summary | ConvertTo-Json -Depth 8 | Out-File -FilePath $SummaryOut -Encoding utf8 -Force
