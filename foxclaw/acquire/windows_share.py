@@ -14,6 +14,7 @@ import stat
 import subprocess  # nosec B404
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -326,7 +327,26 @@ def _copy_tree(source_root: Path, target_root: Path) -> CopyStats:
                 raise RuntimeError(f"symlinked file not allowed in source profile: {src_file}")
 
             dst_file = dst_dir / file_name
-            shutil.copy2(src_file, dst_file)
+            
+            max_attempts = 4
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    shutil.copy2(src_file, dst_file)
+                    break
+                except OSError as e:
+                    if file_name in PROFILE_LOCK_FILES:
+                        # Ignore locked lock-markers on SMB shares when copying
+                        break
+                    
+                    if attempt == max_attempts:
+                        raise e
+                    
+                    # Exponential backoff (1s, 2s, 4s...)
+                    time.sleep(2 ** (attempt - 1))
+                    
+            if not dst_file.exists() and file_name in PROFILE_LOCK_FILES:
+                continue
+
             file_stat = dst_file.stat()
             bytes_copied += file_stat.st_size
             files_copied += 1

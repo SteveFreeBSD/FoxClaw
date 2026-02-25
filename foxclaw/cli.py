@@ -881,6 +881,12 @@ def acquire_windows_share_batch(
         "--treat-high-findings-as-success",
         help="Treat per-profile scan exit code 2 as success (0) for batch counting.",
     ),
+    workers: int = typer.Option(
+        1,
+        "--workers",
+        min=1,
+        help="Number of concurrent profile acquisition workers.",
+    ),
 ) -> None:
     """Stage and scan multiple Firefox profile directories from a share root."""
     try:
@@ -900,6 +906,7 @@ def acquire_windows_share_batch(
             keep_stage_writable=keep_stage_writable,
             dry_run=dry_run,
             treat_high_findings_as_success=treat_high_findings_as_success,
+            workers=workers,
             out_stream=sys.stdout,
         )
     except (OSError, ValueError) as exc:

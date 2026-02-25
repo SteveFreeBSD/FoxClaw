@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import io
 import json
 from collections.abc import Callable
@@ -128,6 +129,7 @@ def run_windows_share_batch(
     keep_stage_writable: bool = False,
     dry_run: bool = False,
     treat_high_findings_as_success: bool = False,
+    workers: int = 1,
     runner: WindowsShareScanRunner = _run_single_windows_share_scan,
     out_stream: TextIO | None = None,
 ) -> int:
@@ -158,7 +160,7 @@ def run_windows_share_batch(
     started = perf_counter()
     batch_id = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
 
-    for index, profile_dir in enumerate(selected_profiles, start=1):
+    def _process_profile(index: int, profile_dir: Path) -> dict[str, object]:
         profile_name = profile_dir.name
         profile_out = out_root / profile_name
         profile_out.mkdir(parents=True, exist_ok=True)
@@ -185,7 +187,7 @@ def run_windows_share_batch(
         profile_started = perf_counter()
         try:
             exit_code, stdout_payload, stderr_payload = runner(argv)
-        except Exception as exc:  # pragma: no cover - safety net for arbitrary runner injections.
+        except Exception as exc:  # pragma: no cover
             exit_code = 1
             stdout_payload = ""
             stderr_payload = f"error: runner raised exception: {exc}"
@@ -206,21 +208,54 @@ def run_windows_share_batch(
         if error_line is not None and exit_code != 0:
             profile_result["error"] = error_line
 
-        per_profile.append(profile_result)
+        return profile_result
 
-        if exit_code == 0:
-            clean_count += 1
-        elif exit_code == 2:
-            findings_count += 1
-        else:
-            operational_failure_count += 1
-            normalized_error = error_line or "error: operational failure"
-            failures_by_error.setdefault(normalized_error, []).append(profile_name)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers)) as executor:
+        future_to_index = {
+            executor.submit(_process_profile, i, p_dir): (i, p_dir)
+            for i, p_dir in enumerate(selected_profiles, start=1)
+        }
 
-        print(
-            f"[share-batch] profile={profile_name} exit_code={exit_code} runtime_seconds={runtime_seconds:.3f}",
-            file=out_stream,
-        )
+        for future in concurrent.futures.as_completed(future_to_index):
+            _, profile_dir = future_to_index[future]
+            profile_name = profile_dir.name
+            try:
+                # 15-minute timeout per profile (includes heavy SQLite I/O)
+                profile_result = future.result(timeout=900)
+            except concurrent.futures.TimeoutError:
+                profile_result = {
+                    "profile": profile_name,
+                    "exit_code": 1,
+                    "runtime_seconds": 900.0,
+                    "error": "error: profile scan timed out after 15 minutes",
+                }
+            except Exception as exc:  # pragma: no cover
+                profile_result = {
+                    "profile": profile_name,
+                    "exit_code": 1,
+                    "runtime_seconds": 0.0,
+                    "error": f"error: unhandled worker exception: {exc}",
+                }
+
+            per_profile.append(profile_result)
+            exit_code = profile_result["exit_code"]
+
+            if exit_code == 0:
+                clean_count += 1
+            elif exit_code == 2:
+                findings_count += 1
+            else:
+                operational_failure_count += 1
+                normalized_error = str(profile_result.get("error", "error: operational failure"))
+                failures_by_error.setdefault(normalized_error, []).append(profile_name)
+
+            print(
+                f"[share-batch] profile={profile_name} exit_code={exit_code} runtime_seconds={profile_result['runtime_seconds']:.3f}",
+                file=out_stream,
+            )
+
+    # Sort per_profile alphabetically for consistent summary output
+    per_profile.sort(key=lambda x: str(x["profile"]))
 
     runtime_seconds_total = round(perf_counter() - started, 3)
     summary_payload: dict[str, object] = {

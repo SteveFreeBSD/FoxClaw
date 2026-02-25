@@ -63,6 +63,7 @@ Create richer, scenario-driven Firefox profiles on Windows before exporting to S
 ```powershell
 pwsh -File scripts/windows_auth_gen/generate_profiles.ps1 `
   -Count 50 `
+  -Workers 8 `
   -ProfilesRoot "$env:APPDATA\Mozilla\Firefox\Profiles" `
   -SeedName "foxclaw-seed.default" `
   -Scenario mixed `
