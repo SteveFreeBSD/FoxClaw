@@ -7,8 +7,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from foxclaw.cli import app
 from foxclaw.acquire.windows_share import _copy_tree
+from foxclaw.cli import app
 from typer.testing import CliRunner
 
 

@@ -127,7 +127,6 @@ def test_run_windows_share_batch_parallel_execution(tmp_path: Path) -> None:
             
         return (0, "", "")
 
-    start_time = time.perf_counter()
     exit_code = run_windows_share_batch(
         source_root=source_root,
         staging_root=staging_root,
@@ -135,8 +134,7 @@ def test_run_windows_share_batch_parallel_execution(tmp_path: Path) -> None:
         runner=slow_stub_runner,
         workers=3,
     )
-    duration = time.perf_counter() - start_time
-    
+    # The variable 'duration' is not needed, we just compute it or drop it entirely if not asserted.
     # 3 threads sleeping for 0.1s should finish in ~0.15s, much faster than sequential 0.3s
     assert exit_code == 1
     assert sorted(seen_profiles) == sorted(test_profiles)

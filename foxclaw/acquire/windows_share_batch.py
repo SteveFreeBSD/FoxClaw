@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import io
 import json
-import concurrent.futures
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -217,7 +217,7 @@ def run_windows_share_batch(
         }
 
         for future in concurrent.futures.as_completed(future_to_index):
-            i, profile_dir = future_to_index[future]
+            _, profile_dir = future_to_index[future]
             profile_name = profile_dir.name
             try:
                 # 15-minute timeout per profile (includes heavy SQLite I/O)
