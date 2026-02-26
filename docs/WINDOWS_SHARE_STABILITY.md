@@ -1,6 +1,6 @@
 # Windows Share Stability Baseline
 
-Use this baseline for reliable Linux→Windows profile soak runs.
+Use this baseline for reliable Linux->Windows profile soak runs.
 
 1. Validate mount and profile visibility:
    `make windows-share-preflight`
@@ -14,7 +14,7 @@ Use this baseline for reliable Linux→Windows profile soak runs.
 Recreate or refresh the `/mnt/firefox-profiles` fixtures on Windows by following the guide in `scripts/windows_auth_gen/README.md`. Key scripts:
 
 - `scripts/windows_auth_gen/generate_profiles.ps1`: clones `foxclaw-seed.default`, runs the PowerShell generator, and emits mutation metadata overlays.
-- `scripts/windows_auth_gen/mutate_profile.mjs`: drives Playwright to recreate realistic user activity, writes the `foxclaw-sim-metadata.json` manifest, and exposes the `expected_scan_signals` bundle used during validation.
+- `scripts/windows_auth_gen/mutate_profile.mjs`: performs deterministic profile mutation via Node.js + `better-sqlite3`, writes the `foxclaw-sim-metadata.json` manifest, and exposes the `expected_scan_signals` bundle used during validation.
 
 Use the generator output with `foxclaw scan` (include `--stage-manifest-out`) to ensure `foxclaw.json.credentials` matches the generator’s `expected_scan_signals.credentials`. Treat any drift in `saved_logins_count`, `vulnerable_passwords_count`, `dismissed_breach_alerts_count`, or `insecure_http_login_count` as a signal to rerun the generator and update your soak pool.
 
