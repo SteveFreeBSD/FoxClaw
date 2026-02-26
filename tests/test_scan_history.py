@@ -23,6 +23,19 @@ from foxclaw.models import (
 )
 
 
+def _make_finding(rule_id: str, severity: str = "HIGH") -> Finding:
+    return Finding(
+        id=rule_id,
+        title=f"{rule_id} finding",
+        severity=severity,
+        category="test",
+        rationale="Testing",
+        recommendation="Fix it",
+        confidence="high",
+        evidence=[f"{rule_id} evidence"],
+    )
+
+
 def _make_evidence(
     profile_path: str = "/home/user/.mozilla/firefox/test.default",
     profile_name: str = "test.default",
@@ -236,6 +249,86 @@ class TestScanHistoryStore:
         assert artifact["history_summary"]["total_scans"] == 0
         assert artifact["history_summary"]["total_findings"] == 0
         assert artifact["rule_frequencies"] == []
+        assert artifact["rule_trend_novelty"] == []
+        store.close()
+
+    def test_rule_trend_novelty_first_seen(self, tmp_path: Path) -> None:
+        """First-seen finding in latest snapshot reports novelty 1.0."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+        generated_at = datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC)
+        evidence = _make_evidence(
+            findings=[_make_finding("FC-TREND-001")],
+            generated_at=generated_at,
+        )
+        store.ingest(evidence)
+
+        trend = {item["rule_id"]: item for item in store.rule_trend_novelty()}["FC-TREND-001"]
+        assert trend["trend_direction"] == "new_profile"
+        assert trend["first_seen_at"] == generated_at.isoformat()
+        assert trend["novelty_score"] == 1.0
+        assert trend["latest_present"] is True
+        store.close()
+
+    def test_rule_trend_novelty_repeated(self, tmp_path: Path) -> None:
+        """Repeated finding in consecutive snapshots reduces novelty to 0.0."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        store.ingest(
+            _make_evidence(
+                findings=[_make_finding("FC-TREND-REP")],
+                generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                findings=[_make_finding("FC-TREND-REP")],
+                generated_at=datetime(2026, 2, 24, 13, 0, 0, tzinfo=UTC),
+            )
+        )
+
+        trend = {item["rule_id"]: item for item in store.rule_trend_novelty()}["FC-TREND-REP"]
+        assert trend["trend_direction"] == "stable"
+        assert trend["novelty_score"] == 0.0
+        assert trend["scans_triggered"] == 2
+        store.close()
+
+    def test_rule_trend_direction_transition(self, tmp_path: Path) -> None:
+        """Trend direction transitions improving -> degrading when rule reappears."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        store.ingest(
+            _make_evidence(
+                findings=[_make_finding("FC-TREND-SWITCH")],
+                generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                findings=[],
+                generated_at=datetime(2026, 2, 24, 13, 0, 0, tzinfo=UTC),
+            )
+        )
+
+        trend_after_drop = {
+            item["rule_id"]: item for item in store.rule_trend_novelty()
+        }["FC-TREND-SWITCH"]
+        assert trend_after_drop["trend_direction"] == "improving"
+        assert trend_after_drop["latest_present"] is False
+
+        store.ingest(
+            _make_evidence(
+                findings=[_make_finding("FC-TREND-SWITCH")],
+                generated_at=datetime(2026, 2, 24, 14, 0, 0, tzinfo=UTC),
+            )
+        )
+        trend_after_return = {
+            item["rule_id"]: item for item in store.rule_trend_novelty()
+        }["FC-TREND-SWITCH"]
+        assert trend_after_return["trend_direction"] == "degrading"
+        assert trend_after_return["latest_present"] is True
         store.close()
 
     def test_schema_version_mismatch_raises(self, tmp_path: Path) -> None:

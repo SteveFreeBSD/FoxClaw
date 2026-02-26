@@ -16,6 +16,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from foxclaw.learning.novel import compute_novelty_score
+from foxclaw.learning.trends import compute_trend_direction
+
 if TYPE_CHECKING:
     from foxclaw.models import EvidenceBundle
 
@@ -317,6 +320,7 @@ class ScanHistoryStore:
             }
             for r in profile_rows
         ]
+        rule_trend_novelty = self.rule_trend_novelty()
 
         return {
             "schema_version": SCHEMA_VERSION,
@@ -330,7 +334,75 @@ class ScanHistoryStore:
             "rule_frequencies": rule_frequencies,
             "severity_distribution": severity_distribution,
             "profile_coverage": profile_coverage,
+            "rule_trend_novelty": rule_trend_novelty,
         }
+
+    def rule_trend_novelty(self) -> list[dict]:
+        """Compute deterministic per-rule trend/novelty from history snapshots.
+
+        Results are ordered by `rule_id` so identical history state produces
+        identical output ordering.
+        """
+        rows = self._conn.execute(
+            """SELECT scan_id, scanned_at_utc, rule_ids_json
+               FROM scan_history
+               ORDER BY scanned_at_utc ASC, scan_id ASC"""
+        ).fetchall()
+        if not rows:
+            return []
+
+        snapshots: list[tuple[str, str, set[str]]] = []
+        all_rules: set[str] = set()
+        for scan_id, scanned_at_utc, rule_ids_json in rows:
+            rule_ids = set(json.loads(rule_ids_json))
+            snapshots.append((scan_id, scanned_at_utc, rule_ids))
+            all_rules.update(rule_ids)
+
+        if not all_rules:
+            return []
+
+        latest_rules = snapshots[-1][2]
+        previous_rules = snapshots[-2][2] if len(snapshots) > 1 else None
+        prior_scan_count = max(len(snapshots) - 1, 0)
+        output: list[dict] = []
+
+        for rule_id in sorted(all_rules):
+            first_seen_at: str | None = None
+            scans_triggered = 0
+            for _scan_id, scanned_at_utc, rule_ids in snapshots:
+                if rule_id in rule_ids:
+                    scans_triggered += 1
+                    if first_seen_at is None:
+                        first_seen_at = scanned_at_utc
+
+            latest_present = rule_id in latest_rules
+            previous_present = (
+                None
+                if previous_rules is None
+                else rule_id in previous_rules
+            )
+            prior_hits = scans_triggered - (1 if latest_present else 0)
+            novelty_score = (
+                compute_novelty_score(prior_hits=prior_hits, prior_scans=prior_scan_count)
+                if latest_present
+                else 0.0
+            )
+
+            output.append(
+                {
+                    "rule_id": rule_id,
+                    "trend_direction": compute_trend_direction(
+                        latest_present=latest_present,
+                        previous_present=previous_present,
+                    ),
+                    "first_seen_at": first_seen_at,
+                    "novelty_score": novelty_score,
+                    "latest_present": latest_present,
+                    "scans_triggered": scans_triggered,
+                }
+            )
+
+        return output
 
     def close(self) -> None:
         """Close the database connection."""
