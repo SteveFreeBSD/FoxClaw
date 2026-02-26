@@ -1,276 +1,95 @@
+<p align="center">
+  <img src="assets/brand/foxclaw-banner.png" width="100%" alt="FoxClaw Assurance Pipeline">
+</p>
+<p align="center">
+  <img src="assets/brand/foxclaw-mascot.png" width="420" alt="FoxClaw Security Appliance">
+</p>
+
 # FoxClaw
 
-FoxClaw is a deterministic, read-only Firefox security posture scanner for Linux.
+[![FoxClaw Security](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-security.yml/badge.svg)](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-security.yml)
+[![Release Provenance](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-release.yml/badge.svg)](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-release.yml)
+[![Dependency Audit](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-dependency-audit.yml/badge.svg)](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-dependency-audit.yml)
+[![Firefox Container Smoke](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-firefox-container.yml/badge.svg)](https://github.com/SteveFreeBSD/FoxClaw/actions/workflows/foxclaw-firefox-container.yml)
 
-## Current Scope
+## Overview
+
+FoxClaw is a deterministic security inspection tool for Firefox profile posture evaluation. It applies auditable rulesets and emits repeatable, evidence-grade outputs suitable for CI enforcement and security review. It is read-only by design and offline-first during scan execution.
+
+## What Is FoxClaw
+
+FoxClaw provides deterministic browser profile posture inspection for assurance-focused engineering teams. It is built for reproducibility, traceability, and policy enforcement in CI and release workflows.
+
+## Key Capabilities
 
 - Deterministic Firefox profile discovery and selection.
-- Read-only evidence collection from:
-  - preference files (`prefs.js`, `user.js`)
-  - sensitive profile file permissions
-  - enterprise policy files
-  - profile artifact metadata (`handlers.json`, `containers.json`, `compatibility.ini`, etc.)
-  - credential exposure signals (`logins.json`, `formhistory.sqlite`)
-  - extension inventory and manifest permission posture (`extensions.json`, `extensions/`)
-    - extensions are classified by source (`profile`, `system`, `builtin`, etc.)
-    - unsigned/risk/debug checks default to profile-controlled extensions (system/builtin excluded)
-  - suppression lifecycle (`--suppression-path`) with required owner/reason/expiration and scoped rule matching
-  - SQLite quick integrity checks (`PRAGMA quick_check`)
-- Declarative rule evaluation from versioned YAML rulesets.
-- Optional ruleset trust verification via digest-pinned manifest entries, Ed25519 signatures,
-  and multi-signature threshold/key-lifecycle policy.
-- Offline intel correlation with deterministic multi-source merge metadata and finding-level
-  risk priority fields (`risk_priority`, `risk_factors`).
-- Offline extension reputation correlation from pinned AMO intelligence snapshots.
-- Output renderers for terminal, JSON, and SARIF 2.1.0.
+- Read-only collection of preferences, filesystem permissions, policy artifacts, and extension posture.
+- Declarative ruleset evaluation with trust-manifest verification support.
+- Offline intelligence correlation with pinned snapshot identifiers.
+- Stage-first handling for share-hosted profile sources.
+- Structured outputs for terminal summaries, JSON, SARIF, and snapshots.
+- Fail-closed CI checks for immutable action refs and lockfile usage.
+- Deterministic certify evidence bundle generation for assurance artifacts.
 
-## Security Boundary
+## Outputs
 
-- Collection is read-only and side-effect free.
-- Runtime scanning is offline-by-default (no network calls).
-- Remediation is intentionally out of scope for the current CLI surface.
+- JSON scan output (`--json`, `--output`)
+- SARIF 2.1.0 output (`--sarif`, `--sarif-out`)
+- Snapshot output (`--snapshot-out`)
+- Evidence bundle output (`artifacts/evidence/<git-sha>/`)
 
-See `docs/SECURITY_MODEL.md` for the complete trust model.
+Evidence contract: [EVIDENCE_BUNDLE_SPEC.md](EVIDENCE_BUNDLE_SPEC.md)
 
-## Quickstart
+## Trust Boundaries and Safety Model
+
+- Collection and scan evaluation are read-only.
+- Scan execution is offline-first; source synchronization is explicit.
+- Remediation and mutation are intentionally out of scope.
+
+System model references:
+- [SYSTEM_MODEL_FROM_CODE.md](SYSTEM_MODEL_FROM_CODE.md)
+- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md)
+
+## Quality Gates
+
+```bash
+./scripts/certify.sh
+./scripts/certify.sh --emit-evidence-bundle
+```
+
+## CI Supply-Chain Policy
+
+- GitHub Actions use pinned 40-character commit SHAs.
+- Python dependency installation is lockfile-first via `requirements-dev.lock`.
+- Policy drift is checked by `scripts/check_ci_supply_chain.py`.
+
+Policy checker: [scripts/check_ci_supply_chain.py](scripts/check_ci_supply_chain.py)
+
+## Quick Start
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
-foxclaw --help
-```
-
-## Usage
-
-List discovered profiles:
-
-```bash
+python -m pip install --requirement requirements-dev.lock
+.venv/bin/pytest -q
+python scripts/check_ci_supply_chain.py
+./scripts/certify.sh --emit-evidence-bundle
 foxclaw profiles list
-```
-
-Scan a profile to JSON:
-
-```bash
 foxclaw scan --profile tests/fixtures/firefox_profile --json
 ```
 
-Write JSON and SARIF artifacts:
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --ruleset foxclaw/rulesets/balanced.yml \
-  --output foxclaw.json \
-  --sarif-out foxclaw.sarif
-```
-
-Write a deterministic baseline snapshot artifact:
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --ruleset foxclaw/rulesets/balanced.yml \
-  --snapshot-out foxclaw.snapshot.json
-```
-
-Compare snapshots for deterministic drift detection:
-
-```bash
-foxclaw snapshot diff \
-  --before baseline.snapshot.json \
-  --after current.snapshot.json \
-  --json
-```
-
-Aggregate multiple profiles into one normalized fleet contract:
-
-```bash
-foxclaw fleet aggregate \
-  --profile tests/fixtures/testbed/profile_baseline \
-  --profile tests/fixtures/testbed/profile_weak_perms \
-  --ruleset tests/fixtures/testbed/rulesets/integration.yml \
-  --json
-```
-
-Synchronize intelligence source materials into a local snapshot store:
-
-```bash
-foxclaw intel sync \
-  --source mozilla=./intel/mozilla_firefox_advisories.v1.json \
-  --source blocklist=./intel/blocklist.json \
-  --json
-```
-
-Remote URL sources are fetched over HTTPS by default.  
-Plain HTTP sources require explicit opt-in with `--allow-insecure-http`.
-
-Run an offline scan correlated to a pinned intel snapshot:
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --intel-store-dir ~/.local/share/foxclaw/intel \
-  --intel-snapshot-id latest \
-  --json
-```
-
-Apply suppression policies (repeatable):
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --suppression-path suppressions/team-baseline.yml \
-  --json
-```
-
-Verify ruleset trust from a pinned manifest (fail closed on mismatch):
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --ruleset foxclaw/rulesets/balanced.yml \
-  --ruleset-trust-manifest policies/ruleset-trust.yml \
-  --require-ruleset-signatures \
-  --json
-```
-
-Override enterprise policy discovery paths (repeatable):
-
-```bash
-foxclaw scan \
-  --profile tests/fixtures/firefox_profile \
-  --policy-path /etc/firefox/policies/policies.json \
-  --json
-```
-
-Scan a Firefox profile from a mounted Windows share path with automatic local staging:
-
-```bash
-foxclaw scan \
-  --profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
-  --ruleset foxclaw/rulesets/strict.yml \
-  --output /var/tmp/foxclaw-share-jdoe/foxclaw.json \
-  --sarif-out /var/tmp/foxclaw-share-jdoe/foxclaw.sarif \
-  --stage-manifest-out /var/tmp/foxclaw-share-jdoe/stage-manifest.json
-```
-
-`foxclaw scan` stages share-hosted profiles under a local staging root before collectors run.
-Default behavior refuses active profile lock markers (`parent.lock`, `.parentlock`, `lock`);
-use `--allow-active-profile` only for validated crash-consistent captures.
-
-Windows-share profile lineage for current soak/testbed:
-- seed profile renamed: `ejm2bj4s.foxclaw-test` -> `foxclaw-seed.default`
-- `foxclaw-seed.default` was used to seed 50 generated sibling profiles in the current
-  profile directory.
-
-Windows-share command structure (current):
-
-- `foxclaw scan`:
-  - primary single-profile workflow,
-  - auto-stages share-hosted profiles before collectors run.
-- `foxclaw acquire windows-share-scan`:
-  - explicit staging wrapper for orchestration pipelines,
-  - supports `--treat-high-findings-as-success` and explicit `--snapshot-id`.
-- `foxclaw acquire windows-share-batch`:
-  - loops immediate child profile directories under one source root,
-  - writes `windows-share-batch-summary.json` with per-profile outcomes.
-
-Explicit acquisition example (`windows-share-scan`):
-
-```bash
-foxclaw acquire windows-share-scan \
-  --source-profile /mnt/forensics/FirefoxProfiles/jdoe.default-release \
-  --ruleset foxclaw/rulesets/strict.yml \
-  --output-dir /var/tmp/foxclaw-share-jdoe
-```
-
-Batch stage-and-scan many profile directories from one mounted share root:
-
-```bash
-foxclaw acquire windows-share-batch \
-  --source-root /mnt/forensics/FirefoxProfiles \
-  --staging-root /var/tmp/foxclaw-stage \
-  --out-root /var/tmp/foxclaw-share-batch \
-  --ruleset foxclaw/rulesets/strict.yml
-```
-## Exit Codes
-
-Canonical CLI contract:
-
-- `0`: command completed successfully (e.g., scan with no `HIGH` findings, or no drift detected).
-- `1`: operational error (invalid input, IO failure, invalid flag combinations, active profile locks, UNC paths).
-- `2`: high-signal outcome (e.g., scan emitted `HIGH` findings, snapshot drift detected, or suppression audit violations found).
-
-## SARIF and GitHub Code Scanning
-
-- FoxClaw emits SARIF 2.1.0 (`--sarif`, `--sarif-out`).
-- CI uploads SARIF via `github/codeql-action/upload-sarif@v4`.
-- Upload requires `security-events: write`.
-- Fork-origin pull requests safely skip upload when that permission is unavailable.
-
-See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
-
 ## Documentation Map
 
-Canonical entrypoint:
+- Docs index: [docs/INDEX.md](docs/INDEX.md)
+- Packet index: [CTO_PACKET_INDEX.md](CTO_PACKET_INDEX.md)
+- Assurance summary: [FOXCLAW_ASSURANCE_SUMMARY.md](FOXCLAW_ASSURANCE_SUMMARY.md)
+- Posture baseline: [POSTURE_2026_GAP_REPORT.md](POSTURE_2026_GAP_REPORT.md)
 
-- `docs/INDEX.md`: documentation navigation and source-of-truth rules.
+## Security and Disclosure
 
-### Architecture and Security
-
-- `docs/ARCHITECTURE.md`: runtime boundaries and extension points.
-- `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
-- `docs/CLI_CONTRACT.md`: canonical CLI command, exit-code, artifact, and determinism contract.
-- `docs/WS24_LIVE_WORKFLOW_ARCHITECTURE.md`: `live` workflow orchestration design (sync + pinned scan).
-
-### Research and Planning
-
-- `docs/ROADMAP.md`: phased delivery plan (Phases 1–6, including 2.5 threat surface expansion and 2.6 adaptive intelligence).
-- `docs/WORKSLICES.md`: ordered implementation slices (WS-01 through WS-64) with dependencies and acceptance criteria.
-- `docs/RESEARCH.md`: source-backed research matrix for priority components (index of all research).
-- `docs/RESEARCH_2026-02-20.md`: ecosystem alignment snapshot (Arkenfox, AMO, KEV/NVD feeds).
-- `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`: Rust appliance transition research (build hygiene, signed distribution, contracts).
-- `docs/RESEARCH_2026-02-22_WINDOWS_SHARE_AUDIT.md`: enterprise Windows-share Firefox audit research and tactical controls.
-- `docs/RESEARCH_2026-02-24_ADVERSARY_TESTBED.md`: adversary-profile testbed research baselines and harness integration.
-- `docs/RESEARCH_2026-02-24_THREAT_SURFACE_EXPANSION.md`: threat surface gap analysis, CVE landscape, ATT&CK mappings, and self-learning architecture.
-- `docs/VULNERABILITY_INTEL.md`: intelligence integration strategy (Mozilla CVE, NVD, KEV, EPSS, AMO, extension blocklist).
-
-### Testing and Profiles
-
-- `docs/TESTBED.md`: deterministic Firefox testbed fixtures and container smoke lane.
-- `docs/PROFILE_SYNTHESIS.md`: profile generation architecture and runtime usage.
-- `docs/PROFILE_FIDELITY_SPEC.md`: profile realism scoring contract and fidelity gate behavior.
-- `docs/PROFILE_HANDOFF.md`: canonical profile-system onboarding, status memory, and anti-loop guardrails.
-- `docs/PROFILE_REVIEW_CHECKLIST.md`: merge/CTO review checklist for profile realism changes.
-- `docs/SOAK.md`: overnight soak execution and artifact analysis runbook.
-- `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`: latest deep-soak outcomes, bottlenecks, and prioritized actions.
-- `docs/SCAN_LEARNING_LOOP.md`: deterministic plan for learning from historical scan outputs.
-- `docs/WINDOWS_SHARE_TESTING.md`: enterprise runbook for staged Firefox profile scans from Windows shares.
-
-### Operations and Governance
-
-- `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
-- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and current execution queue.
-- `docs/DEVELOPMENT.md`: local setup and quality gates.
-- `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
-- `docs/RULESET_TRUST.md`: ruleset trust-manifest schema, signature policy, and CLI usage.
-- `docs/FLEET_OUTPUT.md`: multi-profile/fleet aggregation schema and versioning policy.
-- `docs/MISTAKES.md`: post-incident log of past mistakes and preventive actions.
-
-### Release and Compliance
-
-- `docs/SARIF.md`: SARIF schema mapping and GitHub ingestion constraints.
-- `docs/GITHUB_ACTIONS.md`: CI/CD workflow documentation and job descriptions.
-- `docs/RELEASE_PROVENANCE.md`: release attestation and trusted-publishing verification runbook.
-- `docs/SBOM.md`: CycloneDX SBOM generation/verification runbook for local and release workflows.
-- `docs/DEPENDENCY_AUDIT.md`: scheduled dependency-vulnerability sweep workflow and triage runbook.
-
-### Reviews (Historical)
-
-- `docs/AUDIT_2026-02-24.md`: comprehensive repo audit findings with severity-ranked remediation plan.
-- `docs/REVIEW_2026-02-20.md`: full-repo review findings and remediation status.
+- Disclosure policy: [SECURITY.md](SECURITY.md)
+- Contributor expectations: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
-MIT. See `LICENSE`.
+Licensed under [MIT](LICENSE).
