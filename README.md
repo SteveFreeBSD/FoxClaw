@@ -60,19 +60,16 @@ System model references:
 ## CI Supply-Chain Policy
 
 - GitHub Actions use pinned 40-character commit SHAs.
-- Python dependency installation is lockfile-first via `requirements-dev.lock`.
-- Policy drift is checked by `scripts/check_ci_supply_chain.py`.
-
-Policy checker: [scripts/check_ci_supply_chain.py](scripts/check_ci_supply_chain.py)
+- Python dependencies are installed deterministically through pinned CI workflow commands.
+- Workflow policy is fail-closed for mutable refs and dependency drift.
 
 ## Quick Start
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --requirement requirements-dev.lock
+python -m pip install -e '.[dev]'
 .venv/bin/pytest -q
-python scripts/check_ci_supply_chain.py
 ./scripts/certify.sh --emit-evidence-bundle
 foxclaw profiles list
 foxclaw scan --profile tests/fixtures/firefox_profile --json
