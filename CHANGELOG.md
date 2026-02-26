@@ -5,9 +5,9 @@ All notable changes to this project are documented in this file.
 ## Unreleased
 
 ### Added
-- SVG brand kit assets for GitHub landing:
-  - `assets/brand/foxclaw-mark.svg`
-  - `assets/brand/foxclaw-hero.svg`
+- Brand kit assets for GitHub landing:
+  - `assets/brand/foxclaw-banner.png`
+  - `assets/brand/foxclaw-mascot.png`
 - Assurance summary front door: `FOXCLAW_ASSURANCE_SUMMARY.md`.
 - Repository governance templates and hygiene docs:
   - `CONTRIBUTING.md`

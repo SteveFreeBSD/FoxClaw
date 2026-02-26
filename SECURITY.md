@@ -11,7 +11,8 @@ Older releases are out of support unless explicitly stated.
 
 ## Reporting a Vulnerability
 
-Report vulnerabilities privately to: `security@your-org.example` (**placeholder address**)
+Use GitHub private vulnerability reporting in this repository's Security tab.
+If private reporting is unavailable, contact the repository owner directly.
 
 Please include:
 
@@ -29,6 +30,6 @@ Please include:
 ## Supply-Chain and Reproducibility Controls
 
 - CI workflows use immutable GitHub Action SHAs.
-- Python dependency installation is lockfile-based (`requirements-dev.lock`).
-- Policy enforcement is automated by `scripts/check_ci_supply_chain.py`.
+- Python dependency installation is pinned and deterministic in CI workflow definitions.
+- Additional supply-chain controls are documented in workflow and build scripts.
 - Certify evidence artifacts are emitted by `./scripts/certify.sh --emit-evidence-bundle`.

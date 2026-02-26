@@ -193,9 +193,6 @@ def test_run_single_windows_share_scan_timeout_maps_to_operational_error(
         "Popen",
         lambda *args, **kwargs: hung_process,
     )
-    time_values = iter([0.0, 10.0])
-    monkeypatch.setattr(windows_share_batch, "perf_counter", lambda: next(time_values))
-    monkeypatch.setattr(windows_share_batch, "sleep", lambda *_args, **_kwargs: None)
 
     exit_code, stdout_payload, stderr_payload = windows_share_batch._run_single_windows_share_scan(
         ["--source-profile", "/tmp/profile"], timeout_seconds=5
@@ -208,6 +205,30 @@ def test_run_single_windows_share_scan_timeout_maps_to_operational_error(
     assert hung_process.killed is True
     assert hung_process.stdout.closed is True
     assert hung_process.stderr.closed is True
+
+
+def test_run_single_windows_share_scan_normalizes_signal_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _CompletedProcess:
+        def __init__(self) -> None:
+            self.returncode = -9
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            return ("", "")
+
+    monkeypatch.setattr(
+        windows_share_batch.subprocess,
+        "Popen",
+        lambda *args, **kwargs: _CompletedProcess(),
+    )
+
+    exit_code, _, stderr_payload = windows_share_batch._run_single_windows_share_scan(
+        ["--source-profile", "/tmp/profile"], timeout_seconds=5
+    )
+
+    assert exit_code == 1
+    assert "terminated by signal 9" in stderr_payload
 
 
 def test_run_windows_share_batch_forwards_profile_timeout_to_default_runner(

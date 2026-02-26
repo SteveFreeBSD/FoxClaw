@@ -5,7 +5,7 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --requirement requirements-dev.lock
+python -m pip install -e '.[dev]'
 ```
 
 ## Local Gates
@@ -26,7 +26,6 @@ Focused policy/test gates:
 
 ```bash
 .venv/bin/pytest -q tests/test_cli_exit_codes.py -k "live_rejects"
-python scripts/check_ci_supply_chain.py
 .venv/bin/pytest -q
 ```
 

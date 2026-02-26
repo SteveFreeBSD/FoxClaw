@@ -10,7 +10,7 @@ import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from time import perf_counter, sleep
+from time import perf_counter
 from typing import TextIO
 
 RunnerResult = tuple[int, str, str]
@@ -29,42 +29,48 @@ def _run_single_windows_share_scan(
         text=True,
         encoding="utf-8",
     )  # nosec B603
-    deadline = perf_counter() + timeout_seconds
+    try:
+        stdout_payload, stderr_payload = process.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        timeout_line = f"error: profile scan timed out after {timeout_seconds} seconds"
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
 
-    while process.poll() is None:
-        if perf_counter() >= deadline:
-            timeout_line = f"error: profile scan timed out after {timeout_seconds} seconds"
-            try:
-                process.kill()
-            except ProcessLookupError:
-                pass
+        stdout_payload = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
+        stderr_payload = (exc.stderr or "") if isinstance(exc.stderr, str) else ""
+        try:
+            final_stdout, final_stderr = process.communicate(timeout=1)
+            stdout_payload = f"{stdout_payload}{final_stdout or ''}"
+            stderr_payload = f"{stderr_payload}{final_stderr or ''}"
+        except subprocess.TimeoutExpired:
+            # Child may remain in an uninterruptible I/O wait state on CIFS.
+            if process.stdout is not None:
+                process.stdout.close()
+            if process.stderr is not None:
+                process.stderr.close()
 
-            stdout_payload = ""
-            stderr_payload = ""
-            try:
-                stdout_payload, stderr_payload = process.communicate(timeout=1)
-            except subprocess.TimeoutExpired as exc:
-                stdout_payload = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
-                stderr_payload = (exc.stderr or "") if isinstance(exc.stderr, str) else ""
-                # Child may remain in an uninterruptible I/O wait state on CIFS.
-                if process.stdout is not None:
-                    process.stdout.close()
-                if process.stderr is not None:
-                    process.stderr.close()
+        stdout_payload = stdout_payload or ""
+        stderr_payload = stderr_payload or ""
+        if stderr_payload:
+            stderr_payload = f"{stderr_payload.rstrip()}\n{timeout_line}\n"
+        else:
+            stderr_payload = f"{timeout_line}\n"
+        return (1, stdout_payload, stderr_payload)
 
-            stdout_payload = stdout_payload or ""
-            stderr_payload = stderr_payload or ""
-            if stderr_payload:
-                stderr_payload = f"{stderr_payload.rstrip()}\n{timeout_line}\n"
-            else:
-                stderr_payload = f"{timeout_line}\n"
-            return (1, stdout_payload, stderr_payload)
-        sleep(0.1)
-
-    stdout_payload, stderr_payload = process.communicate()
     stdout_payload = stdout_payload or ""
     stderr_payload = stderr_payload or ""
-    return (int(process.returncode or 0), stdout_payload, stderr_payload)
+    exit_code = int(process.returncode or 0)
+    if exit_code < 0:
+        signal_line = f"error: windows-share-scan terminated by signal {-exit_code}"
+        if stderr_payload:
+            stderr_payload = f"{stderr_payload.rstrip()}\n{signal_line}\n"
+        else:
+            stderr_payload = f"{signal_line}\n"
+        exit_code = 1
+
+    return (exit_code, stdout_payload, stderr_payload)
 
 
 def _extract_error_line(*, stdout_payload: str, stderr_payload: str) -> str | None:
@@ -176,6 +182,12 @@ def run_windows_share_batch(
     runner: WindowsShareScanRunner = _run_single_windows_share_scan,
     out_stream: TextIO | None = None,
 ) -> int:
+    """Run windows-share-scan across child profile directories.
+
+    Custom runner implementations are expected to enforce per-profile timeout
+    behavior internally. The default subprocess runner applies
+    ``profile_timeout_seconds`` directly.
+    """
     out_stream = out_stream or io.StringIO()
 
     source_root = source_root.expanduser().resolve(strict=False)
