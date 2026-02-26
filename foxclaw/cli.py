@@ -887,6 +887,12 @@ def acquire_windows_share_batch(
         min=1,
         help="Number of concurrent profile acquisition workers.",
     ),
+    profile_timeout_seconds: int = typer.Option(
+        900,
+        "--profile-timeout-seconds",
+        min=1,
+        help="Per-profile timeout in seconds for windows-share-scan subprocesses.",
+    ),
 ) -> None:
     """Stage and scan multiple Firefox profile directories from a share root."""
     try:
@@ -907,6 +913,7 @@ def acquire_windows_share_batch(
             dry_run=dry_run,
             treat_high_findings_as_success=treat_high_findings_as_success,
             workers=workers,
+            profile_timeout_seconds=profile_timeout_seconds,
             out_stream=sys.stdout,
         )
     except (OSError, ValueError) as exc:
