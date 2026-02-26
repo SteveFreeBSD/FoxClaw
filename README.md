@@ -1,7 +1,4 @@
 <p align="center">
-  <img src="assets/brand/foxclaw-banner.png" width="100%" alt="FoxClaw Assurance Pipeline">
-</p>
-<p align="center">
   <img src="assets/brand/foxclaw-mascot.png" width="420" alt="FoxClaw Security Appliance">
 </p>
 
@@ -90,3 +87,7 @@ foxclaw scan --profile tests/fixtures/firefox_profile --json
 ## License
 
 Licensed under [MIT](LICENSE).
+
+<p align="center">
+  <img src="assets/brand/foxclaw-banner.png" width="100%" alt="FoxClaw Assurance Pipeline">
+</p>
