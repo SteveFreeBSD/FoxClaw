@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
+import foxclaw.acquire.windows_share_batch as windows_share_batch
+import pytest
 from foxclaw.acquire.windows_share_batch import run_windows_share_batch
 
 
@@ -24,6 +27,8 @@ def test_run_windows_share_batch_continues_after_failure_and_writes_summary(tmp_
 
     # Non-directory entries are ignored by the batch enumerator.
     (source_root / "README.txt").write_text("not a profile directory\n", encoding="utf-8")
+    # Hidden directories are ignored by default.
+    (source_root / ".foxclaw-ext-cache").mkdir(parents=True, exist_ok=True)
 
     out_root = tmp_path / "batch-out"
     staging_root = tmp_path / "staging-root"
@@ -146,3 +151,127 @@ def test_run_windows_share_batch_parallel_execution(tmp_path: Path) -> None:
     assert summary["attempted"] == 3
     assert summary["clean_count"] == 2
     assert summary["operational_failure_count"] == 1
+
+
+def test_run_single_windows_share_scan_timeout_maps_to_operational_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Pipe:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class _HungProcess:
+        def __init__(self) -> None:
+            self.stdout = _Pipe()
+            self.stderr = _Pipe()
+            self.returncode = None
+            self.killed = False
+
+        def poll(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            if timeout is None:
+                return ("", "")
+            raise subprocess.TimeoutExpired(
+                cmd=["foxclaw"],
+                timeout=timeout,
+                output="partial",
+                stderr="warning",
+            )
+
+    hung_process = _HungProcess()
+
+    monkeypatch.setattr(
+        windows_share_batch.subprocess,
+        "Popen",
+        lambda *args, **kwargs: hung_process,
+    )
+    time_values = iter([0.0, 10.0])
+    monkeypatch.setattr(windows_share_batch, "perf_counter", lambda: next(time_values))
+    monkeypatch.setattr(windows_share_batch, "sleep", lambda *_args, **_kwargs: None)
+
+    exit_code, stdout_payload, stderr_payload = windows_share_batch._run_single_windows_share_scan(
+        ["--source-profile", "/tmp/profile"], timeout_seconds=5
+    )
+
+    assert exit_code == 1
+    assert stdout_payload == "partial"
+    assert "warning" in stderr_payload
+    assert "error: profile scan timed out after 5 seconds" in stderr_payload
+    assert hung_process.killed is True
+    assert hung_process.stdout.closed is True
+    assert hung_process.stderr.closed is True
+
+
+def test_run_windows_share_batch_forwards_profile_timeout_to_default_runner(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source_root = tmp_path / "source-root-timeout-forwarding"
+    source_root.mkdir(parents=True, exist_ok=True)
+    profile_dir = source_root / "profile-a"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "prefs.js").write_text(
+        'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+    )
+
+    timeout_values: list[int] = []
+
+    def fake_default_runner(
+        argv: list[str], *, timeout_seconds: int = 900
+    ) -> tuple[int, str, str]:
+        timeout_values.append(timeout_seconds)
+        profile_out = Path(_arg_value(argv, "--output-dir"))
+        profile_out.mkdir(parents=True, exist_ok=True)
+        (profile_out / "stage-manifest.json").write_text(
+            json.dumps({"staged_profile": str(profile_out / "stage" / "profile")}),
+            encoding="utf-8",
+        )
+        return (0, "", "")
+
+    monkeypatch.setattr(windows_share_batch, "_run_single_windows_share_scan", fake_default_runner)
+
+    exit_code = windows_share_batch.run_windows_share_batch(
+        source_root=source_root,
+        staging_root=tmp_path / "staging-root-timeout-forwarding",
+        out_root=tmp_path / "batch-out-timeout-forwarding",
+        runner=windows_share_batch._run_single_windows_share_scan,
+        profile_timeout_seconds=123,
+    )
+
+    assert exit_code == 0
+    assert timeout_values == [123]
+
+
+def test_run_windows_share_batch_rejects_nonpositive_profile_timeout(tmp_path: Path) -> None:
+    source_root = tmp_path / "source-root-invalid-timeout"
+    source_root.mkdir(parents=True, exist_ok=True)
+    (source_root / "profile-a").mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(ValueError, match="--profile-timeout-seconds"):
+        run_windows_share_batch(
+            source_root=source_root,
+            staging_root=tmp_path / "staging-root-invalid-timeout",
+            out_root=tmp_path / "batch-out-invalid-timeout",
+            runner=lambda argv: (0, "", ""),
+            profile_timeout_seconds=0,
+        )
+
+
+def test_run_windows_share_batch_fails_on_empty_source_root(tmp_path: Path) -> None:
+    source_root = tmp_path / "source-root-empty"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(ValueError, match="no profile directories found under source root"):
+        run_windows_share_batch(
+            source_root=source_root,
+            staging_root=tmp_path / "staging-root-empty",
+            out_root=tmp_path / "batch-out-empty",
+            runner=lambda argv: (0, "", ""),
+        )

@@ -5,24 +5,66 @@ from __future__ import annotations
 import concurrent.futures
 import io
 import json
+import subprocess  # nosec B404
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, sleep
 from typing import TextIO
-
-from foxclaw.acquire.windows_share import parse_windows_share_scan_args, run_windows_share_scan
 
 RunnerResult = tuple[int, str, str]
 WindowsShareScanRunner = Callable[[list[str]], RunnerResult]
 
 
-def _run_single_windows_share_scan(argv: list[str]) -> RunnerResult:
-    args = parse_windows_share_scan_args(argv)
-    out_buffer = io.StringIO()
-    err_buffer = io.StringIO()
-    exit_code = run_windows_share_scan(args, out_stream=out_buffer, err_stream=err_buffer)
-    return (exit_code, out_buffer.getvalue(), err_buffer.getvalue())
+def _run_single_windows_share_scan(
+    argv: list[str], *, timeout_seconds: int = 900
+) -> RunnerResult:
+    cmd = [sys.executable, "-m", "foxclaw", "acquire", "windows-share-scan", *argv]
+    # argv list only, shell=False, command is explicit.
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+    )  # nosec B603
+    deadline = perf_counter() + timeout_seconds
+
+    while process.poll() is None:
+        if perf_counter() >= deadline:
+            timeout_line = f"error: profile scan timed out after {timeout_seconds} seconds"
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+
+            stdout_payload = ""
+            stderr_payload = ""
+            try:
+                stdout_payload, stderr_payload = process.communicate(timeout=1)
+            except subprocess.TimeoutExpired as exc:
+                stdout_payload = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
+                stderr_payload = (exc.stderr or "") if isinstance(exc.stderr, str) else ""
+                # Child may remain in an uninterruptible I/O wait state on CIFS.
+                if process.stdout is not None:
+                    process.stdout.close()
+                if process.stderr is not None:
+                    process.stderr.close()
+
+            stdout_payload = stdout_payload or ""
+            stderr_payload = stderr_payload or ""
+            if stderr_payload:
+                stderr_payload = f"{stderr_payload.rstrip()}\n{timeout_line}\n"
+            else:
+                stderr_payload = f"{timeout_line}\n"
+            return (1, stdout_payload, stderr_payload)
+        sleep(0.1)
+
+    stdout_payload, stderr_payload = process.communicate()
+    stdout_payload = stdout_payload or ""
+    stderr_payload = stderr_payload or ""
+    return (int(process.returncode or 0), stdout_payload, stderr_payload)
 
 
 def _extract_error_line(*, stdout_payload: str, stderr_payload: str) -> str | None:
@@ -130,6 +172,7 @@ def run_windows_share_batch(
     dry_run: bool = False,
     treat_high_findings_as_success: bool = False,
     workers: int = 1,
+    profile_timeout_seconds: int = 900,
     runner: WindowsShareScanRunner = _run_single_windows_share_scan,
     out_stream: TextIO | None = None,
 ) -> int:
@@ -143,13 +186,24 @@ def run_windows_share_batch(
         raise ValueError(f"source root does not exist or is not a directory: {source_root}")
     if max_profiles is not None and max_profiles < 1:
         raise ValueError("--max must be greater than zero when provided")
+    if profile_timeout_seconds < 1:
+        raise ValueError("--profile-timeout-seconds must be greater than zero")
 
     out_root.mkdir(parents=True, exist_ok=True)
 
     child_dirs = sorted(
-        (path for path in source_root.iterdir() if path.is_dir()), key=lambda path: path.name
+        (
+            path
+            for path in source_root.iterdir()
+            if path.is_dir() and not path.name.startswith(".")
+        ),
+        key=lambda path: path.name,
     )
     total_profiles_seen = len(child_dirs)
+    if total_profiles_seen == 0:
+        raise ValueError(
+            f"no profile directories found under source root (mount missing or empty): {source_root}"
+        )
     selected_profiles = child_dirs[:max_profiles] if max_profiles is not None else child_dirs
 
     clean_count = 0
@@ -159,6 +213,11 @@ def run_windows_share_batch(
     per_profile: list[dict[str, object]] = []
     started = perf_counter()
     batch_id = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+
+    def _invoke_runner(argv: list[str]) -> RunnerResult:
+        if runner is _run_single_windows_share_scan:
+            return _run_single_windows_share_scan(argv, timeout_seconds=profile_timeout_seconds)
+        return runner(argv)
 
     def _process_profile(index: int, profile_dir: Path) -> dict[str, object]:
         profile_name = profile_dir.name
@@ -186,7 +245,7 @@ def run_windows_share_batch(
 
         profile_started = perf_counter()
         try:
-            exit_code, stdout_payload, stderr_payload = runner(argv)
+            exit_code, stdout_payload, stderr_payload = _invoke_runner(argv)
         except Exception as exc:  # pragma: no cover
             exit_code = 1
             stdout_payload = ""
@@ -220,15 +279,7 @@ def run_windows_share_batch(
             _, profile_dir = future_to_index[future]
             profile_name = profile_dir.name
             try:
-                # 15-minute timeout per profile (includes heavy SQLite I/O)
-                profile_result = future.result(timeout=900)
-            except concurrent.futures.TimeoutError:
-                profile_result = {
-                    "profile": profile_name,
-                    "exit_code": 1,
-                    "runtime_seconds": 900.0,
-                    "error": "error: profile scan timed out after 15 minutes",
-                }
+                profile_result = future.result()
             except Exception as exc:  # pragma: no cover
                 profile_result = {
                     "profile": profile_name,
