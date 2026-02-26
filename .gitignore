@@ -44,3 +44,5 @@ foxclaw*.json
 dependency-audit.json
 firefox-container-artifacts/
 demo-insecure-artifacts/
+
+artifacts/
