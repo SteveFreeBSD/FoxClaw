@@ -213,16 +213,21 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 
 ## Documentation Map
 
+Canonical entrypoint:
+
+- `docs/INDEX.md`: documentation navigation and source-of-truth rules.
+
 ### Architecture and Security
 
 - `docs/ARCHITECTURE.md`: runtime boundaries and extension points.
 - `docs/SECURITY_MODEL.md`: trust boundary, threat model, and safety invariants.
+- `docs/CLI_CONTRACT.md`: canonical CLI command, exit-code, artifact, and determinism contract.
 - `docs/WS24_LIVE_WORKFLOW_ARCHITECTURE.md`: `live` workflow orchestration design (sync + pinned scan).
 
 ### Research and Planning
 
 - `docs/ROADMAP.md`: phased delivery plan (Phases 1–6, including 2.5 threat surface expansion and 2.6 adaptive intelligence).
-- `docs/WORKSLICES.md`: ordered implementation slices (WS-01 through WS-56) with dependencies and acceptance criteria.
+- `docs/WORKSLICES.md`: ordered implementation slices (WS-01 through WS-64) with dependencies and acceptance criteria.
 - `docs/RESEARCH.md`: source-backed research matrix for priority components (index of all research).
 - `docs/RESEARCH_2026-02-20.md`: ecosystem alignment snapshot (Arkenfox, AMO, KEV/NVD feeds).
 - `docs/RESEARCH_2026-02-22_RUST_APPLIANCE.md`: Rust appliance transition research (build hygiene, signed distribution, contracts).
@@ -246,7 +251,7 @@ See `docs/SARIF.md` and `docs/GITHUB_ACTIONS.md`.
 ### Operations and Governance
 
 - `docs/QUALITY_GATES.md`: milestone gate policy and pre-push certification flow.
-- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and immediate planning queue.
+- `docs/PREMERGE_READINESS.md`: expanded merge-hold checks and current execution queue.
 - `docs/DEVELOPMENT.md`: local setup and quality gates.
 - `docs/SUPPRESSIONS.md`: suppression policy schema, matching semantics, and governance usage.
 - `docs/RULESET_TRUST.md`: ruleset trust-manifest schema, signature policy, and CLI usage.

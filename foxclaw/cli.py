@@ -412,8 +412,13 @@ def scan(
         try:
             from foxclaw.learning.history import ScanHistoryStore
 
+            history_ruleset = load_ruleset(resolved_ruleset_path)
             with ScanHistoryStore(history_db) as store:
-                history_scan_id = store.ingest(evidence)
+                history_scan_id = store.ingest(
+                    evidence,
+                    ruleset_name=history_ruleset.name,
+                    ruleset_version=history_ruleset.version,
+                )
                 console.print(
                     f"[dim]Scan history ingested: {history_scan_id} "
                     f"({store.scan_count()} total scans)[/dim]"

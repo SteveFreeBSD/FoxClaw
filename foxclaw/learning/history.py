@@ -90,17 +90,19 @@ def _compute_evidence_hash(rule_id: str, evidence_list: list[str]) -> str:
 
 def _extract_firefox_version(evidence: EvidenceBundle) -> str | None:
     """Extract Firefox version from profile artifact evidence if available."""
-    if not hasattr(evidence, "artifacts") or evidence.artifacts is None:
+    if evidence.artifacts is None:
         return None
     for entry in evidence.artifacts.entries:
         if entry.rel_path == "compatibility.ini":
-            return entry.key_values.get("LastVersion")
+            return entry.key_values.get("last_version") or entry.key_values.get("LastVersion")
     return None
 
 
-def _extract_ruleset_info(evidence: EvidenceBundle) -> tuple[str | None, str | None]:
-    """Extract ruleset name and version from evidence if available."""
-    return getattr(evidence, "ruleset_name", None), getattr(evidence, "ruleset_version", None)
+def _normalize_metadata_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized if normalized else None
 
 
 class ScanHistoryStore:
@@ -146,7 +148,13 @@ class ScanHistoryStore:
                 f"expected {SCHEMA_VERSION}, found {row[0]}"
             )
 
-    def ingest(self, evidence: EvidenceBundle) -> str:
+    def ingest(
+        self,
+        evidence: EvidenceBundle,
+        *,
+        ruleset_name: str | None = None,
+        ruleset_version: str | None = None,
+    ) -> str:
         """Ingest scan results into the history store.
 
         Returns the scan_id.  If the same scan_id already exists (deterministic
@@ -162,7 +170,8 @@ class ScanHistoryStore:
 
         profile_hash = _compute_profile_hash(evidence)
         firefox_version = _extract_firefox_version(evidence)
-        ruleset_name, ruleset_version = _extract_ruleset_info(evidence)
+        normalized_ruleset_name = _normalize_metadata_text(ruleset_name)
+        normalized_ruleset_version = _normalize_metadata_text(ruleset_version)
         rule_ids = sorted({f.id for f in evidence.findings})
 
         self._conn.execute(
@@ -178,8 +187,8 @@ class ScanHistoryStore:
                 evidence.profile.name,
                 evidence.generated_at.isoformat(),
                 firefox_version,
-                ruleset_name,
-                ruleset_version,
+                normalized_ruleset_name,
+                normalized_ruleset_version,
                 evidence.summary.findings_total,
                 evidence.summary.findings_high_count,
                 evidence.summary.findings_medium_count,
