@@ -118,6 +118,28 @@ def test_collect_profile_artifacts_skips_hash_for_large_files(tmp_path: Path) ->
     assert artifact.parse_status == "metadata_only"
 
 
+def test_collect_profile_artifacts_includes_hsts_txt_and_bin(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    hsts_txt = profile_dir / "SiteSecurityServiceState.txt"
+    hsts_bin = profile_dir / "SiteSecurityServiceState.bin"
+    hsts_txt.write_text("example.com:HSTS\n", encoding="utf-8")
+    hsts_bin.write_bytes(b"\x00legacy-binary-state")
+
+    evidence = collect_profile_artifacts(profile_dir)
+    entries = {entry.rel_path: entry for entry in evidence.entries}
+
+    assert "SiteSecurityServiceState.txt" in entries
+    assert "SiteSecurityServiceState.bin" in entries
+    assert entries["SiteSecurityServiceState.txt"].sha256 == hashlib.sha256(
+        hsts_txt.read_bytes()
+    ).hexdigest()
+    assert entries["SiteSecurityServiceState.bin"].sha256 == hashlib.sha256(
+        hsts_bin.read_bytes()
+    ).hexdigest()
+
+
 def test_scan_rejects_symlinked_artifact_path(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)

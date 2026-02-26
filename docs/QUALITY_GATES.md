@@ -30,7 +30,7 @@ This runs:
 - trust-boundary scan smoke (`scripts/trust_scan_smoke.sh`)
 - `bandit -q -r foxclaw -x tests`
 - `vulture foxclaw tests --min-confidence 80`
-- `detect-secrets scan --exclude-files '^tests/fixtures/testbed/manifest\.json$' $(git ls-files)`
+- `./scripts/check_secrets.sh`
 - cleanup (`make clean`)
 
 ## Live Profile Validation Gate

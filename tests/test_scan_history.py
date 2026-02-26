@@ -15,6 +15,7 @@ from foxclaw.models import (
     Finding,
     PolicyEvidence,
     PrefEvidence,
+    ProfileArtifactEntry,
     ProfileArtifactEvidence,
     ProfileEvidence,
     ScanSummary,
@@ -293,4 +294,63 @@ class TestScanHistoryStore:
         artifact = store.generate_learning_artifact()
         assert artifact["history_summary"]["total_findings"] == 0
         assert artifact["rule_frequencies"] == []
+        store.close()
+
+    def test_ingest_persists_ruleset_metadata(self, tmp_path: Path) -> None:
+        """Ruleset metadata is persisted and normalized."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+        evidence = _make_evidence()
+
+        store.ingest(
+            evidence,
+            ruleset_name="  ESR Baseline  ",
+            ruleset_version=" 2026.02.24 ",
+        )
+
+        row = store._conn.execute(
+            "SELECT ruleset_name, ruleset_version FROM scan_history"
+        ).fetchone()
+        assert row == ("ESR Baseline", "2026.02.24")
+        store.close()
+
+    def test_ingest_empty_ruleset_metadata_persists_null(self, tmp_path: Path) -> None:
+        """Whitespace-only metadata is normalized to NULL."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+        evidence = _make_evidence()
+
+        store.ingest(
+            evidence,
+            ruleset_name="   ",
+            ruleset_version="",
+        )
+
+        row = store._conn.execute(
+            "SELECT ruleset_name, ruleset_version FROM scan_history"
+        ).fetchone()
+        assert row == (None, None)
+        store.close()
+
+    def test_ingest_extracts_firefox_version_from_normalized_artifact_key(
+        self, tmp_path: Path
+    ) -> None:
+        """Firefox version uses normalized `last_version` key from compatibility.ini."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+        evidence = _make_evidence()
+        evidence.artifacts = ProfileArtifactEvidence(
+            entries=[
+                ProfileArtifactEntry(
+                    rel_path="compatibility.ini",
+                    parse_status="parsed",
+                    key_values={"last_version": "140.0.2_20260220000000/20260220000000"},
+                )
+            ]
+        )
+
+        store.ingest(evidence)
+
+        row = store._conn.execute("SELECT firefox_version FROM scan_history").fetchone()
+        assert row == ("140.0.2_20260220000000/20260220000000",)
         store.close()

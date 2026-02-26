@@ -24,7 +24,7 @@ Workflow file: `.github/workflows/foxclaw-security.yml`
   - `mypy foxclaw`
   - `bandit -q -r foxclaw -x tests`
   - `vulture foxclaw tests --min-confidence 80`
-  - `detect-secrets scan --exclude-files '^tests/fixtures/testbed/manifest\.json$' $(git ls-files)` with non-empty-results failure
+  - `detect-secrets scan --exclude-files '^tests/fixtures/(testbed|migration_contracts)/manifest\.json$|^tests/fixtures/windows_share/stage-manifest\.json$' $(git ls-files)` with non-empty-results failure
 
 4. `integration-testbed`
 - Python `3.13`

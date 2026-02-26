@@ -9,15 +9,15 @@ This plan converts the current review and research into sequenced, testable exec
 - No scan-runtime network access regression is allowed.
 - Every changed behavior must be covered by deterministic assertions.
 
-## Current Direction (2026-02-24)
+## Current Direction (2026-02-26)
 
 - Latest deep soak baseline is documented in:
   - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-57 through WS-61 (audit closeout: quality gates, exit-code contract, UNC/lock parity, learning-store correctness, doc sync)
-  - then WS-55B (trend/novelty analysis from history snapshots)
+  - WS-55B (trend/novelty analysis from history snapshots)
+  - then WS-56 (fleet prevalence/correlation enrichment)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
   - learning expansion should proceed only after command-contract and documentation consistency are restored
@@ -78,7 +78,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
 | WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
 | WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
-| WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.bin` downgrade detection). |
+| WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection; `.bin` accepted for legacy captures). |
 | WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
 | WS-55A | complete | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |
 | WS-55B | pending | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
@@ -90,7 +90,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-61 | complete | WS-58, WS-59, WS-60 | Synchronize docs with runtime behavior (exit codes, lock markers, artifact names, WS status). |
 | WS-62 | complete | WS-59 | Reduce duplicated helpers/constants without behavior drift. |
 | WS-63 | complete | WS-61 | Resolve low-risk CLI/API polish items (`writeable` strategy, policy-path error wording, trust helper API boundaries). |
-| WS-64 | pending | WS-57, WS-58, WS-59, WS-60, WS-61, WS-62, WS-63 | Audit-readiness gate: full checks + windows-share mini soak + zero open critical/high audit findings. |
+| WS-64 | complete | WS-57, WS-58, WS-59, WS-60, WS-61, WS-62, WS-63 | Audit-readiness gate: full checks + windows-share mini soak + zero open critical/high audit findings. |
 
 ## Slice Details
 
@@ -812,7 +812,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Scope:
   - align exit-code semantics language.
   - align lock-marker and UNC behavior documentation.
-  - align artifact naming (`SiteSecurityServiceState.bin`) and WS status tracking.
+  - align artifact naming (`SiteSecurityServiceState.txt`, with legacy `.bin` compatibility) and WS status tracking.
   - fix malformed workslice table rows.
 
 ### WS-62 - Redundancy Reduction Refactor
@@ -835,12 +835,19 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-64 - Audit Readiness Gate
 
-- Status: pending.
+- Status: complete.
 - Goal: define explicit completion gates before the next comprehensive audit.
 - Scope:
   - all WS-57 through WS-63 completed.
   - all quality/security/test gates green.
   - windows-share mini soak passes with stable artifacts and no operational failures.
+- Delivered:
+  - full quality and security gates green via `./scripts/certify.sh`.
+  - full test suite green via `pytest -q` (`199 passed`).
+  - windows-share mini soak completed:
+    - `python -m foxclaw acquire windows-share-batch --source-root /tmp/foxclaw-ws64-source --staging-root /tmp/foxclaw-ws64-stage --out-root /tmp/foxclaw-ws64-out --max 3 --workers 1 --treat-high-findings-as-success`
+    - summary: `attempted=3`, `operational_failure_count=0`.
+  - archived evidence note: `docs/WS64_EVIDENCE_2026-02-26.md`.
 
 ## Workslice Update Protocol
 

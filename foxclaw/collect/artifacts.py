@@ -14,6 +14,9 @@ from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
 
 _PROFILE_ARTIFACTS: tuple[str, ...] = (
+    # Canonical Firefox HSTS state artifact; keep legacy .bin for compatibility
+    # with historical captures.
+    "SiteSecurityServiceState.txt",
     "SiteSecurityServiceState.bin",
     "compatibility.ini",
     "containers.json",

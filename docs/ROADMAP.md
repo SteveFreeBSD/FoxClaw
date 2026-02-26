@@ -8,6 +8,9 @@ Primary research inputs (online, current as of February 24, 2026):
 - `docs/RESEARCH_2026-02-24_THREAT_SURFACE_EXPANSION.md`
 - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`
 
+Archived reference (non-canonical draft; do not use as planning source of truth):
+- `docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`
+
 ## End-State Definition
 
 FoxClaw is considered "appliance-grade" when all of the following are true:
@@ -88,7 +91,7 @@ Exit criteria:
 
 Objectives:
 
-- Complete WS-57 through WS-61 from `docs/WORKSLICES.md`.
+- Keep WS-57 through WS-64 complete and move to WS-55B/WS-56 learning expansion.
 - Restore all quality gates to green (`ruff`, `detect-secrets`, tests, typecheck, security gates).
 - Correct command-level contract mismatches called out in `docs/AUDIT_2026-02-24.md`:
   - operational error exit code semantics,
@@ -112,7 +115,7 @@ Objectives:
 - Complete WS-50 session restore data exposure (`sessionstore.jsonlz4` sensitive data detection).
 - Complete WS-51 search engine integrity (`search.json.mozlz4` default engine validation).
 - Complete WS-52 cookie security posture (`cookies.sqlite` session theft signals).
-- Complete WS-53 HSTS state integrity (`SiteSecurityServiceState.bin` downgrade detection).
+- Complete WS-53 HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection).
 - Complete WS-54 CVE advisory simulation scenarios in Windows and Python profile generators.
 - Complete WS-33 ATT&CK technique mapping for all finding classes.
 
@@ -138,9 +141,9 @@ Objectives:
 
 Execution priority (next best step):
 
-1. WS-57 through WS-61 audit closeout (contract and gate integrity).
-2. WS-55B trend/novelty summary surfaced in non-blocking outputs.
-3. WS-56 fleet prevalence once WS-55B data quality is proven.
+1. WS-55B trend/novelty summary surfaced in non-blocking outputs.
+2. WS-56 fleet prevalence once WS-55B data quality is proven.
+3. WS-47..WS-54 threat-surface collector/rule expansion in deterministic slices.
 
 Exit criteria:
 

@@ -75,7 +75,7 @@ These are non-negotiable for the scan runtime:
   - Control: default engine validation against allowlist (planned, WS-51).
 - Cookie security posture weaknesses enabling session theft.
   - Control: cookie attribute analysis for SameSite, HttpOnly, and expiry (planned, WS-52).
-- HSTS downgrade via `SiteSecurityServiceState.bin` manipulation.
+- HSTS downgrade via `SiteSecurityServiceState.txt` manipulation.
   - Control: HSTS entry integrity checks for critical domains (planned, WS-53).
 
 ## Data Handling

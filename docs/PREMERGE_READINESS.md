@@ -59,17 +59,14 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Immediate Planning Queue
+## Current Execution Queue (2026-02-26)
 
 Ordered next implementation targets:
 
-1. **WS-57**: Unblock quality gates (`ruff`, `detect-secrets`) and keep CI/local parity.
-2. **WS-58**: Fix exit-code contract mismatches for operational errors.
-3. **WS-59**: Align UNC fail-closed behavior and lock-marker handling across command paths.
-4. **WS-60 + WS-61**: Correct learning-store determinism gaps and synchronize docs to runtime behavior.
-5. **WS-55B**: Continue trend/novelty enrichment only after WS-57..WS-61 are complete.
-6. **WS-47..WS-53**: Continue pending threat-surface collectors/rules with deterministic regression tests.
-7. **WS-31 + WS-32**: Rust workspace bootstrap and contract canonicalization lock for migration parity.
+1. **WS-55B**: Implement deterministic trend/novelty enrichment on top of the WS-55A history store.
+2. **WS-56**: Add fleet prevalence/correlation once WS-55B data quality is proven.
+3. **WS-47..WS-54**: Resume threat-surface collector/rule expansion with deterministic regression tests.
+4. **WS-31 + WS-32**: Keep Rust workspace bootstrap + contract canonicalization on the critical path for migration parity.
 
 Current evidence basis:
 
