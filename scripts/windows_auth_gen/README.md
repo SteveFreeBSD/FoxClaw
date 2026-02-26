@@ -5,7 +5,7 @@ This folder builds synthetic Firefox profiles on Windows for SMB/share scanning.
 ## Scripts
 
 - `generate_profiles.ps1`: clones a seed profile and runs mutation per profile.
-- `mutate_profile.mjs`: drives Playwright activity and writes simulation metadata.
+- `mutate_profile.mjs`: performs deterministic profile mutation via Node.js + `better-sqlite3` and writes simulation metadata.
 
 ## Seed Lineage
 
@@ -17,7 +17,7 @@ This folder builds synthetic Firefox profiles on Windows for SMB/share scanning.
 ## Parameters
 
 - `-Count <int>`: Total profiles to generate.
-- `-Workers <int>`: (Optional) PowerShell 7+ only. Launch `N` concurrent Playwright workers during the mutation phase. Defaults to `(CPU cores / 2)`, capped at 10.
+- `-Workers <int>`: (Optional) PowerShell 7+ only. Launch `N` concurrent mutator jobs during the mutation phase. Defaults to `(CPU cores / 2)`, capped at 10.
 - `-Overwrite`: (Optional) Force delete existing destination profiles before cloning.
 - `-Resume`: (Optional) Skip generating profiles that already have a successful `status: "ok"` manifest.
 - `-StartIndex` / `-EndIndex`: (Optional) Bounds for resuming or chunking generation work.

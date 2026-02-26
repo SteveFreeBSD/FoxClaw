@@ -69,7 +69,7 @@ Make documentation auditable and deterministic: one canonical source per contrac
 - `docs/CLI_CONTRACT.md`: command list, flags, exit codes, output artifacts, determinism expectations.
 - `docs/INDEX.md`: canonical navigation and source-of-truth rules.
 - `docs/ARCHITECTURE.md` + `docs/SECURITY_MODEL.md`: runtime boundaries and trust model.
-- `docs/QUALITY_GATES.md`: high-level gate policy; executable commands referenced from scripts/workflows.
+- `docs/QUALITY_GATES.md`: high-level gate policy; executable commands referenced from `scripts/` and `.github/workflows/`.
 - `docs/RESEARCH.md`: index only; dated research docs remain append-only evidence.
 
 ## Concrete Edits List (Path-Exact)
@@ -96,7 +96,7 @@ Make documentation auditable and deterministic: one canonical source per contrac
 - Verification: `rg -n "@.*command\(" foxclaw/cli.py`
 
 2. Archived non-canonical roadmap draft.
-- Moved: `docs/ROADMAP_UPDATE_2026.md` -> `docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`
+- Moved legacy `ROADMAP_UPDATE_2026.md` content to `docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`
 - Added pointer in `docs/ROADMAP.md`.
 - Verification: `rg -n "ROADMAP_UPDATE_2026|ROADMAP_UPDATE_2026_DRAFT" README.md docs`
 

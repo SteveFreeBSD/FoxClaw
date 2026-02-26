@@ -11,6 +11,10 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
 - Security and trust model: `docs/SECURITY_MODEL.md`
 - Quality gates and merge checks: `docs/QUALITY_GATES.md`, `docs/PREMERGE_READINESS.md`
 - Research index: `docs/RESEARCH.md`
+- System model canonical pointer: `docs/SYSTEM_MODEL.md`
+- Delivery gate pointer: `docs/DELIVERY_GATES.md`
+- Assurance pointer: `docs/ASSURANCE.md`
+- Security response workflow: `docs/SECURITY_RESPONSE.md`
 
 ## Operational Runbooks
 
@@ -34,6 +38,15 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
 - Review baseline: `docs/REVIEW_2026-02-20.md`
 - WS-64 evidence package: `docs/WS64_EVIDENCE_2026-02-26.md`
 - Archived roadmap draft (non-canonical): `docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`
+
+## Assurance Packet
+
+- Packet entrypoint and read order: `../CTO_PACKET_INDEX.md`
+- One-page assurance summary: `../FOXCLAW_ASSURANCE_SUMMARY.md`
+- Gap and risk framing: `../POSTURE_2026_GAP_REPORT.md`
+- Patch plan and acceptance gates: `../PATCHSET_PLAN.md`
+- Evidence bundle contract: `../EVIDENCE_BUNDLE_SPEC.md`
+- Apply-ready patch artifacts: `../DIFFS/patch-a-live-share-parity.diff`, `../DIFFS/patch-b-supply-chain-immutability.diff`
 
 ## Rule
 
