@@ -76,7 +76,7 @@ Objectives:
 - Finish WS-28 launch-gate realism and cross-OS profile baseline hardening.
 - Complete WS-30 schema lockdown with explicit JSON/SARIF version policy.
 - Keep Python contracts, fixtures, and soak lanes stable enough to serve as the canonical merge baseline.
-- Execute WS-31 `foxclaw-rs` workspace bootstrap and WS-32 contract canonicalization only on the dedicated branch `rust/ws31-bootstrap`, seeded from the merged Python baseline on `main`.
+- Complete WS-75 production hardening and WS-76 SIEM-readiness work on the Python baseline before any Rust execution resumes.
 - Complete WS-46 enterprise Windows-share profile staging lane for deterministic local snapshot scanning.
 - Expand fixture corpus for parser edge cases (SQLite damage modes, extension metadata anomalies, profile-version variance).
 
@@ -86,7 +86,29 @@ Exit criteria:
 - Contract suite blocks incompatible output changes by default.
 - Python mainline is explicitly treated as the canonical implementation and passes pre-merge hardening gates.
 - The validated Scope A/B/C packs are merged cleanly before any Rust execution work starts.
+- Production-oriented soak/runbook evidence and SIEM-readiness constraints are captured on the Python baseline before Rust design decisions are frozen.
 - Windows-share runbook and staging harness are in place for enterprise remote-profile acquisition workflows.
+
+### Phase 2.2: Production Hardening and SIEM Readiness (Immediate Next)
+
+Objectives:
+
+- Complete WS-75 to harden Python for production-oriented deployment and operation:
+  - operator runbooks,
+  - failure-mode review,
+  - battle-test soak evidence,
+  - deployment guardrails and rollback expectations.
+- Complete WS-76 to prepare Python for SIEM/XDR integration:
+  - validate current fleet/finding contracts against downstream ingestion needs,
+  - add deterministic ingestion fixtures,
+  - document OCSF/export gaps and production integration blockers,
+  - keep those decisions explicit before Rust port work starts.
+
+Exit criteria:
+
+- Python `main` is supported by production-facing operator/runbook evidence and extended soak confidence.
+- SIEM integration constraints are documented with deterministic fixtures and no ambiguous contract assumptions.
+- Rust execution work remains blocked until this evidence exists on the Python baseline.
 
 ### Phase 2.1: Audit Closeout Gate (Immediate)
 
@@ -168,6 +190,7 @@ Entry condition:
 
 - Phase 2.1 has passed.
 - WS-72 has executed and the Python source-of-truth baseline has been merged on `main`.
+- WS-75 and WS-76 are complete, so production and SIEM design inputs from Python are stable enough to guide Rust decisions.
 
 Objectives:
 

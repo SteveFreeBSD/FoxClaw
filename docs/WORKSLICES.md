@@ -16,12 +16,11 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-31 (on dedicated branch `rust/ws31-bootstrap`)
+  - WS-75 (Python production hardening and battle-test expansion)
 - Rationale:
-  - The validated Python baseline is now merged cleanly and all merge-target gates passed on the merge candidate.
-  - `main` remains the clean Python source of truth.
-  - Session memory persistence is local-only, so repo pushes do not publish agent checkpoint history.
-  - Rust bootstrap resumes next, but only on the dedicated branch `rust/ws31-bootstrap` seeded from merged `main`.
+  - The validated Python baseline is merged and green on `main`, but it is not yet treated as fully battle-tested for production deployment and SIEM integration.
+  - The next useful work is Python production hardening, operator/runbook hardening, and SIEM-readiness preparation on the Python source of truth.
+  - Rust bootstrap remains deferred until the Python implementation is proven in a production-oriented environment and the SIEM/export decisions are better informed.
 
 ## Slice Queue
 
@@ -101,6 +100,9 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-71 | complete | WS-68, WS-69, WS-70 | Python merge execution checkpoint: convert the validated scope packs into coherent commit/merge units and keep Rust branch work blocked until the Python baseline lands cleanly. |
 | WS-72 | complete | WS-71 | Python mainline merge and Rust branch handoff: merge the validated Python baseline to mainline, rerun merge-target gates, and only then cut the dedicated Rust branch at WS-31/WS-32. |
 | WS-73 | complete | WS-72 | Session-memory privacy hardening: make agent checkpoint persistence local-only so pushes do not publish workflow history or internal notes. |
+| WS-74 | complete | WS-73 | Reprioritize the roadmap so Python production hardening and SIEM-readiness work must complete before Rust resumes. |
+| WS-75 | pending | WS-74 | Python production hardening: production-oriented runbooks, operator guardrails, failure-mode review, and battle-test soak evidence on `main`. |
+| WS-76 | pending | WS-74, WS-75 | Python SIEM readiness: validate export contracts, ingestion fixtures, OCSF gap analysis, and production integration constraints before Rust port planning resumes. |
 
 ## Slice Details
 
@@ -1053,6 +1055,26 @@ This plan converts the current review and research into sequenced, testable exec
   - removed `docs/SESSION_MEMORY.jsonl` and `docs/SESSION_MEMORY.md` from git-tracked repo state.
   - added regression coverage proving local-only default paths and override behavior for memory scripts.
   - archived evidence note: `docs/WS73_EVIDENCE_2026-02-27.md`.
+
+### WS-74 - Python Production Reprioritization
+
+- Status: complete.
+- Goal: restore Python-first execution ordering so production hardening and SIEM-readiness work complete before any Rust bootstrap resumes.
+- Delivered:
+  - changed `Current Direction` from Rust bootstrap to Python production hardening.
+  - inserted `WS-75` and `WS-76` ahead of `WS-31`.
+  - aligned `docs/PREMERGE_READINESS.md` and `docs/ROADMAP.md` with the new Python-first sequence.
+  - archived evidence note: `docs/WS74_EVIDENCE_2026-02-27.md`.
+
+### WS-75 - Python Production Hardening
+
+- Status: pending.
+- Goal: harden the Python source of truth for production use with stronger operator runbooks, deployment guardrails, failure-mode review, and battle-test soak evidence on `main`.
+
+### WS-76 - Python SIEM Readiness
+
+- Status: pending.
+- Goal: prepare the Python baseline for SIEM/XDR integration by validating current export contracts, building ingestion fixtures, documenting OCSF gaps, and resolving production integration blockers before Rust planning resumes.
 
 ## Workslice Update Protocol
 
