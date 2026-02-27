@@ -197,6 +197,57 @@ def test_collect_profile_artifacts_parses_pkcs11_module_risks(tmp_path: Path) ->
     ]
 
 
+def test_collect_profile_artifacts_parses_sessionstore_sensitive_data(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "sessionstore.jsonlz4").write_text(
+        json.dumps(
+            {
+                "selectedWindow": 1,
+                "windows": [
+                    {
+                        "tabs": [
+                            {
+                                "entries": [
+                                    {
+                                        "formdata": {
+                                            "id": {
+                                                "authToken": "tok_abc123",
+                                                "password": "hunter2",
+                                            }
+                                        },
+                                        "url": "https://example.com/account",
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    session = {entry.rel_path: entry for entry in evidence.entries}["sessionstore.jsonlz4"]
+
+    assert session.parse_status == "parsed"
+    assert session.key_values["session_restore_enabled"] == "1"
+    assert session.key_values["session_windows_count"] == "1"
+    assert session.key_values["session_sensitive_entry_count"] == "2"
+    assert json.loads(session.key_values["session_sensitive_entries"]) == [
+        {
+            "kind": "auth_token_field",
+            "path": "$.windows[0].tabs[0].entries[0].formdata.id.authToken",
+        },
+        {
+            "kind": "password_field",
+            "path": "$.windows[0].tabs[0].entries[0].formdata.id.password",
+        },
+    ]
+
+
 def test_collect_profile_artifacts_skips_hash_for_large_files(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)

@@ -14,6 +14,7 @@ from foxclaw.collect.certificates import audit_cert9_root_store
 from foxclaw.collect.handlers import collect_protocol_handler_hijacks
 from foxclaw.collect.pkcs11 import audit_pkcs11_modules
 from foxclaw.collect.safe_paths import iter_safe_profile_files
+from foxclaw.collect.session import audit_sessionstore
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
 
 _PROFILE_ARTIFACTS: tuple[str, ...] = (
@@ -77,7 +78,8 @@ def collect_profile_artifacts(profile_dir: Path) -> ProfileArtifactEvidence:
 
         parser = _parser_for(rel_path)
         parse_status: ParseStatus
-        if parser is None:
+        # Large artifacts skip deep parsing to keep collection bounded and stable.
+        if hash_skipped is not None or parser is None:
             parse_status = "metadata_only"
             top_level_keys: list[str] = []
             key_values: dict[str, str] = {}
@@ -115,6 +117,8 @@ def _parser_for(rel_path: str) -> _ArtifactParser | None:
         return _parse_cert9_db
     if rel_path == "pkcs11.txt":
         return _parse_pkcs11_txt
+    if rel_path == "sessionstore.jsonlz4":
+        return _parse_sessionstore_jsonlz4
     if rel_path == "compatibility.ini":
         return _parse_compatibility_ini
     return None
@@ -174,6 +178,27 @@ def _parse_pkcs11_txt(path: Path) -> tuple[ParseStatus, list[str], dict[str, str
                 }
                 for item in result.suspicious_modules
             ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    return "parsed", [], dict(sorted(key_values.items())), None
+
+
+def _parse_sessionstore_jsonlz4(
+    path: Path,
+) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+    result = audit_sessionstore(path)
+    if result.parse_error is not None:
+        return "error", [], {}, result.parse_error
+
+    key_values: dict[str, str] = {
+        "session_restore_enabled": "1" if result.session_restore_enabled else "0",
+        "session_windows_count": str(result.windows_count),
+        "session_sensitive_entry_count": str(len(result.sensitive_entries)),
+    }
+    if result.sensitive_entries:
+        key_values["session_sensitive_entries"] = json.dumps(
+            [{"kind": item.kind, "path": item.path} for item in result.sensitive_entries],
             sort_keys=True,
             separators=(",", ":"),
         )

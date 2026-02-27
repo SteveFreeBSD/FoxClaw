@@ -1,5 +1,5 @@
 name: balanced
-version: 0.10.0
+version: 0.11.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -119,6 +119,16 @@ rules:
       pkcs11_module_injection_absent: {}
     rationale: Non-standard PKCS#11 module libraries can inject code into Firefox process space (T1129).
     recommendation: Remove PKCS#11 modules outside Mozilla or OS-standard crypto library paths.
+    confidence: high
+
+  - id: FC-SESSION-001
+    title: Session restore should not retain sensitive form or token data
+    severity: HIGH
+    category: artifacts
+    check:
+      session_restore_sensitive_data_absent: {}
+    rationale: Sensitive values in active session restore state can enable session replay and local data theft (T1005, T1185).
+    recommendation: Clear session restore data or disable restore for sensitive sessions; avoid storing credential/token fields in session state.
     confidence: high
 
   - id: FC-SQL-001

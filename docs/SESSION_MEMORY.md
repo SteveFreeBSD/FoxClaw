@@ -13,15 +13,23 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T01:16:45.592292+00:00
+- Updated: 2026-02-27T01:35:20.884530+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `70b7e01fecb045a273eb7e99a456472937d27f67`
-- Focus: WS-49: PKCS#11 module injection detection with path validation
-- Next: Execute WS-50 session restore data exposure slice when requested
-- Risks: PKCS#11 validation currently uses deterministic path heuristics; deeper module signature/vendor validation may be needed for broader environment coverage
-- Decisions: Parse pkcs11.txt into deterministic module records, classify non-standard library paths as suspicious, and enforce with pkcs11_module_injection_absent rules in balanced/strict
+- Commit: `89a0a021d2d5e46563f534c35a96984527c026a1`
+- Focus: WS-50: sessionstore data exposure detection and rules
+- Next: Execute WS-51 search engine integrity slice when requested
+- Risks: Compressed Mozilla LZ4 payload parsing uses optional lz4.block; environments without it rely on plain/header JSON handling and may need follow-on support for fully compressed captures
+- Decisions: Audit sessionstore.jsonlz4 deterministically, require both restore-enabled and sensitive entries for findings, and expose session-sensitive metadata via artifacts and session_restore_sensitive_data_absent rules
 
 ## Recent Checkpoints
+
+### 2026-02-27T01:35:20.884530+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `89a0a021d2d5e46563f534c35a96984527c026a1`
+- Focus: WS-50: sessionstore data exposure detection and rules
+- Next: Execute WS-51 search engine integrity slice when requested
+- Risks: Compressed Mozilla LZ4 payload parsing uses optional lz4.block; environments without it rely on plain/header JSON handling and may need follow-on support for fully compressed captures
+- Decisions: Audit sessionstore.jsonlz4 deterministically, require both restore-enabled and sensitive entries for findings, and expose session-sensitive metadata via artifacts and session_restore_sensitive_data_absent rules
 
 ### 2026-02-27T01:16:45.592292+00:00
 - Branch: docs/windows-profile-gen

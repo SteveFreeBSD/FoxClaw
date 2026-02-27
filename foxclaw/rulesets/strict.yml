@@ -1,5 +1,5 @@
 name: strict
-version: 0.8.0
+version: 0.9.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -119,6 +119,16 @@ rules:
       pkcs11_module_injection_absent: {}
     rationale: Strict environments should block non-standard PKCS#11 libraries to prevent shared-module injection (T1129).
     recommendation: Remove or disable PKCS#11 modules outside Mozilla and OS-standard trusted crypto paths.
+    confidence: high
+
+  - id: FC-STRICT-SESSION-001
+    title: Session restore must not retain sensitive form or token data
+    severity: HIGH
+    category: artifacts
+    check:
+      session_restore_sensitive_data_absent: {}
+    rationale: Strict environments should prevent sensitive session restore state that can support replay and credential theft (T1005, T1185).
+    recommendation: Disable or sanitize session restore state when sensitive values are present.
     confidence: high
 
   - id: FC-STRICT-SQL-001

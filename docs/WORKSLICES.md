@@ -16,10 +16,10 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-50 (session restore data exposure)
+  - WS-51 (search engine integrity)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
-  - WS-49 PKCS#11 module path validation is complete; continue collector/rule expansion queue (`WS-50..WS-54`)
+  - WS-50 session restore exposure detection is complete; continue collector/rule expansion queue (`WS-51..WS-54`)
 
 ## Slice Queue
 
@@ -74,7 +74,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-47 | complete | WS-30 | Protocol handler hijack detection (`handlers.json` parsing, executable path flags). |
 | WS-48 | complete | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
 | WS-49 | complete | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
-| WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
+| WS-50 | complete | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
 | WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
 | WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
 | WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection; `.bin` accepted for legacy captures). |
@@ -704,14 +704,19 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-50 - Session Restore Data Exposure
 
-- Status: pending.
+- Status: complete.
 - Goal: detect sensitive form data, authentication tokens, and active session state stored in `sessionstore.jsonlz4` that could enable session replay attacks.
-- Scope:
-  - new collector `foxclaw/collect/session.py`.
-  - decompress and parse Mozilla LZ4 format (`sessionstore.jsonlz4`).
-  - detect sensitive form field content (passwords, tokens, credit card patterns).
-  - flag profiles with session restore enabled and sensitive data present.
+- Delivered:
+  - added `foxclaw/collect/session.py` for deterministic session restore payload auditing.
+  - added deterministic parsing support for `sessionstore.jsonlz4` with Mozilla LZ4 header awareness and JSON payload handling.
+  - added sensitive value detection for password fields, token/auth fields, and credit-card-like values (Luhn validated).
+  - added artifact metadata for session restore state and sensitive entry counts/details.
+  - implemented `session_restore_sensitive_data_absent` DSL operator and new rules:
+    - `FC-SESSION-001` in `balanced.yml`.
+    - `FC-STRICT-SESSION-001` in `strict.yml`.
+  - added deterministic regression coverage across collector/artifact/DSL paths.
   - ATT&CK mapping: T1005 (Data from Local System), T1185 (Browser Session Hijacking).
+- Acceptance: met.
 
 ### WS-51 - Search Engine Integrity
 

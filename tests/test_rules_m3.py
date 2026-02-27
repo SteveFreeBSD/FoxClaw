@@ -318,6 +318,57 @@ def test_dsl_pkcs11_module_injection_absent_flags_suspicious_modules() -> None:
     ]
 
 
+def test_dsl_session_restore_sensitive_data_absent_passes_when_no_sensitive_data() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="sessionstore.jsonlz4",
+                parse_status="parsed",
+                key_values={
+                    "session_restore_enabled": "1",
+                    "session_sensitive_entry_count": "0",
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"session_restore_sensitive_data_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_session_restore_sensitive_data_absent_flags_sensitive_data() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="sessionstore.jsonlz4",
+                parse_status="parsed",
+                key_values={
+                    "session_restore_enabled": "1",
+                    "session_sensitive_entry_count": "1",
+                    "session_sensitive_entries": json.dumps(
+                        [
+                            {
+                                "kind": "auth_token_field",
+                                "path": "$.windows[0].tabs[0].entries[0].formdata.id.authToken",
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"session_restore_sensitive_data_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "$.windows[0].tabs[0].entries[0].formdata.id.authToken: kind=auth_token_field"
+    ]
+
+
 def test_findings_are_sorted_by_severity_then_id() -> None:
     bundle = _empty_bundle()
     ruleset = Ruleset(
