@@ -10,6 +10,8 @@ from foxclaw.models import (
     FilePermEvidence,
     PolicyEvidence,
     PolicyFileSummary,
+    ProfileArtifactEntry,
+    ProfileArtifactEvidence,
     PrefEvidence,
     PrefValue,
     ProfileEvidence,
@@ -169,6 +171,52 @@ def test_dsl_sqlite_quickcheck_ok() -> None:
     bundle.sqlite.checks[0].quick_check_result = "error: database is locked"
     bad_result = evaluate_check(bundle, {"sqlite_quickcheck_ok": {"db": "places"}})
     assert bad_result.passed is False
+
+
+def test_dsl_protocol_handler_hijack_absent_passes_without_risky_handlers() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="handlers.json",
+                parse_status="parsed",
+                key_values={"suspicious_local_exec_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"protocol_handler_hijack_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_protocol_handler_hijack_absent_flags_risky_handlers() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="handlers.json",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_local_exec_count": "2",
+                    "suspicious_local_exec_handlers": json.dumps(
+                        [
+                            {"scheme": "dangerous", "path": "C:\\Windows\\System32\\cmd.exe /c calc"},
+                            {"scheme": "dangerous-posix", "path": "/tmp/launch.sh"},
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"protocol_handler_hijack_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "dangerous-posix: ask=0, handler=/tmp/launch.sh",
+        "dangerous: ask=0, handler=C:\\Windows\\System32\\cmd.exe /c calc",
+    ]
 
 
 def test_findings_are_sorted_by_severity_then_id() -> None:

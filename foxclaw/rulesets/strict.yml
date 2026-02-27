@@ -1,5 +1,5 @@
 name: strict
-version: 0.5.0
+version: 0.6.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -89,6 +89,16 @@ rules:
         path: policies.HTTPSOnlyMode
     rationale: Strict environments should enforce policy-controlled secure transport defaults.
     recommendation: Add HTTPSOnlyMode policy in policies.json.
+    confidence: high
+
+  - id: FC-STRICT-HANDLER-001
+    title: Protocol handlers must not auto-launch local executables
+    severity: HIGH
+    category: artifacts
+    check:
+      protocol_handler_hijack_absent: {}
+    rationale: Strict environments should block ask=false protocol handlers that execute local binaries (T1204).
+    recommendation: Remove local executable handlers or enforce prompt-based handling for protocol launches.
     confidence: high
 
   - id: FC-STRICT-SQL-001

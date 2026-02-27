@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
+import json
 from pathlib import Path
 
 from foxclaw.models import EvidenceBundle, FilePermEvidence
@@ -37,6 +38,8 @@ _CREDENTIAL_METRIC_NAMES: tuple[str, ...] = (
     "formhistory_password_field_count",
     "formhistory_credential_field_count",
 )
+_HANDLER_RISK_COUNT_KEY = "suspicious_local_exec_count"
+_HANDLER_RISK_ENTRIES_KEY = "suspicious_local_exec_handlers"
 
 
 @dataclass(slots=True)
@@ -75,6 +78,8 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_extension_intel_reputation_absent(bundle, config)
     if check_name == "credential_metric_max":
         return _check_credential_metric_max(bundle, _as_dict(config, check_name))
+    if check_name == "protocol_handler_hijack_absent":
+        return _check_protocol_handler_hijack_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -344,6 +349,48 @@ def _check_credential_metric_max(bundle: EvidenceBundle, config: dict[str, objec
     if observed <= max_value:
         return CheckResult(passed=True, evidence=[evidence_line])
     return CheckResult(passed=False, evidence=[evidence_line])
+
+
+def _check_protocol_handler_hijack_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("protocol_handler_hijack_absent config must be an object when provided")
+
+    handlers_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "handlers.json"),
+        None,
+    )
+    if handlers_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = handlers_entry.key_values.get(_HANDLER_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = handlers_entry.key_values.get(_HANDLER_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                scheme = entry.get("scheme")
+                path = entry.get("path")
+                if isinstance(scheme, str) and isinstance(path, str):
+                    evidence.append(f"{scheme}: ask=0, handler={path}")
+
+    if not evidence:
+        evidence = [f"handlers.json: suspicious_local_exec_count={suspicious_count}"]
+
+    return CheckResult(passed=False, evidence=sorted(evidence))
 
 
 def _match_file_evidence(

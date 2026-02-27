@@ -16,10 +16,10 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-47 (protocol handler hijack detection)
+  - WS-48 (NSS certificate store audit)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
-  - WS-56 learning enrichment is complete; resume collector/rule expansion queue (`WS-47..WS-54`)
+  - WS-47 protocol handler detection is complete; continue collector/rule expansion queue (`WS-48..WS-54`)
 
 ## Slice Queue
 
@@ -71,7 +71,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-44 | pending | WS-40, WS-43 | Shadow-mode rollout for Rust engine with parity, reliability, and SLO thresholds. |
 | WS-45 | pending | WS-44 | Make Rust the default runtime and deprecate Python fallback path. |
 | WS-46 | complete | WS-28 | Enterprise Windows-share profile acquisition lane with deterministic local staging scans. |
-| WS-47 | pending | WS-30 | Protocol handler hijack detection (`handlers.json` parsing, executable path flags). |
+| WS-47 | complete | WS-30 | Protocol handler hijack detection (`handlers.json` parsing, executable path flags). |
 | WS-48 | pending | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
 | WS-49 | pending | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
 | WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
@@ -659,14 +659,18 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-47 - Protocol Handler Hijack Detection
 
-- Status: pending.
+- Status: complete.
 - Goal: detect custom protocol handlers in `handlers.json` pointing to local executables that could enable code execution via crafted links.
-- Scope:
-  - new collector `foxclaw/collect/handlers.py`.
-  - parse `handlers.json` for custom protocol handler entries.
-  - flag handlers with `ask=false` pointing to local executables (`.exe`, `.bat`, `.ps1`, `.cmd`, `.sh`).
-  - new rules in `balanced.yml` and `strict.yml`.
+- Delivered:
+  - added `foxclaw/collect/handlers.py` for deterministic protocol-handler hijack parsing from `handlers.json` payloads.
+  - extended artifact parsing to record deterministic suspicious handler metadata for `ask=false` handlers targeting local executables (`.exe`, `.bat`, `.ps1`, `.cmd`, `.sh`).
+  - added DSL operator `protocol_handler_hijack_absent` for deterministic rule evaluation against handler-hijack evidence.
+  - added new rules:
+    - `FC-HANDLER-001` in `balanced.yml`.
+    - `FC-STRICT-HANDLER-001` in `strict.yml`.
+  - expanded deterministic regression coverage in `tests/test_profile_artifacts.py` and `tests/test_rules_m3.py`.
   - ATT&CK mapping: T1204 (User Execution).
+- Acceptance: met.
 
 ### WS-48 - NSS Certificate Store Audit
 

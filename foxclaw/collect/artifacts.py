@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from foxclaw.collect.handlers import collect_protocol_handler_hijacks
 from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
 
@@ -164,6 +165,18 @@ def _collect_handler_keys(payload: dict[str, object]) -> dict[str, str]:
     schemes = payload.get("schemes")
     if isinstance(schemes, dict):
         key_values["schemes_count"] = str(len(schemes))
+
+    suspicious_handlers = collect_protocol_handler_hijacks(payload)
+    key_values["suspicious_local_exec_count"] = str(len(suspicious_handlers))
+    if suspicious_handlers:
+        key_values["suspicious_local_exec_handlers"] = json.dumps(
+            [
+                {"scheme": item.scheme, "path": item.handler_path}
+                for item in suspicious_handlers
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
 
     return key_values
 

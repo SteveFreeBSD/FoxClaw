@@ -69,6 +69,7 @@ def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path
     assert handlers.key_values["default_handlers_version"] == "1"
     assert handlers.key_values["mime_types_count"] == "1"
     assert handlers.key_values["schemes_count"] == "1"
+    assert handlers.key_values["suspicious_local_exec_count"] == "0"
     assert handlers.sha256 == hashlib.sha256(handlers_path.read_bytes()).hexdigest()
 
     containers = entries["containers.json"]
@@ -138,6 +139,41 @@ def test_collect_profile_artifacts_includes_hsts_txt_and_bin(tmp_path: Path) -> 
     assert entries["SiteSecurityServiceState.bin"].sha256 == hashlib.sha256(
         hsts_bin.read_bytes()
     ).hexdigest()
+
+
+def test_collect_profile_artifacts_flags_suspicious_protocol_handlers(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "handlers.json").write_text(
+        json.dumps(
+            {
+                "schemes": {
+                    "benign": {
+                        "ask": True,
+                        "handlers": [{"path": "C:\\Program Files\\App\\app.exe"}],
+                    },
+                    "dangerous": {
+                        "ask": False,
+                        "handlers": [{"path": "C:\\Windows\\System32\\cmd.exe /c whoami"}],
+                    },
+                    "dangerous-posix": {
+                        "ask": False,
+                        "handlers": [{"path": "/tmp/launcher.sh"}],
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    handlers = {entry.rel_path: entry for entry in evidence.entries}["handlers.json"]
+
+    assert handlers.key_values["suspicious_local_exec_count"] == "2"
+    assert json.loads(handlers.key_values["suspicious_local_exec_handlers"]) == [
+        {"path": "C:\\Windows\\System32\\cmd.exe /c whoami", "scheme": "dangerous"},
+        {"path": "/tmp/launcher.sh", "scheme": "dangerous-posix"},
+    ]
 
 
 def test_scan_rejects_symlinked_artifact_path(tmp_path: Path) -> None:

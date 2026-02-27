@@ -13,15 +13,23 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T00:42:21.046729+00:00
+- Updated: 2026-02-27T00:55:00.854517+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `696c21f61ed3a061b80f8e956a23fdd4917ab1c7`
-- Focus: WS-56: fleet prevalence/correlation enrichment completed
-- Next: Execute WS-47 protocol handler hijack detection slice when requested
-- Risks: Fleet prevalence fields currently live in learning artifact; broader scan/fleet contract exposure may require a follow-on slice
-- Decisions: Use latest snapshot per profile for fleet aggregation, threshold 0.2 for outlier elevation, deterministic sorted pairwise Jaccard correlations
+- Commit: `895bda51ca8e306b90c7ab1f39a43532bf93a3e9`
+- Focus: WS-47: protocol handler hijack detection via handlers.json and rules
+- Next: Execute WS-48 NSS certificate store audit when requested
+- Risks: Handler rule currently keys off handlers.json artifact metadata; deeper executable provenance/path trust checks may require follow-on refinement
+- Decisions: Detect ask=false handlers in schemes map with local executable suffixes, persist deterministic suspicious handler metadata in artifacts, enforce via protocol_handler_hijack_absent rules
 
 ## Recent Checkpoints
+
+### 2026-02-27T00:55:00.854517+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `895bda51ca8e306b90c7ab1f39a43532bf93a3e9`
+- Focus: WS-47: protocol handler hijack detection via handlers.json and rules
+- Next: Execute WS-48 NSS certificate store audit when requested
+- Risks: Handler rule currently keys off handlers.json artifact metadata; deeper executable provenance/path trust checks may require follow-on refinement
+- Decisions: Detect ask=false handlers in schemes map with local executable suffixes, persist deterministic suspicious handler metadata in artifacts, enforce via protocol_handler_hijack_absent rules
 
 ### 2026-02-27T00:42:21.046729+00:00
 - Branch: docs/windows-profile-gen
