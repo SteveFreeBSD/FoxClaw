@@ -1,5 +1,5 @@
 name: balanced
-version: 0.9.0
+version: 0.10.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -109,6 +109,16 @@ rules:
       rogue_root_ca_absent: {}
     rationale: Unexpected root trust anchors in cert9.db can enable HTTPS interception (T1553.004).
     recommendation: Remove non-default trusted root certificates and investigate certificate injection activity.
+    confidence: high
+
+  - id: FC-PKCS11-001
+    title: PKCS#11 modules should not load from non-standard library paths
+    severity: HIGH
+    category: artifacts
+    check:
+      pkcs11_module_injection_absent: {}
+    rationale: Non-standard PKCS#11 module libraries can inject code into Firefox process space (T1129).
+    recommendation: Remove PKCS#11 modules outside Mozilla or OS-standard crypto library paths.
     confidence: high
 
   - id: FC-SQL-001

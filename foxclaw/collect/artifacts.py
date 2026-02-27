@@ -12,6 +12,7 @@ from typing import Literal
 
 from foxclaw.collect.certificates import audit_cert9_root_store
 from foxclaw.collect.handlers import collect_protocol_handler_hijacks
+from foxclaw.collect.pkcs11 import audit_pkcs11_modules
 from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
 
@@ -112,6 +113,8 @@ def _parser_for(rel_path: str) -> _ArtifactParser | None:
         return _parse_handlers_json
     if rel_path == "cert9.db":
         return _parse_cert9_db
+    if rel_path == "pkcs11.txt":
+        return _parse_pkcs11_txt
     if rel_path == "compatibility.ini":
         return _parse_compatibility_ini
     return None
@@ -145,6 +148,31 @@ def _parse_cert9_db(path: Path) -> tuple[ParseStatus, list[str], dict[str, str],
                     "trust_flags": item.trust_flags,
                 }
                 for item in result.suspicious_roots
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    return "parsed", [], dict(sorted(key_values.items())), None
+
+
+def _parse_pkcs11_txt(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+    result = audit_pkcs11_modules(path)
+    if result.parse_error is not None:
+        return "error", [], {}, result.parse_error
+
+    key_values: dict[str, str] = {
+        "pkcs11_modules_count": str(len(result.modules)),
+        "suspicious_pkcs11_module_count": str(len(result.suspicious_modules)),
+    }
+    if result.suspicious_modules:
+        key_values["suspicious_pkcs11_modules"] = json.dumps(
+            [
+                {
+                    "library_path": item.library_path,
+                    "name": item.name,
+                    "reasons": list(item.reasons),
+                }
+                for item in result.suspicious_modules
             ],
             sort_keys=True,
             separators=(",", ":"),

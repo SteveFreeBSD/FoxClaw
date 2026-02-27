@@ -31,7 +31,7 @@ def test_snapshot_output_includes_expected_sections(tmp_path: Path) -> None:
     assert payload["snapshot_schema_version"] == "1.0.0"
     assert payload["evidence_schema_version"] == "1.0.0"
     assert payload["ruleset"]["name"] == "balanced"
-    assert payload["ruleset"]["version"] == "0.9.0"
+    assert payload["ruleset"]["version"] == "0.10.0"
     assert payload["ruleset"]["path"] == "foxclaw/rulesets/balanced.yml"
     assert payload["profile"]["path"] == "tests/fixtures/firefox_profile"
     assert len(payload["ruleset"]["sha256"]) == 64

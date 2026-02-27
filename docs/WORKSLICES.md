@@ -16,10 +16,10 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-49 (PKCS#11 module injection detection)
+  - WS-50 (session restore data exposure)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
-  - WS-48 certificate-store audit is complete; continue collector/rule expansion queue (`WS-49..WS-54`)
+  - WS-49 PKCS#11 module path validation is complete; continue collector/rule expansion queue (`WS-50..WS-54`)
 
 ## Slice Queue
 
@@ -73,7 +73,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-46 | complete | WS-28 | Enterprise Windows-share profile acquisition lane with deterministic local staging scans. |
 | WS-47 | complete | WS-30 | Protocol handler hijack detection (`handlers.json` parsing, executable path flags). |
 | WS-48 | complete | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
-| WS-49 | pending | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
+| WS-49 | complete | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
 | WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
 | WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
 | WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
@@ -689,13 +689,18 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-49 - PKCS#11 Module Injection Detection
 
-- Status: pending.
+- Status: complete.
 - Goal: detect PKCS#11 modules registered in `pkcs11.txt` that point to non-Mozilla library paths, which could enable DLL injection into the Firefox process.
-- Scope:
-  - extend existing `pkcs11.txt` awareness (currently only generated in profile synthesis).
-  - new collector logic to parse `pkcs11.txt` and validate module paths.
-  - flag modules outside Firefox install directory or OS-standard crypto paths.
+- Delivered:
+  - added `foxclaw/collect/pkcs11.py` for deterministic `pkcs11.txt` module parsing and non-standard library path classification.
+  - extended artifact parsing to include deterministic PKCS#11 metadata (`pkcs11_modules_count`, suspicious module count/details).
+  - implemented `pkcs11_module_injection_absent` DSL operator for deterministic finding generation.
+  - added new rules:
+    - `FC-PKCS11-001` in `balanced.yml`.
+    - `FC-STRICT-PKCS11-001` in `strict.yml`.
+  - added deterministic regression coverage for missing/benign/suspicious module-path scenarios and DSL/artifact integration.
   - ATT&CK mapping: T1129 (Shared Modules).
+- Acceptance: met.
 
 ### WS-50 - Session Restore Data Exposure
 

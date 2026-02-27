@@ -270,6 +270,54 @@ def test_dsl_rogue_root_ca_absent_flags_suspicious_roots() -> None:
     ]
 
 
+def test_dsl_pkcs11_module_injection_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="pkcs11.txt",
+                parse_status="parsed",
+                key_values={"suspicious_pkcs11_module_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"pkcs11_module_injection_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_pkcs11_module_injection_absent_flags_suspicious_modules() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="pkcs11.txt",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_pkcs11_module_count": "1",
+                    "suspicious_pkcs11_modules": json.dumps(
+                        [
+                            {
+                                "name": "Injected Module",
+                                "library_path": "/tmp/evilpkcs11.so",
+                                "reasons": ["non_standard_library_path"],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"pkcs11_module_injection_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "Injected Module: library=/tmp/evilpkcs11.so, reasons=non_standard_library_path"
+    ]
+
+
 def test_findings_are_sorted_by_severity_then_id() -> None:
     bundle = _empty_bundle()
     ruleset = Ruleset(

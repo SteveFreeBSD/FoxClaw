@@ -13,15 +13,23 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T01:07:05.199002+00:00
+- Updated: 2026-02-27T01:16:45.592292+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `167e618b940307d29ffb37ba5081089a727c2235`
-- Focus: WS-48: cert9.db rogue root CA detection collector and rules
-- Next: Execute WS-49 PKCS#11 module injection detection when requested
-- Risks: Current cert9 parsing relies on NSS fallback table shape and heuristics; deeper PKCS#11 attribute decoding may be needed for broader real-world trust metadata
-- Decisions: Use deterministic read-only cert9 audit with static recent-issuance reference date, encode suspicious roots into artifact metadata, and enforce via rogue_root_ca_absent in balanced/strict rules
+- Commit: `70b7e01fecb045a273eb7e99a456472937d27f67`
+- Focus: WS-49: PKCS#11 module injection detection with path validation
+- Next: Execute WS-50 session restore data exposure slice when requested
+- Risks: PKCS#11 validation currently uses deterministic path heuristics; deeper module signature/vendor validation may be needed for broader environment coverage
+- Decisions: Parse pkcs11.txt into deterministic module records, classify non-standard library paths as suspicious, and enforce with pkcs11_module_injection_absent rules in balanced/strict
 
 ## Recent Checkpoints
+
+### 2026-02-27T01:16:45.592292+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `70b7e01fecb045a273eb7e99a456472937d27f67`
+- Focus: WS-49: PKCS#11 module injection detection with path validation
+- Next: Execute WS-50 session restore data exposure slice when requested
+- Risks: PKCS#11 validation currently uses deterministic path heuristics; deeper module signature/vendor validation may be needed for broader environment coverage
+- Decisions: Parse pkcs11.txt into deterministic module records, classify non-standard library paths as suspicious, and enforce with pkcs11_module_injection_absent rules in balanced/strict
 
 ### 2026-02-27T01:07:05.199002+00:00
 - Branch: docs/windows-profile-gen

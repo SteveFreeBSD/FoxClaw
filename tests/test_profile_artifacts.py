@@ -165,6 +165,38 @@ def test_collect_profile_artifacts_parses_cert9_db_root_risks(tmp_path: Path) ->
     ]
 
 
+def test_collect_profile_artifacts_parses_pkcs11_module_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "pkcs11.txt").write_text(
+        "\n".join(
+            [
+                "name=NSS Internal PKCS #11 Module",
+                "library=",
+                "",
+                "name=Injected Module",
+                "library=/tmp/evilpkcs11.so",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    pkcs11 = {entry.rel_path: entry for entry in evidence.entries}["pkcs11.txt"]
+
+    assert pkcs11.parse_status == "parsed"
+    assert pkcs11.key_values["pkcs11_modules_count"] == "2"
+    assert pkcs11.key_values["suspicious_pkcs11_module_count"] == "1"
+    assert json.loads(pkcs11.key_values["suspicious_pkcs11_modules"]) == [
+        {
+            "library_path": "/tmp/evilpkcs11.so",
+            "name": "Injected Module",
+            "reasons": ["non_standard_library_path"],
+        }
+    ]
+
+
 def test_collect_profile_artifacts_skips_hash_for_large_files(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
