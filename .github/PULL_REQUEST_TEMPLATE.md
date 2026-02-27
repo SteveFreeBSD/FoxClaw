@@ -12,7 +12,7 @@
 
 - [ ] Action refs remain pinned to immutable SHAs
 - [ ] Python installs use pinned, deterministic dependency inputs
-- [ ] Evidence bundle contract remains valid against `EVIDENCE_BUNDLE_SPEC.md`
+- [ ] Delivery and merge docs remain aligned (`docs/DELIVERY_GATES.md`, `docs/PREMERGE_READINESS.md`)
 
 ## Documentation and Scope
 

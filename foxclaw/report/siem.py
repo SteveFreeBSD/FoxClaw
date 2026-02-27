@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
@@ -18,7 +18,7 @@ from foxclaw.report.fleet import (
 
 SIEM_SCHEMA_VERSION = "1.0.0"
 
-_BASE_REQUIRED_FIELDS = (
+_BASE_REQUIRED_FIELDS: tuple[str, ...] = (
     "schema_version",
     "timestamp",
     "event_type",
@@ -29,8 +29,14 @@ _BASE_REQUIRED_FIELDS = (
     "title",
     "message",
 )
-_FINDING_REQUIRED_FIELDS = (*_BASE_REQUIRED_FIELDS, "scan_id", "rule_id", "category", "confidence")
-_SUMMARY_REQUIRED_FIELDS = (
+_FINDING_REQUIRED_FIELDS: tuple[str, ...] = (
+    *_BASE_REQUIRED_FIELDS,
+    "scan_id",
+    "rule_id",
+    "category",
+    "confidence",
+)
+_SUMMARY_REQUIRED_FIELDS: tuple[str, ...] = (
     *_BASE_REQUIRED_FIELDS,
     "scan_id",
     "findings_total",
@@ -56,12 +62,12 @@ def iter_siem_events(bundle: EvidenceBundle) -> Iterable[dict[str, object]]:
         host_id=host.host_id,
         profile_id=profile_identity.profile_id,
     )
-    host_payload = {
+    host_payload: dict[str, object] = {
         "id": host.host_id,
         "name": host.hostname,
         "fqdn": host.fqdn,
     }
-    profile_payload = {
+    profile_payload: dict[str, object] = {
         "profile_id": profile_identity.profile_id,
         "profile_uid": profile_identity.profile_uid,
         "name": profile_identity.name,
@@ -109,8 +115,8 @@ def _build_finding_event(
     finding: Finding,
     timestamp: str,
     scan_id: str,
-    host: dict[str, object],
-    profile: dict[str, object],
+    host: Mapping[str, object],
+    profile: Mapping[str, object],
 ) -> dict[str, object]:
     event: dict[str, object] = {
         "schema_version": SIEM_SCHEMA_VERSION,
@@ -149,8 +155,8 @@ def _build_summary_event(
     bundle: EvidenceBundle,
     timestamp: str,
     scan_id: str,
-    host: dict[str, object],
-    profile: dict[str, object],
+    host: Mapping[str, object],
+    profile: Mapping[str, object],
 ) -> dict[str, object]:
     event: dict[str, object] = {
         "schema_version": SIEM_SCHEMA_VERSION,

@@ -18,8 +18,8 @@ This plan converts the current review and research into sequenced, testable exec
 - Immediate execution focus:
   - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening and SIEM evidence.
 - Rationale:
-  - WS-75, WS-76, WS-77, and WS-78 are now complete on `main`.
-  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, and machine-readable soak summaries.
+  - WS-75, WS-76, WS-77, WS-78, and WS-79 are now complete on `main`.
+  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, and resilient local memory-recall forensics.
   - Rust bootstrap remains deferred until that Python evidence is explicitly accepted as the baseline for branch handoff.
 
 ## Slice Queue
