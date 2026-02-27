@@ -75,8 +75,8 @@ Objectives:
 
 - Finish WS-28 launch-gate realism and cross-OS profile baseline hardening.
 - Complete WS-30 schema lockdown with explicit JSON/SARIF version policy.
-- Complete WS-31 `foxclaw-rs` workspace bootstrap and parity harness scaffolding.
-- Complete WS-32 contract canonicalization and migration fixture enforcement for both engines.
+- Keep Python contracts, fixtures, and soak lanes stable enough to serve as the canonical merge baseline.
+- Defer WS-31 `foxclaw-rs` workspace bootstrap and WS-32 contract canonicalization implementation until the Python baseline is revalidated, isolated into bounded merge units, and merged from mainline.
 - Complete WS-46 enterprise Windows-share profile staging lane for deterministic local snapshot scanning.
 - Expand fixture corpus for parser edge cases (SQLite damage modes, extension metadata anomalies, profile-version variance).
 
@@ -84,7 +84,8 @@ Exit criteria:
 
 - Launch/fidelity gate is wired into synthesis workflows and enforced in CI where Firefox is available.
 - Contract suite blocks incompatible output changes by default.
-- Rust workspace compiles in CI and runs contract-smoke tests against canonical fixtures.
+- Python mainline is explicitly treated as the canonical implementation and passes pre-merge hardening gates.
+- The validated Scope A/B/C packs are merged cleanly before any Rust execution work starts.
 - Windows-share runbook and staging harness are in place for enterprise remote-profile acquisition workflows.
 
 ### Phase 2.1: Audit Closeout Gate (Immediate)
@@ -98,12 +99,14 @@ Objectives:
   - UNC fail-closed parity for `scan` and `live`,
   - lock-marker consistency across scan/acquire/discovery paths.
 - Align docs with runtime behavior before resuming feature expansion.
+- Keep Rust execution work off mainline until this gate is green and the Python source-of-truth merge is complete.
 
 Exit criteria:
 
 - No open critical/high findings from `docs/AUDIT_2026-02-24.md`.
 - `pytest -q tests/`, `ruff check .`, `mypy foxclaw`, `bandit`, `vulture`, and `detect-secrets` are all green.
 - Documentation and CLI/runtime behavior are synchronized for exit codes, UNC policy, lock markers, and artifact names.
+- A dedicated Rust branch can start from the validated Python baseline without unresolved mainline drift.
 
 ### Phase 2.5: Threat Surface Expansion (Q1 to Q2 2026)
 
@@ -160,6 +163,11 @@ Phase 2.6 gating evidence baseline:
   concrete optimization target while preserving stable deterministic gates.
 
 ### Phase 3: Rust Core and Differential Execution (Q2 to Q3 2026)
+
+Entry condition:
+
+- Phase 2.1 has passed.
+- WS-71 has executed and the Python source-of-truth baseline has been merged from mainline.
 
 Objectives:
 

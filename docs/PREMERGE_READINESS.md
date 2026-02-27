@@ -59,16 +59,22 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Current Execution Queue (2026-02-26)
+## Current Execution Queue (2026-02-27)
 
 Ordered next implementation targets:
 
-1. **WS-56**: Add fleet prevalence/correlation once WS-55B data quality is proven.
-2. **WS-47..WS-54**: Resume threat-surface collector/rule expansion with deterministic regression tests.
-3. **WS-31 + WS-32**: Keep Rust workspace bootstrap + contract canonicalization on the critical path for migration parity.
+1. **WS-72**: Merge the validated Python baseline to mainline, rerun merge-target gates there, and only then hand off to the dedicated Rust branch.
+2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization only after the isolated Python baseline is merged, and do that work on a dedicated Rust branch.
 
 Current evidence basis:
 
 - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md` confirms stability and highlights
   runtime bottleneck concentration in fuzz workloads.
 - `docs/AUDIT_2026-02-24.md` defines mandatory closeout work before next comprehensive audit.
+- `docs/WS66_EVIDENCE_2026-02-27.md` confirms Python gate cleanliness (`certify`, packaging, dependency audit, SBOM, and short soak with matrix ESR/beta/nightly passing).
+- `docs/WS67_SCOPE_PLAN_2026-02-27.md` defines the three bounded merge scopes and their validation floors.
+- `docs/WS68_EVIDENCE_2026-02-27.md` confirms Scope A focused regressions and full pytest baseline are green.
+- `docs/WS69_EVIDENCE_2026-02-27.md` confirms Scope B runtime/release hardening gates and focused regressions are green.
+- `docs/WS70_EVIDENCE_2026-02-27.md` confirms the queue-control and roadmap reconciliation that closes the bounded Python scope sequence.
+- `docs/WS71_EVIDENCE_2026-02-27.md` confirms Scope A and Scope B now exist as coherent commit units and records the validation reruns at those commit boundaries.
+- Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

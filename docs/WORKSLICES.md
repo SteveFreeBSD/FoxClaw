@@ -16,10 +16,11 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-52 (cookie security posture)
+  - WS-72 (Python mainline merge and Rust branch handoff)
 - Rationale:
-  - merge-readiness requires all critical/high audit findings closed first
-  - WS-51 search engine integrity checks are complete; continue collector/rule expansion queue (`WS-52..WS-54`)
+  - Scope A, Scope B, and Scope C now exist as coherent commit units on this branch.
+  - The next useful work is to merge that validated Python baseline to mainline, then start Rust work from the merged baseline on a dedicated branch.
+  - Rust bootstrap (`WS-31` then `WS-32`) remains deferred to a dedicated Rust branch after the isolated Python scopes are merged.
 
 ## Slice Queue
 
@@ -76,9 +77,9 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-49 | complete | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
 | WS-50 | complete | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
 | WS-51 | complete | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
-| WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
-| WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection; `.bin` accepted for legacy captures). |
-| WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
+| WS-52 | complete | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
+| WS-53 | complete | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection; `.bin` accepted for legacy captures). |
+| WS-54 | complete | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
 | WS-55A | complete | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |
 | WS-55B | complete | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
 | WS-56 | complete | WS-55B, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
@@ -90,6 +91,14 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-62 | complete | WS-59 | Reduce duplicated helpers/constants without behavior drift. |
 | WS-63 | complete | WS-61 | Resolve low-risk CLI/API polish items (`writeable` strategy, policy-path error wording, trust helper API boundaries). |
 | WS-64 | complete | WS-57, WS-58, WS-59, WS-60, WS-61, WS-62, WS-63 | Audit-readiness gate: full checks + windows-share mini soak + zero open critical/high audit findings. |
+| WS-65 | complete | WS-64 | Source-of-truth reconciliation: restore Python as the canonical merge target, defer Rust bootstrap to a dedicated branch, and realign planning docs. |
+| WS-66 | complete | WS-65 | Python pre-merge hardening: rerun certify/package/security gates, short soak confidence pass, review evidence, and merge only when Python is clean. |
+| WS-67 | complete | WS-66 | Isolate mixed in-flight changes into coherent review scopes and prepare the Python baseline for merge without dragging unrelated work across the boundary. |
+| WS-68 | complete | WS-67 | Scope A merge pack: land threat-surface expansion and generator parity changes as a bounded Python feature block. |
+| WS-69 | complete | WS-67 | Scope B merge pack: land matrix/runtime/release hardening changes needed to keep the Python baseline operationally clean. |
+| WS-70 | complete | WS-67, WS-68, WS-69 | Scope C merge pack: land docs, evidence, and queue-control updates after the bounded Python scopes are merged. |
+| WS-71 | complete | WS-68, WS-69, WS-70 | Python merge execution checkpoint: convert the validated scope packs into coherent commit/merge units and keep Rust branch work blocked until the Python baseline lands cleanly. |
+| WS-72 | pending | WS-71 | Python mainline merge and Rust branch handoff: merge the validated Python baseline to mainline, rerun merge-target gates, and only then cut the dedicated Rust branch at WS-31/WS-32. |
 
 ## Slice Details
 
@@ -547,11 +556,13 @@ This plan converts the current review and research into sequenced, testable exec
 
 - Status: pending.
 - Goal: instantiate the `foxclaw-rs` Cargo workspace and build the integration testbed runner that asserts Rust output parity against Python fixtures.
+- Execution note: deferred from mainline execution until WS-66 completes and a dedicated Rust branch is cut from the validated Python baseline.
 
 ### WS-32 - Contract Canonicalization for Migration
 
 - Status: pending.
 - Goal: freeze JSON/SARIF compatibility policy and publish canonical migration fixtures that both engines must satisfy.
+- Execution note: resume only after WS-31 begins on the dedicated Rust branch.
 
 ### WS-46 - Enterprise Windows-Share Profile Acquisition Lane
 
@@ -736,35 +747,55 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-52 - Cookie Security Posture
 
-- Status: pending.
+- Status: complete.
 - Goal: detect cookie security weaknesses in `cookies.sqlite` that could enable session theft or tracking.
-- Scope:
-  - new collector `foxclaw/collect/cookies.py`.
-  - parse `cookies.sqlite` for security posture signals.
-  - detect: long-lived session cookies (>1 year), `SameSite=None` on sensitive domains, missing `HttpOnly` on authentication cookies, excessive third-party tracking cookies.
+- Delivered:
+  - added `foxclaw/collect/cookies.py` for deterministic read-only `cookies.sqlite` auditing.
+  - added cookie posture signal detection for:
+    - long-lived cookies (>1 year lifetime from creation timestamp).
+    - `SameSite=None` on sensitive/auth-like domains.
+    - missing `HttpOnly` on authentication cookie names.
+    - excessive third-party tracking cookie volume.
+  - extended profile artifact parsing with cookie security metadata and suspicious-entry serialization.
+  - implemented `cookie_security_posture_absent` DSL operator and new rules:
+    - `FC-COOKIE-001` in `balanced.yml`.
+    - `FC-STRICT-COOKIE-001` in `strict.yml`.
+  - added deterministic regression coverage across collector/artifact/DSL paths.
   - ATT&CK mapping: T1539 (Steal Web Session Cookie).
+- Acceptance: met.
 
 ### WS-53 - HSTS State Integrity
 
-- Status: pending.
+- Status: complete.
 - Goal: detect HSTS downgrade attacks by validating `SiteSecurityServiceState.txt` for missing or removed entries.
-- Scope:
-  - extend filesystem/artifacts collector.
-  - parse `SiteSecurityServiceState.txt` for HSTS pin entries.
-  - maintain baseline of domains that should enforce HTTPS (banking, email, corporate).
-  - flag missing HSTS entries for critical domains.
-  - detect manual removal patterns (file truncation, selective entry deletion).
+- Delivered:
+  - added `foxclaw/collect/hsts.py` for deterministic read-only `SiteSecurityServiceState.txt` parsing and integrity analysis.
+  - implemented critical-domain baseline expectation derivation from HTTPS history hosts (`places.sqlite`) for banking/email/corporate identity domains.
+  - added missing critical-domain HSTS detection with downgrade/removal signals:
+    - missing critical HSTS entries.
+    - selective entry deletion pattern (same registrable domain partial removal).
+    - truncation pattern (sparse/malformed/truncated state indicators).
+  - extended artifact parsing with HSTS integrity metadata and suspicious-entry serialization.
+  - implemented `hsts_downgrade_absent` DSL operator and new rules:
+    - `FC-HSTS-001` in `balanced.yml`.
+    - `FC-STRICT-HSTS-001` in `strict.yml`.
+  - added deterministic regression coverage across collector/artifact/DSL paths.
   - ATT&CK mapping: T1557 (Adversary-in-the-Middle).
+- Acceptance: met.
 
 ### WS-54 - CVE Advisory Simulation Scenarios
 
-- Status: pending.
+- Status: complete.
 - Goal: add CVE-inspired adversary scenarios to both the Windows (`mutate_profile.mjs`) and Python (`adversary_profiles.py`) profile generators.
-- Scope:
-  - new scenarios: `cve_sandbox_escape`, `cve_extension_abuse`, `cve_session_hijack`, `cve_cert_injection`, `cve_handler_hijack`, `cve_hsts_downgrade`, `cve_search_hijack`.
-  - each scenario produces profiles designed to trigger the corresponding new WS-47 through WS-53 collectors.
-  - deterministic seeds and offline generation preserved.
-  - round-trip verification: generated profiles must trigger expected findings when scanned.
+- Delivered:
+  - added new CVE advisory scenario names to both generators:
+    - `cve_sandbox_escape`, `cve_extension_abuse`, `cve_session_hijack`, `cve_cert_injection`, `cve_handler_hijack`, `cve_hsts_downgrade`, `cve_search_hijack`.
+  - Python adversary generator now applies deterministic per-scenario artifact mutations that directly trigger WS-47..WS-53 strict finding IDs and records matched finding IDs in `adversary-summary.json`.
+  - Windows mutator now applies deterministic per-scenario artifact mutations for WS-47..WS-53, records expected CVE strict rule IDs in metadata output, and PowerShell `ValidateSet` includes all CVE scenario names.
+  - added deterministic round-trip regression coverage:
+    - Python adversary generator scenario-to-expected-rule assertions.
+    - Windows mutator scenario-to-expected-rule assertions (dependency-aware runtime skip when `better-sqlite3` is unavailable).
+- Acceptance: met.
 
 ### WS-55 - Adaptive Scan Intelligence (Self-Learning)
 
@@ -870,6 +901,133 @@ This plan converts the current review and research into sequenced, testable exec
     - `python -m foxclaw acquire windows-share-batch --source-root /tmp/foxclaw-ws64-source --staging-root /tmp/foxclaw-ws64-stage --out-root /tmp/foxclaw-ws64-out --max 3 --workers 1 --treat-high-findings-as-success`
     - summary: `attempted=3`, `operational_failure_count=0`.
   - archived evidence note: `docs/WS64_EVIDENCE_2026-02-26.md`.
+
+### WS-65 - Source-of-Truth Reconciliation
+
+- Status: complete.
+- Goal: restore Python as the explicit canonical merge target before any Rust bootstrap work resumes.
+- Scope:
+  - update `Current Direction` to point at Python pre-merge hardening instead of Rust bootstrap.
+  - align pre-merge runbook queue with Python-first execution.
+  - align roadmap language so Rust starts only after the validated Python baseline is merged from mainline.
+- Delivered:
+  - updated `docs/WORKSLICES.md` current direction and queue to insert WS-65/WS-66 ahead of WS-31.
+  - added explicit deferral notes to WS-31 and WS-32 so Rust work starts on a dedicated branch after Python revalidation.
+  - updated `docs/PREMERGE_READINESS.md` and `docs/ROADMAP.md` to remove the Python-vs-Rust execution-order conflict.
+
+### WS-66 - Python Pre-Merge Hardening
+
+- Status: complete.
+- Goal: prove the Python implementation is the clean source of truth before any Rust branch work begins.
+- Scope:
+  - rerun `./scripts/certify.sh`, packaging dry-run, SBOM verification, and dependency audit.
+  - run a short soak confidence pass after matrix bootstrap hardening and review any residual failures as product vs infrastructure.
+  - verify docs/runtime/test evidence are synchronized and capture merge recommendation with explicit blockers if any gate fails.
+- Delivered:
+  - repaired pre-merge gate blockers uncovered during the run:
+    - `ruff` import ordering drift in WS-47..WS-53 collector/test files,
+    - `mypy` return/optional typing issues in `session.py`, `search.py`, and `certificates.py`,
+    - `detect-secrets` false positives from generated session-memory hashes and intentional synthetic password fixtures,
+    - stale `cyclonedx-bom==4.1.5` pin in `scripts/generate_sbom.sh` that failed on Python 3.14 due to `lxml` wheel builds.
+  - full gate suite passed:
+    - `./scripts/certify.sh`
+    - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
+    - `make dep-audit`
+    - packaging dry-run + wheel install smoke
+    - `make sbom`
+    - `make sbom-verify`
+  - short soak confidence pass passed with matrix lanes enabled:
+    - run: `/var/tmp/foxclaw-soak/20260227T135950Z-ws66-premerge`
+    - summary: `steps_total=16`, `steps_failed=0`, `overall_status=PASS`
+    - ESR, beta, and nightly matrix scan stages all passed after bootstrap hardening.
+  - archived evidence note: `docs/WS66_EVIDENCE_2026-02-27.md`.
+  - merge recommendation:
+    - Python is gate-clean and remains the canonical source of truth.
+    - current worktree should not be merged as one unit until unrelated in-flight changes are separated into coherent review scopes.
+
+### WS-67 - Change-Set Isolation and Merge-Scope Preparation
+
+- Status: complete.
+- Goal: separate the now-validated Python baseline into coherent reviewable scopes so merge decisions are based on bounded diffs instead of a mixed worktree.
+- Scope:
+  - classify the current dirty worktree into discrete review scopes (for example: threat-surface collectors, matrix hardening, docs/planning).
+  - define the minimal mergeable Python baseline slice and identify what must stay out of that merge.
+  - update docs/runbooks so merge sequencing reflects the isolated change-sets before any Rust branch work begins.
+- Delivered:
+  - classified the current dirty tree into three bounded merge scopes:
+    - Scope A: threat-surface expansion and generator parity
+    - Scope B: runtime/release hardening
+    - Scope C: docs, evidence, and queue control
+  - recorded exact file membership, validation floor, and merge order in `docs/WS67_SCOPE_PLAN_2026-02-27.md`.
+  - advanced the queue so the next executable slices map directly to Scope A, Scope B, and Scope C instead of a generic merge-prep placeholder.
+
+### WS-68 - Scope A Merge Pack
+
+- Status: complete.
+- Goal: land the WS-47..WS-54 threat-surface collector/rules/generator block as a bounded Python feature review scope.
+- Delivered:
+  - validated Scope A against the bounded file list defined in `docs/WS67_SCOPE_PLAN_2026-02-27.md`.
+  - confirmed focused Scope A regressions pass:
+    - `tests/test_adversary_profiles_script.py`
+    - `tests/test_cookies.py`
+    - `tests/test_hsts.py`
+    - `tests/test_profile_artifacts.py`
+    - `tests/test_rules_m3.py`
+    - `tests/test_session.py`
+    - `tests/test_snapshot_m5.py`
+    - `tests/test_windows_auth_gen_scripts.py`
+    - result: `63 passed, 7 skipped`
+  - confirmed full baseline regression remains green:
+    - `.venv/bin/pytest -q`
+    - result: `265 passed, 7 skipped`
+  - archived evidence note: `docs/WS68_EVIDENCE_2026-02-27.md`.
+
+### WS-69 - Scope B Merge Pack
+
+- Status: complete.
+- Goal: land the matrix/runtime/release hardening changes required to keep the Python baseline operationally clean and release-rehearsable.
+- Delivered:
+  - validated Scope B against the bounded file list defined in `docs/WS67_SCOPE_PLAN_2026-02-27.md`.
+  - confirmed Scope B operational hardening gates pass:
+    - `./scripts/check_secrets.sh`
+    - result: `[secrets] clean.`
+    - `make sbom`
+    - result: `[sbom] ok: path=sbom.cyclonedx.json spec=1.6 components=51 foxclaw_version=0.1.0`
+    - `make sbom-verify`
+    - result: `[sbom] ok: path=sbom.cyclonedx.json spec=1.6 components=51 foxclaw_version=0.1.0`
+  - confirmed focused Scope B regressions pass:
+    - `.venv/bin/pytest -q tests/test_container_matrix_bootstrap.py tests/test_sbom.py`
+    - result: `7 passed`
+  - confirmed full baseline regression remains green:
+    - `.venv/bin/pytest -q`
+    - result: `265 passed, 7 skipped`
+  - archived evidence note: `docs/WS69_EVIDENCE_2026-02-27.md`.
+
+### WS-70 - Scope C Merge Pack
+
+- Status: complete.
+- Goal: land the docs/evidence/queue-control updates after the bounded Python scopes are isolated and ready for merge.
+- Delivered:
+  - reconciled queue-control docs so the bounded Python scope sequence is explicitly closed.
+  - confirmed `docs/PREMERGE_READINESS.md` and `docs/ROADMAP.md` both keep Rust bootstrap blocked until the validated Python baseline is merged.
+  - advanced `Current Direction` to `WS-71`, the merge-execution checkpoint for the already-validated Python scopes.
+  - archived evidence note: `docs/WS70_EVIDENCE_2026-02-27.md`.
+
+### WS-71 - Python Merge Execution Checkpoint
+
+- Status: complete.
+- Goal: convert the validated Scope A/B/C work into coherent commit/merge units, rerun the bounded validations at those boundaries, and only then resume Rust branch work from the merged Python baseline.
+- Delivered:
+  - reran the Scope A validation floor and committed the feature block as `6ccf4b3` (`WS-68: land threat-surface expansion scope`).
+  - reran the Scope B validation floor and committed the hardening block as `0d92517` (`WS-69: land runtime and release hardening scope`).
+  - grouped the remaining docs/evidence/queue-control changes into a single closing docs commit for the Python baseline.
+  - kept Rust bootstrap blocked and advanced the queue to `WS-72`, which covers the actual mainline merge and Rust branch handoff.
+  - archived evidence note: `docs/WS71_EVIDENCE_2026-02-27.md`.
+
+### WS-72 - Python Mainline Merge and Rust Branch Handoff
+
+- Status: pending.
+- Goal: merge the validated Python baseline to mainline, rerun merge-target gates there, and only then start `WS-31`/`WS-32` on a dedicated Rust branch.
 
 ## Workslice Update Protocol
 

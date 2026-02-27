@@ -13,15 +13,103 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T01:41:21.973166+00:00
+- Updated: 2026-02-27T14:30:06.178099+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `b961ca14104a1657c854acd18d370412317d2ebd`
-- Focus: WS-51: search engine integrity validation for search.json.mozlz4
-- Next: Execute WS-52 cookie security posture slice when requested
-- Risks: Compressed mozlz4 payload support remains optional via lz4.block; fully compressed captures may need expanded decoding support in environments without lz4
-- Decisions: Audit default search engine via deterministic allowlists for engine names/domains, surface suspicious defaults through artifact metadata, and enforce with search_engine_hijack_absent in balanced/strict rules
+- Commit: `0d92517d8b4f40c5a20ec244ab31e546517d17aa`
+- Focus: WS-71: convert validated Python scopes into coherent commit units
+- Next: Execute WS-72 mainline merge and Rust branch handoff after rerunning merge-target gates
+- Risks: The commit units now exist cleanly on this branch, but Rust work must remain blocked until WS-72 lands the Python baseline on mainline
+- Decisions: Created separate Scope A and Scope B commits, closed the docs/evidence queue state in WS-71, and advanced the queue to WS-72 instead of starting Rust work from an unmerged branch
 
 ## Recent Checkpoints
+
+### 2026-02-27T14:30:06.178099+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `0d92517d8b4f40c5a20ec244ab31e546517d17aa`
+- Focus: WS-71: convert validated Python scopes into coherent commit units
+- Next: Execute WS-72 mainline merge and Rust branch handoff after rerunning merge-target gates
+- Risks: The commit units now exist cleanly on this branch, but Rust work must remain blocked until WS-72 lands the Python baseline on mainline
+- Decisions: Created separate Scope A and Scope B commits, closed the docs/evidence queue state in WS-71, and advanced the queue to WS-72 instead of starting Rust work from an unmerged branch
+
+### 2026-02-27T14:20:25.021368+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-70: close Scope C docs/evidence pack and advance queue to merge execution
+- Next: Execute WS-71 Python merge execution checkpoint before any Rust branch work
+- Risks: Scope sequencing docs are aligned, but the worktree is still mixed until WS-71 converts the validated scope packs into coherent commit/merge units
+- Decisions: Resolved WS-70 as docs/evidence reconciliation, marked Scope C complete, added WS-71 as the post-scope merge checkpoint, and kept Rust bootstrap blocked until the Python baseline is merged
+
+### 2026-02-27T14:16:30.083366+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-69: validate Scope B merge pack and advance queue to Scope C
+- Next: Execute WS-70 Scope C merge pack for docs/evidence/queue-control isolation
+- Risks: Scope B is validated but the worktree remains mixed until Scope C is isolated; merge remains blocked on finishing the bounded sequencing
+- Decisions: Resolved WS-69 as status reconciliation because Scope B behavior was already implemented, recorded gate evidence, marked WS-69 complete, and advanced Current Direction/PREMERGE queue to WS-70
+
+### 2026-02-27T14:13:02.774817+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-68: validate Scope A merge pack and advance queue to Scope B
+- Next: Execute WS-69 Scope B merge pack for matrix/runtime/release hardening isolation
+- Risks: Scope A is validated but the worktree is still mixed until Scope B and Scope C are isolated; merge remains blocked on completing that bounded sequencing
+- Decisions: Resolved WS-68 as status reconciliation because Scope A behavior was already implemented, recorded focused regression evidence, marked WS-68 complete, and advanced Current Direction/PREMERGE queue to WS-69
+
+### 2026-02-27T14:10:33.689268+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-67: define bounded merge scopes and advance queue to scope execution slices
+- Next: Execute WS-68 Scope A merge pack for threat-surface expansion and generator parity
+- Risks: Worktree is still mixed until WS-68/WS-69/WS-70 are executed as bounded scopes; merge remains blocked on that isolation work
+- Decisions: Documented three merge scopes in WS67 scope plan, advanced WORKSLICES current direction to WS-68, and updated PREMERGE queue to execute Scope A/B/C before any Rust branch work
+
+### 2026-02-27T14:07:14.311472+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-66: status reconciliation after Python hardening pass; queue now advances to WS-67
+- Next: Execute WS-67 change-set isolation and merge-scope preparation before any merge or Rust branch work
+- Risks: Current worktree remains mixed across multiple review scopes; merge sequencing still depends on isolating those changes into bounded commits or PRs
+- Decisions: Reconciled WORKSLICES and PREMERGE queue after WS-66 completion, marked WS-66 complete in the queue, and added WS-67 as the next pending Python-first slice
+
+### 2026-02-27T14:04:09.545461+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-66: Python pre-merge hardening gates and short soak confidence pass
+- Next: Isolate mixed in-flight changes into coherent review scopes before any merge; keep Rust deferred until after Python baseline lands
+- Risks: Worktree still contains unrelated pending changes across multiple slices; merge should wait for change-set separation even though Python gates are green
+- Decisions: Cleared ruff/mypy/detect-secrets blockers, updated SBOM generator pin to cyclonedx-bom 7.2.2 for Python 3.14 compatibility, and confirmed short soak matrix ESR/beta/nightly lanes now pass after bootstrap hardening
+
+### 2026-02-27T13:50:09.777688+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-65: restore Python as canonical merge target and defer Rust bootstrap to dedicated branch
+- Next: Execute WS-66 Python pre-merge hardening gates and short soak confidence pass
+- Risks: Current worktree still contains unrelated in-flight changes; WS-66 should separate hardening evidence from unrelated edits before any merge decision
+- Decisions: Updated WORKSLICES/PREMERGE_READINESS/ROADMAP so mainline stays Python-first, added WS-65 complete and WS-66 pending, and deferred WS-31/WS-32 to a dedicated Rust branch after Python validation
+
+### 2026-02-27T02:39:48.787983+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-54: CVE advisory simulation scenarios in Python/Windows generators with round-trip rule verification
+- Next: Execute WS-31 Rust workspace bootstrap slice
+- Risks: Windows mutator round-trip tests are dependency-gated on Node better-sqlite3 and will skip when unavailable; CVE scenario mappings currently target strict ruleset IDs only
+- Decisions: Implemented deterministic per-scenario artifact writers for WS-47..WS-53 triggers, added explicit expected strict rule-ID mappings, and captured finding IDs from scan payload using finding.id with rule_id fallback
+
+### 2026-02-27T01:58:56.246537+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-53: HSTS integrity collector and downgrade/removal rule coverage
+- Next: Execute WS-54 CVE advisory simulation scenarios slice when requested
+- Risks: HSTS critical-domain baseline currently derives from HTTPS history hosts in places.sqlite and may under-signal when history is incomplete; registrable-domain heuristics for selective deletion are intentionally conservative and may need future eTLD-aware tuning
+- Decisions: Parse SiteSecurityServiceState.txt with deterministic tab-delimited handling, infer critical-domain expectations from local HTTPS history only, and emit downgrade signals via hsts_downgrade_absent using serialized suspicious_hsts_state_entries
+
+### 2026-02-27T01:50:15.685054+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `8c493de26dc3c0f2cce4c8970b4256d34eff6f4a`
+- Focus: WS-52: cookie security posture collector and DSL/rules coverage
+- Next: Execute WS-53 HSTS state integrity slice when requested
+- Risks: Cookie sensitive-domain/tracker heuristics may need threshold tuning for edge enterprise environments; moz_cookies schema drift without expected columns currently yields zero posture signals
+- Decisions: Use deterministic cookie lifetime checks from creationTime-to-expiry deltas, enforce excessive tracker threshold at >10 known third-party cookies, and surface rule evidence from serialized suspicious_cookie_security_signals
 
 ### 2026-02-27T01:41:21.973166+00:00
 - Branch: docs/windows-profile-gen
@@ -94,19 +182,3 @@ python scripts/session_memory.py checkpoint \
 - Next: Start WS-56: fleet prevalence/correlation enrichment with deterministic aggregation queries
 - Risks: WS-56 may require schema extension and careful ordering guarantees across profiles
 - Decisions: Treat WS-55B as complete based on existing implementation/tests; update source-of-truth workslice statuses and focus
-
-### 2026-02-26T23:54:52.648175+00:00
-- Branch: docs/windows-profile-gen
-- Commit: `09726cde90411e04635561a83d36262a01f6eae3`
-- Focus: WS-55B: per-rule trend/novelty analysis from history snapshots
-- Next: Implement WS-56: fleet-wide correlation and prevalence enrichment
-- Risks: WS-56 may require schema extension for fleet aggregation fields
-- Decisions: trend_direction from last two snapshots; novelty_score from prior_hits/prior_scans; stable ordering by rule_id
-
-### 2026-02-26T21:38:29.766395+00:00
-- Branch: docs/windows-profile-gen
-- Commit: `34f637cbbdacc1b1d6e610f862581266e6f56038`
-- Focus: Integrated session-memory and mistakes-hygiene gates into certify/CI/docs
-- Next: Run full gate suite and publish workflow tips
-- Risks: Strict hygiene checks may need occasional [no-mistake-entry] bypass
-- Decisions: Track journal in docs/SESSION_MEMORY.jsonl so context persists across sessions
