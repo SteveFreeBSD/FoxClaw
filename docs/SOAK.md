@@ -231,6 +231,49 @@ Expected outcome:
 - `results.tsv` contains a passing `siem_wazuh` stage
 - `siem-wazuh/cycle-*/run-*/manifest.json` records the pinned image, NDJSON path, `wazuh-logtest` artifact, `alerts.json` excerpt, and `ossec.log` tail path
 
+## Post-Run Forensic Queries
+
+Rebuild the local session-memory index before reviewing soak evidence:
+
+```bash
+python scripts/memory_index.py build
+```
+
+Expected output: `[memory-index] built artifacts/session_memory/index.sqlite ...`
+
+Run a recall query against the local checkpoint journal:
+
+```bash
+python scripts/memory_query.py "\"WS-78\"" --limit 5
+```
+
+Expected terminal output:
+
+- `[memory-query] top <n> hits for: "WS-78"` followed by checkpoint rows
+- or `[memory-query] no hits for: "WS-78"`
+- or, when the FTS table was damaged but the base index still exists, `[memory-query] warning: checkpoints_fts unavailable; using LIKE fallback`
+
+Expected `soak-summary.json` forensic shape:
+
+```json
+{
+  "memory_index_status": "ok",
+  "memory_index_path": "/abs/path/to/session-memory/index.sqlite",
+  "last_checkpoint_id": 31
+}
+```
+
+If no local memory index exists, the summary still succeeds with:
+
+```json
+{
+  "memory_index_status": "fail",
+  "memory_index_path": "/abs/path/to/session-memory/index.sqlite"
+}
+```
+
+`soak-summary.json` also records `memory_index_status`, `memory_index_path`, and `last_checkpoint_id` when the local recall index is available.
+
 ## Monitoring
 
 Find newest soak run:

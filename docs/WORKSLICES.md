@@ -105,6 +105,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-76 | complete | WS-74, WS-75 | Python SIEM readiness: validate export contracts, ingestion fixtures, OCSF gap analysis, and production integration constraints before Rust port planning resumes. |
 | WS-77 | complete | WS-75, WS-76 | Python SIEM implementation hardening: implement the vendor-neutral NDJSON export path, ingestion fixtures, and open-source SIEM proof workflow on the Python baseline before Rust resumes. |
 | WS-78 | complete | WS-75, WS-77 | Soak-gate reliability: bounded Wazuh lane timeouts, machine-readable soak summary output, and repeatable reduced production gate runs on `main`. |
+| WS-79 | complete | WS-78 | Memory recall forensics reliability: rebuild/query survive fresh checkouts and stale `checkpoints_fts` schema, and soak summaries expose local memory-index status for post-run review. |
 
 ## Slice Details
 
@@ -1115,6 +1116,19 @@ This plan converts the current review and research into sequenced, testable exec
   - expanded regression coverage for readiness retries, bounded logtest timeout failure, symlink-preserving venv execution, and soak summary rollups.
   - recorded the two passing reduced gate runs and operator guidance in:
     - `docs/WS78_EVIDENCE_2026-02-27.md`
+
+### WS-79 - Memory Recall Forensics Reliability
+
+- Status: complete.
+- Goal: make local session-memory rebuild/query tooling reliable on fresh checkouts and stale indexes, then surface that status directly in soak forensics.
+- Delivered:
+  - hardened `scripts/memory_index.py` so repeated builds are idempotent, missing journals build an empty local index cleanly, explicit `--index-path` / `--source-path` overrides are supported, and stale schema gets rebuilt deterministically.
+  - hardened `scripts/memory_query.py` with explicit `--index-path`, optional `--repair`, concise operational errors, and a `LIKE` fallback when `checkpoints_fts` is unavailable instead of crashing with a traceback.
+  - extended `scripts/soak_summary.py` so `soak-summary.json` records `memory_index_status`, `memory_index_path`, and `last_checkpoint_id` when the local recall index is inspectable.
+  - added deterministic regression coverage for fresh-checkout builds, stale-FTS fallback, repair rebuilds, and soak-summary forensic metadata.
+  - documented the rebuild/query workflow and captured verification evidence in:
+    - `docs/SOAK.md`
+    - `docs/WS79_EVIDENCE_2026-02-27.md`
 
 ## Workslice Update Protocol
 

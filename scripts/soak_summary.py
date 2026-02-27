@@ -5,10 +5,30 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+
+def _load_memory_index_module():
+    spec = importlib.util.spec_from_file_location(
+        "foxclaw_memory_index_soak_support",
+        SCRIPT_DIR / "memory_index.py",
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load scripts/memory_index.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+memory_index_lib = _load_memory_index_module()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -81,7 +101,7 @@ def build_soak_summary(run_dir: Path) -> dict[str, Any]:
         stage: stage_counts[stage]
         for stage in sorted(stage_counts)
     }
-    return {
+    payload = {
         "schema_version": "1.0.0",
         "git_sha": manifest.get("commit", "unknown"),
         "artifact_root_path": str(run_dir),
@@ -99,6 +119,8 @@ def build_soak_summary(run_dir: Path) -> dict[str, Any]:
         "top_rule_ids": top_rule_ids,
         "failed_artifact_paths": sorted(dict.fromkeys(failed_artifact_paths)),
     }
+    payload.update(_memory_index_metadata())
+    return payload
 
 
 def _read_key_value_file(path: Path) -> dict[str, str]:
@@ -125,6 +147,17 @@ def _int_value(value: str | None) -> int:
     if value is None or value == "":
         return 0
     return int(value)
+
+
+def _memory_index_metadata() -> dict[str, Any]:
+    inspection = memory_index_lib.inspect_index(memory_index_lib.DB_PATH)
+    payload: dict[str, Any] = {
+        "memory_index_status": "ok" if inspection.can_query else "fail",
+        "memory_index_path": str(inspection.path),
+    }
+    if inspection.last_checkpoint_id is not None:
+        payload["last_checkpoint_id"] = inspection.last_checkpoint_id
+    return payload
 
 
 if __name__ == "__main__":

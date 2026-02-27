@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -65,6 +66,39 @@ def test_soak_summary_builds_machine_readable_rollup(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
+    memory_dir = tmp_path / "session-memory"
+    memory_dir.mkdir()
+    (memory_dir / "SESSION_MEMORY.jsonl").write_text(
+        json.dumps(
+            {
+                "timestamp_utc": "2026-02-27T18:00:00+00:00",
+                "branch": "main",
+                "commit": "deadbeefcafebabe",
+                "focus": "soak forensic fixture",
+                "next_actions": "review summary",
+                "risks": "none",
+                "decisions": "fixture",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["FOXCLAW_SESSION_MEMORY_DIR"] = str(memory_dir)
+    build_index = subprocess.run(
+        [
+            sys.executable,
+            "scripts/memory_index.py",
+            "build",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert build_index.returncode == 0, build_index.stdout + build_index.stderr
+
     output_path = run_dir / "soak-summary.json"
     result = subprocess.run(
         [
@@ -78,6 +112,7 @@ def test_soak_summary_builds_machine_readable_rollup(tmp_path: Path) -> None:
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -99,3 +134,44 @@ def test_soak_summary_builds_machine_readable_rollup(tmp_path: Path) -> None:
         {"count": 1, "rule_id": "TB-POL-002"},
     ]
     assert payload["failed_artifact_paths"] == ["/tmp/run/siem-wazuh/cycle-2-run-1"]
+    assert payload["memory_index_status"] == "ok"
+    assert payload["memory_index_path"] == str(memory_dir / "index.sqlite")
+    assert payload["last_checkpoint_id"] == 1
+
+
+def test_soak_summary_marks_missing_memory_index_without_failing(tmp_path: Path) -> None:
+    run_dir = tmp_path / "soak-run"
+    run_dir.mkdir()
+    (run_dir / "manifest.txt").write_text("commit=deadbeefcafebabe\n", encoding="utf-8")
+    (run_dir / "summary.txt").write_text("overall_status=PASS\n", encoding="utf-8")
+    (run_dir / "results.tsv").write_text(
+        "cycle\tstage\titeration\texit_code\tstatus\tduration_sec\tstarted_at\tended_at\tlog_path\tartifact_path\n",
+        encoding="utf-8",
+    )
+
+    env = os.environ.copy()
+    env["FOXCLAW_SESSION_MEMORY_DIR"] = str(tmp_path / "missing-session-memory")
+
+    output_path = run_dir / "soak-summary.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/soak_summary.py",
+            "--run-dir",
+            str(run_dir),
+            "--output",
+            str(output_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["memory_index_status"] == "fail"
+    assert payload["memory_index_path"] == str(
+        tmp_path / "missing-session-memory" / "index.sqlite"
+    )
+    assert "last_checkpoint_id" not in payload

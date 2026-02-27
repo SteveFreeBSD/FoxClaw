@@ -13,6 +13,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 MEMORY_DIR_ENV = "FOXCLAW_SESSION_MEMORY_DIR"
+INDEX_FILENAME = "index.sqlite"
+SOURCE_FILENAME = "SESSION_MEMORY.jsonl"
+SCHEMA_VERSION = "2"
 MEMORY_DIR = (
     Path(os.environ[MEMORY_DIR_ENV]).expanduser()
     if MEMORY_DIR_ENV in os.environ and os.environ[MEMORY_DIR_ENV].strip()
@@ -20,8 +23,8 @@ MEMORY_DIR = (
 )
 if not MEMORY_DIR.is_absolute():
     MEMORY_DIR = ROOT / MEMORY_DIR
-SOURCE_JSONL = MEMORY_DIR / "SESSION_MEMORY.jsonl"
-DB_PATH = MEMORY_DIR / "index.sqlite"
+SOURCE_JSONL = MEMORY_DIR / SOURCE_FILENAME
+DB_PATH = MEMORY_DIR / INDEX_FILENAME
 
 
 @dataclass(frozen=True)
@@ -36,12 +39,53 @@ class Checkpoint:
     decisions: str
 
 
-def _read_checkpoints() -> list[Checkpoint]:
-    if not SOURCE_JSONL.exists():
-        raise FileNotFoundError(f"missing source log: {SOURCE_JSONL}")
+@dataclass(frozen=True)
+class IndexInspection:
+    path: Path
+    exists: bool
+    can_query: bool
+    has_fts: bool
+    fts_capable: bool
+    last_checkpoint_id: int | None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class BuildResult:
+    db_path: Path
+    source_path: Path
+    checkpoints: int
+    fts_enabled: bool
+
+
+def _absolute_path(path: Path) -> Path:
+    expanded = path.expanduser()
+    if not expanded.is_absolute():
+        return ROOT / expanded
+    return expanded
+
+
+def resolve_index_path(index_path: Path | None = None) -> Path:
+    return _absolute_path(index_path or DB_PATH)
+
+
+def resolve_source_path(
+    source_path: Path | None = None,
+    index_path: Path | None = None,
+) -> Path:
+    if source_path is not None:
+        return _absolute_path(source_path)
+    if index_path is not None:
+        return resolve_index_path(index_path).with_name(SOURCE_FILENAME)
+    return _absolute_path(SOURCE_JSONL)
+
+
+def _read_checkpoints(source_path: Path) -> list[Checkpoint]:
+    if not source_path.exists():
+        return []
 
     checkpoints: list[Checkpoint] = []
-    for idx, raw_line in enumerate(SOURCE_JSONL.read_text(encoding="utf-8").splitlines(), start=1):
+    for idx, raw_line in enumerate(source_path.read_text(encoding="utf-8").splitlines(), start=1):
         line = raw_line.strip()
         if not line:
             continue
@@ -67,14 +111,23 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return connection
 
 
-def _display_path(path: Path) -> str:
+def display_path(path: Path) -> str:
     try:
         return str(path.relative_to(ROOT))
     except ValueError:
         return str(path)
 
 
-def _create_schema(connection: sqlite3.Connection) -> None:
+def supports_fts5(connection: sqlite3.Connection) -> bool:
+    try:
+        connection.execute("CREATE VIRTUAL TABLE temp.checkpoints_fts_probe USING fts5(content)")
+        connection.execute("DROP TABLE temp.checkpoints_fts_probe")
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
+def _create_schema(connection: sqlite3.Connection, *, fts_enabled: bool) -> None:
     connection.executescript(
         """
         PRAGMA journal_mode=WAL;
@@ -91,30 +144,46 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             decisions TEXT NOT NULL
         );
 
-        CREATE VIRTUAL TABLE IF NOT EXISTS checkpoints_fts USING fts5(
-            focus,
-            next_actions,
-            commit_sha,
-            branch,
-            risks,
-            decisions
-        );
-
         CREATE TABLE IF NOT EXISTS meta (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
         """
     )
+    if fts_enabled:
+        connection.execute(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS checkpoints_fts USING fts5(
+                focus,
+                next_actions,
+                commit_sha,
+                branch,
+                risks,
+                decisions
+            )
+            """
+        )
 
 
-def _write_metadata(connection: sqlite3.Connection) -> None:
-    stat = SOURCE_JSONL.stat()
+def _write_metadata(
+    connection: sqlite3.Connection,
+    *,
+    source_path: Path,
+    fts_enabled: bool,
+) -> None:
     metadata = {
-        "source_path": _display_path(SOURCE_JSONL),
-        "source_size": str(stat.st_size),
-        "source_mtime_ns": str(stat.st_mtime_ns),
+        "schema_version": SCHEMA_VERSION,
+        "source_path": display_path(source_path),
+        "source_exists": "1" if source_path.exists() else "0",
+        "fts_enabled": "1" if fts_enabled else "0",
     }
+    if source_path.exists():
+        stat = source_path.stat()
+        metadata["source_size"] = str(stat.st_size)
+        metadata["source_mtime_ns"] = str(stat.st_mtime_ns)
+    else:
+        metadata["source_size"] = "0"
+        metadata["source_mtime_ns"] = "0"
     for key, value in metadata.items():
         connection.execute(
             "INSERT INTO meta (key, value) VALUES (?, ?) "
@@ -124,23 +193,82 @@ def _write_metadata(connection: sqlite3.Connection) -> None:
 
 
 def _load_metadata(connection: sqlite3.Connection) -> dict[str, str]:
-    rows = connection.execute("SELECT key, value FROM meta").fetchall()
+    try:
+        rows = connection.execute("SELECT key, value FROM meta").fetchall()
+    except sqlite3.OperationalError:
+        return {}
     return {str(row["key"]): str(row["value"]) for row in rows}
 
 
-def _is_source_unchanged(connection: sqlite3.Connection) -> bool:
-    if not SOURCE_JSONL.exists():
-        return False
-    current = SOURCE_JSONL.stat()
+def _is_source_unchanged(connection: sqlite3.Connection, source_path: Path) -> bool:
     stored = _load_metadata(connection)
+    if not source_path.exists():
+        return stored.get("source_exists") == "0"
+    current = source_path.stat()
     return (
-        stored.get("source_size") == str(current.st_size)
+        stored.get("source_exists") == "1"
+        and stored.get("source_size") == str(current.st_size)
         and stored.get("source_mtime_ns") == str(current.st_mtime_ns)
     )
 
 
-def _populate(connection: sqlite3.Connection, checkpoints: list[Checkpoint]) -> None:
-    connection.execute("DELETE FROM checkpoints_fts")
+def _existing_tables(connection: sqlite3.Connection) -> set[str]:
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()
+    return {str(row[0]) for row in rows}
+
+
+def inspect_index(path: Path) -> IndexInspection:
+    resolved = resolve_index_path(path)
+    if not resolved.exists():
+        return IndexInspection(
+            path=resolved,
+            exists=False,
+            can_query=False,
+            has_fts=False,
+            fts_capable=False,
+            last_checkpoint_id=None,
+            error="missing index",
+        )
+
+    try:
+        with _connect(resolved) as connection:
+            tables = _existing_tables(connection)
+            can_query = "checkpoints" in tables
+            has_fts = "checkpoints_fts" in tables
+            last_checkpoint_id = None
+            if can_query:
+                row = connection.execute("SELECT MAX(id) AS last_id FROM checkpoints").fetchone()
+                last_checkpoint_id = None if row is None else row["last_id"]
+            return IndexInspection(
+                path=resolved,
+                exists=True,
+                can_query=can_query,
+                has_fts=has_fts,
+                fts_capable=supports_fts5(connection),
+                last_checkpoint_id=last_checkpoint_id,
+            )
+    except sqlite3.Error as exc:
+        return IndexInspection(
+            path=resolved,
+            exists=True,
+            can_query=False,
+            has_fts=False,
+            fts_capable=False,
+            last_checkpoint_id=None,
+            error=str(exc),
+        )
+
+
+def _populate(
+    connection: sqlite3.Connection,
+    checkpoints: list[Checkpoint],
+    *,
+    fts_enabled: bool,
+) -> None:
+    if fts_enabled:
+        connection.execute("DELETE FROM checkpoints_fts")
     connection.execute("DELETE FROM checkpoints")
 
     for checkpoint in checkpoints:
@@ -169,59 +297,87 @@ def _populate(connection: sqlite3.Connection, checkpoints: list[Checkpoint]) -> 
             ),
         )
         row_id = int(cursor.lastrowid)
-        connection.execute(
-            """
-            INSERT INTO checkpoints_fts (
-                rowid,
-                focus,
-                next_actions,
-                commit_sha,
-                branch,
-                risks,
-                decisions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                row_id,
-                checkpoint.focus,
-                checkpoint.next_actions,
-                checkpoint.commit_sha,
-                checkpoint.branch,
-                checkpoint.risks,
-                checkpoint.decisions,
-            ),
-        )
+        if fts_enabled:
+            connection.execute(
+                """
+                INSERT INTO checkpoints_fts (
+                    rowid,
+                    focus,
+                    next_actions,
+                    commit_sha,
+                    branch,
+                    risks,
+                    decisions
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    checkpoint.focus,
+                    checkpoint.next_actions,
+                    checkpoint.commit_sha,
+                    checkpoint.branch,
+                    checkpoint.risks,
+                    checkpoint.decisions,
+                ),
+            )
+
+
+def _remove_existing_index_files(db_path: Path) -> None:
+    for candidate in (db_path, Path(f"{db_path}-wal"), Path(f"{db_path}-shm")):
+        if candidate.exists():
+            candidate.unlink()
+
+
+def build_index(db_path: Path, source_path: Path) -> BuildResult:
+    checkpoints = _read_checkpoints(source_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    _remove_existing_index_files(db_path)
+
+    with _connect(db_path) as connection:
+        fts_enabled = supports_fts5(connection)
+        _create_schema(connection, fts_enabled=fts_enabled)
+        _populate(connection, checkpoints, fts_enabled=fts_enabled)
+        _write_metadata(connection, source_path=source_path, fts_enabled=fts_enabled)
+        connection.commit()
+
+    return BuildResult(
+        db_path=db_path,
+        source_path=source_path,
+        checkpoints=len(checkpoints),
+        fts_enabled=fts_enabled,
+    )
 
 
 def cmd_build(_args: argparse.Namespace) -> int:
-    checkpoints = _read_checkpoints()
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if DB_PATH.exists():
-        DB_PATH.unlink()
-
-    with _connect(DB_PATH) as connection:
-        _create_schema(connection)
-        _populate(connection, checkpoints)
-        _write_metadata(connection)
-        connection.commit()
-
+    db_path = resolve_index_path(_args.index_path)
+    source_path = resolve_source_path(_args.source_path, _args.index_path)
+    result = build_index(db_path, source_path)
+    if not result.fts_enabled:
+        print("[memory-index] warning: SQLite FTS5 unavailable; queries will use LIKE fallback")
     print(
-        f"[memory-index] built {_display_path(DB_PATH)} "
-        f"from {_display_path(SOURCE_JSONL)} ({len(checkpoints)} checkpoints)"
+        f"[memory-index] built {display_path(result.db_path)} "
+        f"from {display_path(result.source_path)} ({result.checkpoints} checkpoints)"
     )
     return 0
 
 
 def cmd_update(_args: argparse.Namespace) -> int:
-    if not DB_PATH.exists():
+    db_path = resolve_index_path(_args.index_path)
+    source_path = resolve_source_path(_args.source_path, _args.index_path)
+    inspection = inspect_index(db_path)
+    if not inspection.exists:
         return cmd_build(_args)
 
-    with _connect(DB_PATH) as connection:
-        _create_schema(connection)
-        if _is_source_unchanged(connection):
+    if not inspection.can_query or (inspection.fts_capable and not inspection.has_fts):
+        print(f"[memory-index] stale schema detected at {display_path(db_path)}; rebuilding")
+        return cmd_build(_args)
+
+    with _connect(db_path) as connection:
+        _create_schema(connection, fts_enabled=inspection.fts_capable)
+        if _is_source_unchanged(connection, source_path):
             count = connection.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0]
             print(
-                f"[memory-index] up to date: {_display_path(DB_PATH)} "
+                f"[memory-index] up to date: {display_path(db_path)} "
                 f"({count} checkpoints)"
             )
             return 0
@@ -234,9 +390,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     build = sub.add_parser("build", help="rebuild index from the local session memory journal")
+    build.add_argument("--index-path", type=Path, default=None, help="path to the SQLite index")
+    build.add_argument("--source-path", type=Path, default=None, help="path to SESSION_MEMORY.jsonl")
     build.set_defaults(func=cmd_build)
 
     update = sub.add_parser("update", help="refresh index when source log changed")
+    update.add_argument("--index-path", type=Path, default=None, help="path to the SQLite index")
+    update.add_argument("--source-path", type=Path, default=None, help="path to SESSION_MEMORY.jsonl")
     update.set_defaults(func=cmd_update)
 
     return parser
