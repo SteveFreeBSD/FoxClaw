@@ -93,11 +93,11 @@ Exit criteria:
 
 Objectives:
 
-- Complete WS-75 to harden Python for production-oriented deployment and operation:
-  - operator runbooks,
-  - failure-mode review,
-  - battle-test soak evidence,
-  - deployment guardrails and rollback expectations.
+- WS-75 is complete on the Python baseline:
+  - operator runbooks are updated,
+  - native Wazuh smoke validation is first-party,
+  - battle-test soak evidence exists on `main`,
+  - deployment guardrails are documented around the pinned Wazuh image and readiness waits.
 - Keep the completed WS-76/WS-77 SIEM baseline stable:
   - vendor-neutral NDJSON contract is defined,
   - deterministic export/ingest fixtures exist,
@@ -105,9 +105,9 @@ Objectives:
 
 Exit criteria:
 
-- Python `main` is supported by production-facing operator/runbook evidence and extended soak confidence.
+- Python `main` is supported by production-facing operator/runbook evidence and extended soak confidence, including the native `siem_wazuh` lane.
 - SIEM integration constraints are documented, and the chosen Python ingest/export path is validated with deterministic fixtures and no ambiguous contract assumptions.
-- Rust execution work remains blocked until this evidence exists on the Python baseline.
+- Rust execution work remains blocked until this completed Python evidence is explicitly accepted as the handoff baseline.
 
 ### Phase 2.1: Audit Closeout Gate (Immediate)
 

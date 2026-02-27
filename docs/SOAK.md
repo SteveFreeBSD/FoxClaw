@@ -8,6 +8,7 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - Validate deterministic snapshot behavior under repeated execution.
 - Validate ruleset trust fail-closed behavior under repeated execution.
 - Exercise fuzz resilience and container Firefox matrix (`esr`, `beta`, `nightly`).
+- Exercise native SIEM validation through the Wazuh NDJSON smoke lane when enabled.
 - Produce structured logs for post-run forensic analysis.
 
 ## Harness
@@ -21,6 +22,7 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - `1` synth run (`50` realistic profiles; fidelity-gated)
 - `1` fuzz run (`500` realistic+mutated profiles; fidelity-gated)
 - `0` adversary runs by default (enable with `--adversary-runs`)
+- `0` Wazuh SIEM runs by default (enable with `--siem-wazuh-runs`)
 - `1` Firefox matrix run (`esr`, `beta`, `nightly`)
 
 ## Launch (overnight)
@@ -105,6 +107,12 @@ Notes:
 
 - `SOAK_SUDO_PASSWORD` is only needed when the current user cannot access Docker socket directly.
 - The password is not written to soak artifacts by the harness.
+- The native Wazuh lane requires the pinned image `wazuh/wazuh-manager:4.14.3` to exist locally before the run:
+
+```bash
+docker image inspect wazuh/wazuh-manager:4.14.3 >/dev/null
+```
+
 - Synthetic and fuzz phases are deterministic by default (`synth-seed=424242`, `fuzz-seed=525252`).
 - Default fidelity thresholds are `synth=70`, `fuzz=50`.
 - Profile generation stays offline-by-default unless runner flags explicitly enable live AMO fetches.
@@ -153,6 +161,39 @@ Key files:
 - `snapshots/cycle-*/`: deterministic snapshot outputs and `sha256.txt`.
 - `synth/cycle-*/fidelity-summary.json`: synth profile realism gate output.
 - `fuzz/cycle-*/fidelity-summary.json`: fuzz profile realism gate output.
+- `siem-wazuh/cycle-*/`: native FoxClaw -> NDJSON -> Wazuh smoke artifacts (`foxclaw.ndjson`, `wazuh-logtest.txt`, `alerts-excerpt.jsonl`, `manifest.json`) when `--siem-wazuh-runs` is enabled.
+
+## Wazuh Lane
+
+Run just the native Wazuh validation path without a full overnight soak:
+
+```bash
+.venv/bin/python scripts/siem_wazuh_smoke.py \
+  --output-dir /var/tmp/foxclaw-wazuh-smoke \
+  --python-bin .venv/bin/python
+```
+
+Run one reduced soak cycle with the Wazuh lane enabled:
+
+```bash
+scripts/soak_runner.sh \
+  --duration-hours 1 \
+  --max-cycles 1 \
+  --integration-runs 1 \
+  --snapshot-runs 1 \
+  --synth-count 1 \
+  --fuzz-count 1 \
+  --adversary-runs 0 \
+  --siem-wazuh-runs 1 \
+  --matrix-runs 0 \
+  --label ws75-wazuh
+```
+
+Expected outcome:
+
+- `summary.txt` reports `overall_status=PASS`
+- `results.tsv` contains a passing `siem_wazuh` stage
+- `siem-wazuh/cycle-*/run-*/manifest.json` records the pinned image, NDJSON path, `wazuh-logtest` artifact, and `alerts.json` excerpt
 
 ## Monitoring
 

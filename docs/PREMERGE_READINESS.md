@@ -63,8 +63,8 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-75**: Harden the Python source of truth for production use with stronger operator/runbook, failure-mode, and battle-test evidence on `main`.
-2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap`, but only after WS-75 is complete on top of the already-landed WS-76/WS-77 SIEM baseline.
+1. **WS-75 / WS-76 / WS-77 evidence review**: Python production hardening and SIEM baseline are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
+2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM evidence is accepted.
 
 Current evidence basis:
 
@@ -79,6 +79,7 @@ Current evidence basis:
 - `docs/WS71_EVIDENCE_2026-02-27.md` confirms Scope A and Scope B now exist as coherent commit units and records the validation reruns at those commit boundaries.
 - `docs/WS72_EVIDENCE_2026-02-27.md` confirms merge-target gates passed on top of the mainline merge candidate and records the Rust handoff branch name.
 - `docs/WS74_EVIDENCE_2026-02-27.md` records the Python-first production/siem reprioritization and renewed Rust deferral.
+- `docs/WS75_EVIDENCE_2026-02-27.md` confirms the native Wazuh smoke runner, soak-harness `siem_wazuh` lane, and passing reduced soak evidence on `main`.
 - `docs/WS76_SIEM_READINESS.md` and `docs/WS76_EVIDENCE_2026-02-27.md` capture the vendor-neutral NDJSON contract, Wazuh proof target, and ingest workflow research.
 - `docs/WS77_EVIDENCE_2026-02-27.md` confirms the Python NDJSON exporter, deterministic contract tests, and Wazuh proof-of-ingest.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

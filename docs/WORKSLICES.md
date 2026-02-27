@@ -16,12 +16,11 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-75 (Python production hardening and battle-test expansion)
+  - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening and SIEM evidence.
 - Rationale:
-  - The validated Python baseline is merged and green on `main`, but it is not yet treated as fully battle-tested for production deployment and SIEM integration.
-  - The next useful work is Python production hardening, operator/runbook hardening, and SIEM-readiness preparation on the Python source of truth.
-  - WS-76 research and WS-77 implementation are complete, but production integration decisions still need WS-75 battle-test evidence before Rust resumes.
-  - Rust bootstrap remains deferred until the Python implementation is proven in a production-oriented environment and the SIEM/export decisions are better informed.
+  - WS-75, WS-76, and WS-77 are now complete on `main`.
+  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, and production-oriented runbook/evidence updates.
+  - Rust bootstrap remains deferred until that Python evidence is explicitly accepted as the baseline for branch handoff.
 
 ## Slice Queue
 
@@ -102,7 +101,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-72 | complete | WS-71 | Python mainline merge and Rust branch handoff: merge the validated Python baseline to mainline, rerun merge-target gates, and only then cut the dedicated Rust branch at WS-31/WS-32. |
 | WS-73 | complete | WS-72 | Session-memory privacy hardening: make agent checkpoint persistence local-only so pushes do not publish workflow history or internal notes. |
 | WS-74 | complete | WS-73 | Reprioritize the roadmap so Python production hardening and SIEM-readiness work must complete before Rust resumes. |
-| WS-75 | pending | WS-74 | Python production hardening: production-oriented runbooks, operator guardrails, failure-mode review, and battle-test soak evidence on `main`. |
+| WS-75 | complete | WS-74 | Python production hardening: production-oriented runbooks, operator guardrails, failure-mode review, and battle-test soak evidence on `main`. |
 | WS-76 | complete | WS-74, WS-75 | Python SIEM readiness: validate export contracts, ingestion fixtures, OCSF gap analysis, and production integration constraints before Rust port planning resumes. |
 | WS-77 | complete | WS-75, WS-76 | Python SIEM implementation hardening: implement the vendor-neutral NDJSON export path, ingestion fixtures, and open-source SIEM proof workflow on the Python baseline before Rust resumes. |
 
@@ -1070,8 +1069,15 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-75 - Python Production Hardening
 
-- Status: pending.
+- Status: complete.
 - Goal: harden the Python source of truth for production use with stronger operator runbooks, deployment guardrails, failure-mode review, and battle-test soak evidence on `main`.
+- Delivered:
+  - added `scripts/siem_wazuh_smoke.py` as a first-party FoxClaw -> NDJSON -> Wazuh smoke runner using the shipped `foxclaw scan --ndjson-out` path.
+  - added an optional `siem_wazuh` lane to `scripts/soak_runner.sh` behind `--siem-wazuh-runs`.
+  - added deterministic runner tests in `tests/test_siem_wazuh_smoke_script.py`, including a regression check that preserves venv-style interpreter symlinks.
+  - updated `docs/SOAK.md` with native Wazuh lane operator guidance, pinned-image preflight, and reduced-soak commands.
+  - recorded production-hardened smoke and soak evidence in:
+    - `docs/WS75_EVIDENCE_2026-02-27.md`
 
 ### WS-76 - Python SIEM Readiness
 
