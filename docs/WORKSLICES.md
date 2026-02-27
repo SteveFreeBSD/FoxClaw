@@ -18,8 +18,8 @@ This plan converts the current review and research into sequenced, testable exec
 - Immediate execution focus:
   - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening and SIEM evidence.
 - Rationale:
-  - WS-75, WS-76, and WS-77 are now complete on `main`.
-  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, and production-oriented runbook/evidence updates.
+  - WS-75, WS-76, WS-77, and WS-78 are now complete on `main`.
+  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, and machine-readable soak summaries.
   - Rust bootstrap remains deferred until that Python evidence is explicitly accepted as the baseline for branch handoff.
 
 ## Slice Queue
@@ -104,6 +104,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-75 | complete | WS-74 | Python production hardening: production-oriented runbooks, operator guardrails, failure-mode review, and battle-test soak evidence on `main`. |
 | WS-76 | complete | WS-74, WS-75 | Python SIEM readiness: validate export contracts, ingestion fixtures, OCSF gap analysis, and production integration constraints before Rust port planning resumes. |
 | WS-77 | complete | WS-75, WS-76 | Python SIEM implementation hardening: implement the vendor-neutral NDJSON export path, ingestion fixtures, and open-source SIEM proof workflow on the Python baseline before Rust resumes. |
+| WS-78 | complete | WS-75, WS-77 | Soak-gate reliability: bounded Wazuh lane timeouts, machine-readable soak summary output, and repeatable reduced production gate runs on `main`. |
 
 ## Slice Details
 
@@ -1102,6 +1103,18 @@ This plan converts the current review and research into sequenced, testable exec
   - proved Wazuh ingest with `localfile`, `wazuh-logtest`, and `alerts.json` evidence in:
     - `docs/WS77_EVIDENCE_2026-02-27.md`
   - execution note: this user-directed implementation ran ahead of WS-75 production-hardening work; Rust remains blocked on WS-75.
+
+### WS-78 - Soak Gate and Wazuh Lane Reliability
+
+- Status: complete.
+- Goal: turn the Python soak harness into a low-flake production gate with bounded Wazuh-lane waits, clear artifact-first failure reporting, and repeatable reduced gate runs.
+- Delivered:
+  - hardened `scripts/siem_wazuh_smoke.py` with explicit Docker call timeouts, bounded retries, deterministic failure artifacts, and manifest emission on both PASS and FAIL paths.
+  - added per-stage timeout guarding to `scripts/soak_runner.sh` via `--stage-timeout-seconds`.
+  - upgraded `results.tsv` to record `artifact_path` and added machine-readable `soak-summary.json` generation through `scripts/soak_summary.py`.
+  - expanded regression coverage for readiness retries, bounded logtest timeout failure, symlink-preserving venv execution, and soak summary rollups.
+  - recorded the two passing reduced gate runs and operator guidance in:
+    - `docs/WS78_EVIDENCE_2026-02-27.md`
 
 ## Workslice Update Protocol
 

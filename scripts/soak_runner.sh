@@ -16,6 +16,7 @@ Options:
   --duration-hours <N>     Total soak duration in hours (default: 10).
   --output-root <path>     Root directory for soak artifacts (default: /var/tmp/foxclaw-soak).
   --label <text>           Optional run label appended to run directory.
+  --stage-timeout-seconds <N> Timeout guard per stage command (default: 1800).
   --integration-runs <N>   Integration iterations per cycle (default: 5).
   --snapshot-runs <N>      Snapshot scans per cycle for determinism check (default: 5).
   --synth-count <N>        Realistic synthetic profiles per cycle (default: 50).
@@ -56,6 +57,7 @@ PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
 DURATION_HOURS=10
 OUTPUT_ROOT="/var/tmp/foxclaw-soak"
 LABEL=""
+STAGE_TIMEOUT_SECONDS=1800
 INTEGRATION_RUNS=5
 SNAPSHOT_RUNS=5
 SYNTH_COUNT=50
@@ -81,6 +83,7 @@ while [[ $# -gt 0 ]]; do
     --duration-hours)   DURATION_HOURS="${2:-}"; shift 2 ;;
     --output-root)      OUTPUT_ROOT="${2:-}"; shift 2 ;;
     --label)            LABEL="${2:-}"; shift 2 ;;
+    --stage-timeout-seconds) STAGE_TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     --integration-runs) INTEGRATION_RUNS="${2:-}"; shift 2 ;;
     --snapshot-runs)    SNAPSHOT_RUNS="${2:-}"; shift 2 ;;
     --synth-count)      SYNTH_COUNT="${2:-}"; shift 2 ;;
@@ -110,7 +113,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE ADVERSARY_RUNS ADVERSARY_COUNT SIEM_WAZUH_RUNS MATRIX_RUNS MAX_CYCLES; do
+for v in DURATION_HOURS STAGE_TIMEOUT_SECONDS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE ADVERSARY_RUNS ADVERSARY_COUNT SIEM_WAZUH_RUNS MATRIX_RUNS MAX_CYCLES; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
@@ -118,6 +121,10 @@ for v in DURATION_HOURS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SY
 done
 if [[ "${DURATION_HOURS}" -eq 0 ]]; then
   echo "error: --duration-hours must be greater than zero" >&2
+  exit 2
+fi
+if [[ "${STAGE_TIMEOUT_SECONDS}" -eq 0 ]]; then
+  echo "error: --stage-timeout-seconds must be greater than zero" >&2
   exit 2
 fi
 if [[ "${SYNTH_MODE}" != "realistic" && "${SYNTH_MODE}" != "bootstrap" ]]; then
@@ -151,6 +158,7 @@ mkdir -p "${LOG_DIR}"
 RUN_LOG="${RUN_DIR}/run.log"
 RESULTS_TSV="${RUN_DIR}/results.tsv"
 SUMMARY_TXT="${RUN_DIR}/summary.txt"
+SOAK_SUMMARY_JSON="${RUN_DIR}/soak-summary.json"
 MANIFEST_TXT="${RUN_DIR}/manifest.txt"
 PID_FILE="${RUN_DIR}/pid.txt"
 
@@ -164,7 +172,12 @@ log() {
 }
 
 printf '%s\n' "$$" >"${PID_FILE}"
-printf 'cycle\tstage\titeration\texit_code\tstatus\tduration_sec\tstarted_at\tended_at\tlog_path\n' >"${RESULTS_TSV}"
+printf 'cycle\tstage\titeration\texit_code\tstatus\tduration_sec\tstarted_at\tended_at\tlog_path\tartifact_path\n' >"${RESULTS_TSV}"
+
+if ! command -v timeout >/dev/null 2>&1; then
+  echo "error: timeout command is required for soak stage guards" >&2
+  exit 1
+fi
 
 BRANCH="$(git -C "${ROOT_DIR}" rev-parse --abbrev-ref HEAD || echo "unknown")"
 COMMIT="$(git -C "${ROOT_DIR}" rev-parse HEAD || echo "unknown")"
@@ -189,6 +202,7 @@ branch=${BRANCH}
 commit=${COMMIT}
 git_dirty=${DIRTY_FLAG}
 duration_hours=${DURATION_HOURS}
+stage_timeout_seconds=${STAGE_TIMEOUT_SECONDS}
 integration_runs_per_cycle=${INTEGRATION_RUNS}
 snapshot_runs_per_cycle=${SNAPSHOT_RUNS}
 synth_count_per_cycle=${SYNTH_COUNT}
@@ -248,9 +262,24 @@ record_step() {
   local started="$7"
   local ended="$8"
   local log_path="$9"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "${cycle}" "${stage}" "${iter}" "${exit_code}" "${status}" "${duration}" "${started}" "${ended}" "${log_path}" \
+  local artifact_path="${10}"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${cycle}" "${stage}" "${iter}" "${exit_code}" "${status}" "${duration}" "${started}" "${ended}" "${log_path}" "${artifact_path}" \
     >>"${RESULTS_TSV}"
+}
+
+run_command_with_timeout() {
+  local log_file="$1"
+  shift 1
+  local ec=0
+  set +e
+  timeout --kill-after=5s "${STAGE_TIMEOUT_SECONDS}s" "$@" >"${log_file}" 2>&1
+  ec=$?
+  set -e
+  if [[ "${ec}" -eq 124 || "${ec}" -eq 137 ]]; then
+    printf '[stage-timeout] timeout_seconds=%s\n' "${STAGE_TIMEOUT_SECONDS}" >>"${log_file}"
+  fi
+  return "${ec}"
 }
 
 run_step_cmd() {
@@ -258,31 +287,26 @@ run_step_cmd() {
   local stage="$2"
   local iter="$3"
   local log_file="$4"
-  shift 4
+  local artifact_path="$5"
+  shift 5
   local started_epoch ended_epoch duration ec started_ts ended_ts status
   started_epoch="$(date -u +%s)"
   started_ts="$(iso_now)"
-  set +e
-  "$@" >"${log_file}" 2>&1
-  ec=$?
-  set -e
+  ec=0
+  run_command_with_timeout "${log_file}" "$@" || ec=$?
   ended_epoch="$(date -u +%s)"
   ended_ts="$(iso_now)"
   duration="$((ended_epoch - started_epoch))"
   step_total="$((step_total + 1))"
   if is_expected_exit_code "${stage}" "${ec}"; then
     status="PASS"
-    if [[ "${ec}" -eq 0 ]]; then
-      log "PASS cycle=${cycle} stage=${stage} iter=${iter} sec=${duration}"
-    else
-      log "PASS cycle=${cycle} stage=${stage} iter=${iter} sec=${duration} ec=${ec}"
-    fi
+    log "PASS cycle=${cycle} stage=${stage} iter=${iter} ec=${ec} sec=${duration} log=${log_file} artifact=${artifact_path}"
   else
     status="FAIL"
     step_fail="$((step_fail + 1))"
-    log "FAIL cycle=${cycle} stage=${stage} iter=${iter} ec=${ec} log=${log_file}"
+    log "FAIL cycle=${cycle} stage=${stage} iter=${iter} ec=${ec} sec=${duration} log=${log_file} artifact=${artifact_path}"
   fi
-  record_step "${cycle}" "${stage}" "${iter}" "${ec}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}"
+  record_step "${cycle}" "${stage}" "${iter}" "${ec}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${artifact_path}"
   [[ "${status}" = "PASS" ]]
 }
 
@@ -324,10 +348,11 @@ run_snapshot_determinism_cycle() {
     started_ts="$(iso_now)"
 
     scan_exit=0
-    "${PYTHON_BIN}" -m foxclaw scan \
+    run_command_with_timeout "${log_file}" \
+      "${PYTHON_BIN}" -m foxclaw scan \
       --profile "${ROOT_DIR}/tests/fixtures/firefox_profile" \
       --ruleset "${ROOT_DIR}/foxclaw/rulesets/balanced.yml" \
-      --snapshot-out "${snapshot_file}" >"${log_file}" 2>&1 || scan_exit=$?
+      --snapshot-out "${snapshot_file}" || scan_exit=$?
 
     ended_epoch="$(date -u +%s)"
     ended_ts="$(iso_now)"
@@ -335,14 +360,14 @@ run_snapshot_determinism_cycle() {
     step_total="$((step_total + 1))"
     if is_expected_exit_code "snapshot" "${scan_exit}"; then
       status="PASS"
-      log "PASS cycle=${cycle} stage=snapshot iter=${i} sec=${duration} ec=${scan_exit}"
+      log "PASS cycle=${cycle} stage=snapshot iter=${i} ec=${scan_exit} sec=${duration} log=${log_file} artifact=${snapshot_file}"
     else
       status="FAIL"
       step_fail="$((step_fail + 1))"
       fail_local=1
-      log "FAIL cycle=${cycle} stage=snapshot iter=${i} ec=${scan_exit} log=${log_file}"
+      log "FAIL cycle=${cycle} stage=snapshot iter=${i} ec=${scan_exit} sec=${duration} log=${log_file} artifact=${snapshot_file}"
     fi
-    record_step "${cycle}" "snapshot" "${i}" "${scan_exit}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}"
+    record_step "${cycle}" "snapshot" "${i}" "${scan_exit}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${snapshot_file}"
   done
 
   local sha_file="${snapshot_dir}/sha256.txt"
@@ -362,10 +387,10 @@ run_snapshot_determinism_cycle() {
     step_fail="$((step_fail + 1))"
     fail_local=1
     log "FAIL cycle=${cycle} stage=snapshot_hash_check unique_hashes=${unique_hash_count}"
-    record_step "${cycle}" "snapshot_hash_check" "1" "1" "FAIL" "0" "$(iso_now)" "$(iso_now)" "${check_log}"
+    record_step "${cycle}" "snapshot_hash_check" "1" "1" "FAIL" "0" "$(iso_now)" "$(iso_now)" "${check_log}" "${sha_file}"
   else
     log "PASS cycle=${cycle} stage=snapshot_hash_check unique_hashes=1"
-    record_step "${cycle}" "snapshot_hash_check" "1" "0" "PASS" "0" "$(iso_now)" "$(iso_now)" "${check_log}"
+    record_step "${cycle}" "snapshot_hash_check" "1" "0" "PASS" "0" "$(iso_now)" "$(iso_now)" "${check_log}" "${sha_file}"
   fi
 
   return "${fail_local}"
@@ -382,16 +407,16 @@ run_matrix_cycle() {
     version_log="${LOG_DIR}/cycle-${cycle}-matrix-${matrix_iter}-${channel}-version.log"
     scan_log="${LOG_DIR}/cycle-${cycle}-matrix-${matrix_iter}-${channel}-scan.log"
 
-    run_step_cmd "${cycle}" "matrix_build_${channel}" "${matrix_iter}" "${build_log}" \
+    run_step_cmd "${cycle}" "matrix_build_${channel}" "${matrix_iter}" "${build_log}" "-" \
       docker_exec build --build-arg FIREFOX_CHANNEL="${channel}" \
       -f "${ROOT_DIR}/docker/testbed/Dockerfile" \
       -t "foxclaw-firefox-testbed:${channel}" \
       "${ROOT_DIR}" || fail_local=1
 
-    run_step_cmd "${cycle}" "matrix_version_${channel}" "${matrix_iter}" "${version_log}" \
+    run_step_cmd "${cycle}" "matrix_version_${channel}" "${matrix_iter}" "${version_log}" "-" \
       docker_exec run --rm "foxclaw-firefox-testbed:${channel}" firefox --version || fail_local=1
 
-    run_step_cmd "${cycle}" "matrix_scan_${channel}" "${matrix_iter}" "${scan_log}" \
+    run_step_cmd "${cycle}" "matrix_scan_${channel}" "${matrix_iter}" "${scan_log}" "-" \
       docker_exec run --rm \
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
@@ -433,7 +458,7 @@ while true; do
   log "Starting cycle ${cycle}."
 
   for ((i=1; i<=INTEGRATION_RUNS; i++)); do
-    run_step_cmd "${cycle}" "integration" "${i}" "${LOG_DIR}/cycle-${cycle}-integration-${i}.log" \
+    run_step_cmd "${cycle}" "integration" "${i}" "${LOG_DIR}/cycle-${cycle}-integration-${i}.log" "-" \
       make -C "${ROOT_DIR}" test-integration || overall_fail=1
     if [[ "${stop_requested}" -eq 1 ]]; then
       overall_fail=1
@@ -452,7 +477,7 @@ while true; do
     break
   fi
 
-  run_step_cmd "${cycle}" "trust_scan" "1" "${LOG_DIR}/cycle-${cycle}-trust-scan.log" \
+  run_step_cmd "${cycle}" "trust_scan" "1" "${LOG_DIR}/cycle-${cycle}-trust-scan.log" "-" \
     "${ROOT_DIR}/scripts/trust_scan_smoke.sh" "${PYTHON_BIN}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
     overall_fail=1
@@ -461,7 +486,7 @@ while true; do
 
   synth_cycle_dir="${RUN_DIR}/synth/cycle-${cycle}"
   mkdir -p "${synth_cycle_dir}"
-  run_step_cmd "${cycle}" "synth" "1" "${LOG_DIR}/cycle-${cycle}-synth.log" \
+  run_step_cmd "${cycle}" "synth" "1" "${LOG_DIR}/cycle-${cycle}-synth.log" "${synth_cycle_dir}" \
     "${ROOT_DIR}/scripts/synth_runner.sh" \
     --count "${SYNTH_COUNT}" \
     --output-dir "${synth_cycle_dir}" \
@@ -477,7 +502,7 @@ while true; do
 
   fuzz_cycle_dir="${RUN_DIR}/fuzz/cycle-${cycle}"
   mkdir -p "${fuzz_cycle_dir}"
-  run_step_cmd "${cycle}" "fuzz" "1" "${LOG_DIR}/cycle-${cycle}-fuzz.log" \
+  run_step_cmd "${cycle}" "fuzz" "1" "${LOG_DIR}/cycle-${cycle}-fuzz.log" "${fuzz_cycle_dir}" \
     "${ROOT_DIR}/scripts/fuzz_runner.sh" \
     --count "${FUZZ_COUNT}" \
     --output-dir "${fuzz_cycle_dir}" \
@@ -495,7 +520,7 @@ while true; do
     adversary_cycle_dir="${RUN_DIR}/adversary/cycle-${cycle}-run-${a}"
     mkdir -p "${adversary_cycle_dir}"
     adversary_seed="$((606060 + (cycle * 100) + a))"
-    run_step_cmd "${cycle}" "adversary" "${a}" "${LOG_DIR}/cycle-${cycle}-adversary-${a}.log" \
+    run_step_cmd "${cycle}" "adversary" "${a}" "${LOG_DIR}/cycle-${cycle}-adversary-${a}.log" "${adversary_cycle_dir}" \
       "${PYTHON_BIN}" "${ROOT_DIR}/scripts/adversary_profiles.py" \
       --output-dir "${adversary_cycle_dir}" \
       --count-per-scenario "${ADVERSARY_COUNT}" \
@@ -516,7 +541,7 @@ while true; do
   for ((s=1; s<=SIEM_WAZUH_RUNS; s++)); do
     siem_cycle_dir="${RUN_DIR}/siem-wazuh/cycle-${cycle}-run-${s}"
     mkdir -p "${siem_cycle_dir}"
-    run_step_cmd "${cycle}" "siem_wazuh" "${s}" "${LOG_DIR}/cycle-${cycle}-siem-wazuh-${s}.log" \
+    run_step_cmd "${cycle}" "siem_wazuh" "${s}" "${LOG_DIR}/cycle-${cycle}-siem-wazuh-${s}.log" "${siem_cycle_dir}" \
       "${PYTHON_BIN}" "${ROOT_DIR}/scripts/siem_wazuh_smoke.py" \
       --output-dir "${siem_cycle_dir}" \
       --python-bin "${PYTHON_BIN}" || overall_fail=1
@@ -551,6 +576,10 @@ END_EPOCH="$(date -u +%s)"
 TOTAL_SEC="$((END_EPOCH - START_EPOCH))"
 CYCLE_COUNT="$((cycle - 1))"
 STEP_PASS="$((step_total - step_fail))"
+FAILED_ARTIFACTS="$(awk -F'\t' 'NR > 1 && $5 == "FAIL" && $10 != "-" {print $10}' "${RESULTS_TSV}" | paste -sd, -)"
+if [[ -z "${FAILED_ARTIFACTS}" ]]; then
+  FAILED_ARTIFACTS="-"
+fi
 
 {
   echo "run_id=${RUN_ID}"
@@ -564,11 +593,18 @@ STEP_PASS="$((step_total - step_fail))"
   echo "steps_failed=${step_fail}"
   echo "stop_reason=${stop_reason}"
   echo "overall_status=$([[ ${overall_fail} -eq 0 ]] && echo PASS || echo FAIL)"
+  echo "artifacts_root=${RUN_DIR}"
+  echo "failed_artifact_paths=${FAILED_ARTIFACTS}"
   echo "manifest=${MANIFEST_TXT}"
   echo "results=${RESULTS_TSV}"
   echo "run_log=${RUN_LOG}"
   echo "logs_dir=${LOG_DIR}"
+  echo "soak_summary_json=${SOAK_SUMMARY_JSON}"
 } >"${SUMMARY_TXT}"
+
+"${PYTHON_BIN}" "${ROOT_DIR}/scripts/soak_summary.py" \
+  --run-dir "${RUN_DIR}" \
+  --output "${SOAK_SUMMARY_JSON}" >>"${RUN_LOG}" 2>&1
 
 if [[ "${overall_fail}" -eq 0 ]]; then
   log "Soak completed successfully. Summary: ${SUMMARY_TXT}"

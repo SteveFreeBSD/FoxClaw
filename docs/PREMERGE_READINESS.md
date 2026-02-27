@@ -63,7 +63,7 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-75 / WS-76 / WS-77 evidence review**: Python production hardening and SIEM baseline are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
+1. **WS-75 / WS-76 / WS-77 / WS-78 evidence review**: Python production hardening, SIEM baseline, and soak-gate reliability are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
 2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM evidence is accepted.
 
 Current evidence basis:
@@ -82,4 +82,5 @@ Current evidence basis:
 - `docs/WS75_EVIDENCE_2026-02-27.md` confirms the native Wazuh smoke runner, soak-harness `siem_wazuh` lane, and passing reduced soak evidence on `main`.
 - `docs/WS76_SIEM_READINESS.md` and `docs/WS76_EVIDENCE_2026-02-27.md` capture the vendor-neutral NDJSON contract, Wazuh proof target, and ingest workflow research.
 - `docs/WS77_EVIDENCE_2026-02-27.md` confirms the Python NDJSON exporter, deterministic contract tests, and Wazuh proof-of-ingest.
+- `docs/WS78_EVIDENCE_2026-02-27.md` confirms bounded Wazuh-lane waits, `soak-summary.json`, and two passing reduced gate runs on `main`.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

@@ -98,6 +98,10 @@ Objectives:
   - native Wazuh smoke validation is first-party,
   - battle-test soak evidence exists on `main`,
   - deployment guardrails are documented around the pinned Wazuh image and readiness waits.
+- WS-78 is complete on the Python baseline:
+  - the Wazuh lane is bounded by explicit timeouts,
+  - the soak harness emits `soak-summary.json`,
+  - reduced gate runs have been repeated successfully on `main`.
 - Keep the completed WS-76/WS-77 SIEM baseline stable:
   - vendor-neutral NDJSON contract is defined,
   - deterministic export/ingest fixtures exist,
@@ -105,7 +109,7 @@ Objectives:
 
 Exit criteria:
 
-- Python `main` is supported by production-facing operator/runbook evidence and extended soak confidence, including the native `siem_wazuh` lane.
+- Python `main` is supported by production-facing operator/runbook evidence and extended soak confidence, including the native `siem_wazuh` lane and repeatable reduced gate runs.
 - SIEM integration constraints are documented, and the chosen Python ingest/export path is validated with deterministic fixtures and no ambiguous contract assumptions.
 - Rust execution work remains blocked until this completed Python evidence is explicitly accepted as the handoff baseline.
 

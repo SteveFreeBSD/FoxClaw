@@ -27,6 +27,39 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 
 ## Launch (overnight)
 
+Recommended reduced gate run:
+
+```bash
+scripts/soak_runner.sh \
+  --duration-hours 1 \
+  --max-cycles 1 \
+  --stage-timeout-seconds 1800 \
+  --integration-runs 1 \
+  --snapshot-runs 1 \
+  --synth-count 1 \
+  --fuzz-count 1 \
+  --adversary-runs 0 \
+  --siem-wazuh-runs 1 \
+  --matrix-runs 0 \
+  --label ws78-gate
+```
+
+Recommended overnight soak:
+
+```bash
+systemd-run --user \
+  --unit foxclaw-soak-overnight \
+  --same-dir \
+  --collect \
+  --setenv=SOAK_SUDO_PASSWORD='<sudo-password>' \
+  scripts/soak_runner.sh \
+    --duration-hours 10 \
+    --stage-timeout-seconds 1800 \
+    --siem-wazuh-runs 1 \
+    --label overnight-phase1 \
+    --output-root /var/tmp/foxclaw-soak
+```
+
 Quick commands:
 
 ```bash
@@ -154,14 +187,15 @@ Key files:
 
 - `manifest.txt`: branch/commit/config/host metadata.
 - `run.log`: human-readable execution timeline.
+- `soak-summary.json`: machine-readable rollup with stage counts, Wazuh image, NDJSON event totals, and top `rule_id` values.
 - `results.tsv`: machine-readable step records:
-  - `cycle`, `stage`, `iteration`, `exit_code`, `status`, `duration_sec`, timestamps, `log_path`
+  - `cycle`, `stage`, `iteration`, `exit_code`, `status`, `duration_sec`, timestamps, `log_path`, `artifact_path`
 - `summary.txt`: run outcome and aggregate counts.
 - `logs/*.log`: per-step raw logs.
 - `snapshots/cycle-*/`: deterministic snapshot outputs and `sha256.txt`.
 - `synth/cycle-*/fidelity-summary.json`: synth profile realism gate output.
 - `fuzz/cycle-*/fidelity-summary.json`: fuzz profile realism gate output.
-- `siem-wazuh/cycle-*/`: native FoxClaw -> NDJSON -> Wazuh smoke artifacts (`foxclaw.ndjson`, `wazuh-logtest.txt`, `alerts-excerpt.jsonl`, `manifest.json`) when `--siem-wazuh-runs` is enabled.
+- `siem-wazuh/cycle-*/`: native FoxClaw -> NDJSON -> Wazuh smoke artifacts (`foxclaw.ndjson`, `wazuh-logtest.txt`, `alerts-excerpt.jsonl`, `ossec-log-tail.txt`, `manifest.json`) when `--siem-wazuh-runs` is enabled.
 
 ## Wazuh Lane
 
@@ -179,6 +213,7 @@ Run one reduced soak cycle with the Wazuh lane enabled:
 scripts/soak_runner.sh \
   --duration-hours 1 \
   --max-cycles 1 \
+  --stage-timeout-seconds 1800 \
   --integration-runs 1 \
   --snapshot-runs 1 \
   --synth-count 1 \
@@ -192,8 +227,9 @@ scripts/soak_runner.sh \
 Expected outcome:
 
 - `summary.txt` reports `overall_status=PASS`
+- `soak-summary.json` exists in the run root
 - `results.tsv` contains a passing `siem_wazuh` stage
-- `siem-wazuh/cycle-*/run-*/manifest.json` records the pinned image, NDJSON path, `wazuh-logtest` artifact, and `alerts.json` excerpt
+- `siem-wazuh/cycle-*/run-*/manifest.json` records the pinned image, NDJSON path, `wazuh-logtest` artifact, `alerts.json` excerpt, and `ossec.log` tail path
 
 ## Monitoring
 
@@ -214,6 +250,20 @@ Watch failing steps:
 ```bash
 awk -F'\t' 'NR==1 || $5 == "FAIL"' /var/tmp/foxclaw-soak/<run-id>/results.tsv
 ```
+
+## Troubleshooting
+
+Inspect these files first, in this order:
+
+1. `<run-id>/soak-summary.json`
+2. `<run-id>/summary.txt`
+3. `<run-id>/results.tsv`
+4. `<run-id>/logs/cycle-*-siem-wazuh-*.log`
+5. `<run-id>/siem-wazuh/cycle-*/run-*/foxclaw-scan.log`
+6. `<run-id>/siem-wazuh/cycle-*/run-*/wazuh-logtest.txt`
+7. `<run-id>/siem-wazuh/cycle-*/run-*/alerts-excerpt.jsonl`
+8. `<run-id>/siem-wazuh/cycle-*/run-*/ossec-log-tail.txt`
+9. `<run-id>/siem-wazuh/cycle-*/run-*/manifest.json`
 
 ## Completion Gates
 
