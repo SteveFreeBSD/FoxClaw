@@ -20,6 +20,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Rationale:
   - The validated Python baseline is merged and green on `main`, but it is not yet treated as fully battle-tested for production deployment and SIEM integration.
   - The next useful work is Python production hardening, operator/runbook hardening, and SIEM-readiness preparation on the Python source of truth.
+  - WS-76 research is complete, but production integration decisions still need WS-75 battle-test evidence and a follow-on implementation slice before Rust resumes.
   - Rust bootstrap remains deferred until the Python implementation is proven in a production-oriented environment and the SIEM/export decisions are better informed.
 
 ## Slice Queue
@@ -102,7 +103,8 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-73 | complete | WS-72 | Session-memory privacy hardening: make agent checkpoint persistence local-only so pushes do not publish workflow history or internal notes. |
 | WS-74 | complete | WS-73 | Reprioritize the roadmap so Python production hardening and SIEM-readiness work must complete before Rust resumes. |
 | WS-75 | pending | WS-74 | Python production hardening: production-oriented runbooks, operator guardrails, failure-mode review, and battle-test soak evidence on `main`. |
-| WS-76 | pending | WS-74, WS-75 | Python SIEM readiness: validate export contracts, ingestion fixtures, OCSF gap analysis, and production integration constraints before Rust port planning resumes. |
+| WS-76 | complete | WS-74, WS-75 | Python SIEM readiness: validate export contracts, ingestion fixtures, OCSF gap analysis, and production integration constraints before Rust port planning resumes. |
+| WS-77 | pending | WS-75, WS-76 | Python SIEM implementation hardening: implement the vendor-neutral NDJSON export path, ingestion fixtures, and open-source SIEM proof workflow on the Python baseline before Rust resumes. |
 
 ## Slice Details
 
@@ -1073,8 +1075,20 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-76 - Python SIEM Readiness
 
-- Status: pending.
+- Status: complete.
 - Goal: prepare the Python baseline for SIEM/XDR integration by validating current export contracts, building ingestion fixtures, documenting OCSF gaps, and resolving production integration blockers before Rust planning resumes.
+- Delivered:
+  - defined a vendor-neutral FoxClaw NDJSON event contract with `foxclaw.finding` and `foxclaw.scan.summary`.
+  - selected Wazuh as the first open source SIEM proof target using official support for file collection, JSON decoding, `wazuh-logtest`, and `alerts.json`.
+  - documented the simplest ingest proof path and sample NDJSON artifacts in:
+    - `docs/WS76_SIEM_READINESS.md`
+    - `docs/WS76_EVIDENCE_2026-02-27.md`
+  - execution note: this user-directed research ran ahead of WS-75 implementation work; actual Python SIEM implementation remains queued separately.
+
+### WS-77 - Python SIEM Implementation Hardening
+
+- Status: pending.
+- Goal: implement the vendor-neutral NDJSON export path, add deterministic ingest fixtures, and turn the Wazuh proof workflow into a repeatable Python-baseline validation lane before Rust resumes.
 
 ## Workslice Update Protocol
 

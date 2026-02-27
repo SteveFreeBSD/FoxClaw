@@ -98,16 +98,17 @@ Objectives:
   - failure-mode review,
   - battle-test soak evidence,
   - deployment guardrails and rollback expectations.
-- Complete WS-76 to prepare Python for SIEM/XDR integration:
+- Complete WS-76 research to define the vendor-neutral contract and proof target for Python SIEM/XDR integration.
+- Complete WS-77 implementation hardening to turn that research into deterministic export/ingest validation on the Python baseline:
   - validate current fleet/finding contracts against downstream ingestion needs,
   - add deterministic ingestion fixtures,
   - document OCSF/export gaps and production integration blockers,
-  - keep those decisions explicit before Rust port work starts.
+  - prove the chosen open-source ingest path on the Python baseline before Rust port work starts.
 
 Exit criteria:
 
 - Python `main` is supported by production-facing operator/runbook evidence and extended soak confidence.
-- SIEM integration constraints are documented with deterministic fixtures and no ambiguous contract assumptions.
+- SIEM integration constraints are documented, and the chosen Python ingest/export path is validated with deterministic fixtures and no ambiguous contract assumptions.
 - Rust execution work remains blocked until this evidence exists on the Python baseline.
 
 ### Phase 2.1: Audit Closeout Gate (Immediate)
@@ -190,7 +191,7 @@ Entry condition:
 
 - Phase 2.1 has passed.
 - WS-72 has executed and the Python source-of-truth baseline has been merged on `main`.
-- WS-75 and WS-76 are complete, so production and SIEM design inputs from Python are stable enough to guide Rust decisions.
+- WS-75 and WS-77 are complete, so production and SIEM design inputs from Python are stable enough to guide Rust decisions.
 
 Objectives:
 
