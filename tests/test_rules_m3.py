@@ -369,6 +369,61 @@ def test_dsl_session_restore_sensitive_data_absent_flags_sensitive_data() -> Non
     ]
 
 
+def test_dsl_search_engine_hijack_absent_passes_with_trusted_default() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="search.json.mozlz4",
+                parse_status="parsed",
+                key_values={
+                    "default_search_engine_name": "Google",
+                    "default_search_engine_url": "https://www.google.com/search?q={searchTerms}",
+                    "suspicious_search_engine_count": "0",
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"search_engine_hijack_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_search_engine_hijack_absent_flags_suspicious_default() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="search.json.mozlz4",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_search_engine_count": "1",
+                    "suspicious_search_engines": json.dumps(
+                        [
+                            {
+                                "name": "EvilSearch",
+                                "reasons": [
+                                    "custom_search_url",
+                                    "non_standard_default_engine",
+                                ],
+                                "search_url": "https://search.evil-example.invalid/query?q={searchTerms}",
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"search_engine_hijack_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "EvilSearch: search_url=https://search.evil-example.invalid/query?q={searchTerms}, reasons=custom_search_url,non_standard_default_engine"
+    ]
+
+
 def test_findings_are_sorted_by_severity_then_id() -> None:
     bundle = _empty_bundle()
     ruleset = Ruleset(

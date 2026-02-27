@@ -13,15 +13,23 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T01:35:20.884530+00:00
+- Updated: 2026-02-27T01:41:21.973166+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `89a0a021d2d5e46563f534c35a96984527c026a1`
-- Focus: WS-50: sessionstore data exposure detection and rules
-- Next: Execute WS-51 search engine integrity slice when requested
-- Risks: Compressed Mozilla LZ4 payload parsing uses optional lz4.block; environments without it rely on plain/header JSON handling and may need follow-on support for fully compressed captures
-- Decisions: Audit sessionstore.jsonlz4 deterministically, require both restore-enabled and sensitive entries for findings, and expose session-sensitive metadata via artifacts and session_restore_sensitive_data_absent rules
+- Commit: `b961ca14104a1657c854acd18d370412317d2ebd`
+- Focus: WS-51: search engine integrity validation for search.json.mozlz4
+- Next: Execute WS-52 cookie security posture slice when requested
+- Risks: Compressed mozlz4 payload support remains optional via lz4.block; fully compressed captures may need expanded decoding support in environments without lz4
+- Decisions: Audit default search engine via deterministic allowlists for engine names/domains, surface suspicious defaults through artifact metadata, and enforce with search_engine_hijack_absent in balanced/strict rules
 
 ## Recent Checkpoints
+
+### 2026-02-27T01:41:21.973166+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `b961ca14104a1657c854acd18d370412317d2ebd`
+- Focus: WS-51: search engine integrity validation for search.json.mozlz4
+- Next: Execute WS-52 cookie security posture slice when requested
+- Risks: Compressed mozlz4 payload support remains optional via lz4.block; fully compressed captures may need expanded decoding support in environments without lz4
+- Decisions: Audit default search engine via deterministic allowlists for engine names/domains, surface suspicious defaults through artifact metadata, and enforce with search_engine_hijack_absent in balanced/strict rules
 
 ### 2026-02-27T01:35:20.884530+00:00
 - Branch: docs/windows-profile-gen

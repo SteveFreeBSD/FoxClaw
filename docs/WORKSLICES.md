@@ -16,10 +16,10 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-51 (search engine integrity)
+  - WS-52 (cookie security posture)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
-  - WS-50 session restore exposure detection is complete; continue collector/rule expansion queue (`WS-51..WS-54`)
+  - WS-51 search engine integrity checks are complete; continue collector/rule expansion queue (`WS-52..WS-54`)
 
 ## Slice Queue
 
@@ -75,7 +75,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-48 | complete | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
 | WS-49 | complete | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
 | WS-50 | complete | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
-| WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
+| WS-51 | complete | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
 | WS-52 | pending | WS-30 | Cookie security posture (`cookies.sqlite` session theft signals). |
 | WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection; `.bin` accepted for legacy captures). |
 | WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
@@ -720,14 +720,19 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-51 - Search Engine Integrity
 
-- Status: pending.
+- Status: complete.
 - Goal: detect search engine hijacking by validating the default search engine in `search.json.mozlz4`.
-- Scope:
-  - extend artifacts or prefs collector.
-  - decompress and parse `search.json.mozlz4`.
-  - maintain allowlist of standard search engines (Google, Bing, DuckDuckGo, Yahoo, etc.).
-  - flag non-standard default search engines and custom search URLs.
+- Delivered:
+  - added `foxclaw/collect/search.py` for deterministic `search.json.mozlz4` parsing with Mozilla LZ4 header awareness.
+  - implemented deterministic default-engine extraction and allowlist validation for standard providers.
+  - added custom search URL/domain detection for hijack-like default engine changes.
+  - extended artifact parsing with search integrity metadata (`default_search_engine_*`, suspicious count/details).
+  - implemented `search_engine_hijack_absent` DSL operator and new rules:
+    - `FC-SEARCH-001` in `balanced.yml`.
+    - `FC-STRICT-SEARCH-001` in `strict.yml`.
+  - added deterministic regression coverage for missing/benign/suspicious/invalid payload paths.
   - ATT&CK mapping: T1583.001 (Acquire Infrastructure: Domains).
+- Acceptance: met.
 
 ### WS-52 - Cookie Security Posture
 

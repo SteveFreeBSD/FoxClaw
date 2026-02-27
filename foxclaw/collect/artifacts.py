@@ -14,6 +14,7 @@ from foxclaw.collect.certificates import audit_cert9_root_store
 from foxclaw.collect.handlers import collect_protocol_handler_hijacks
 from foxclaw.collect.pkcs11 import audit_pkcs11_modules
 from foxclaw.collect.safe_paths import iter_safe_profile_files
+from foxclaw.collect.search import audit_search_json
 from foxclaw.collect.session import audit_sessionstore
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
 
@@ -117,6 +118,8 @@ def _parser_for(rel_path: str) -> _ArtifactParser | None:
         return _parse_cert9_db
     if rel_path == "pkcs11.txt":
         return _parse_pkcs11_txt
+    if rel_path == "search.json.mozlz4":
+        return _parse_search_json_mozlz4
     if rel_path == "sessionstore.jsonlz4":
         return _parse_sessionstore_jsonlz4
     if rel_path == "compatibility.ini":
@@ -177,6 +180,37 @@ def _parse_pkcs11_txt(path: Path) -> tuple[ParseStatus, list[str], dict[str, str
                     "reasons": list(item.reasons),
                 }
                 for item in result.suspicious_modules
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    return "parsed", [], dict(sorted(key_values.items())), None
+
+
+def _parse_search_json_mozlz4(
+    path: Path,
+) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+    result = audit_search_json(path)
+    if result.parse_error is not None:
+        return "error", [], {}, result.parse_error
+
+    key_values: dict[str, str] = {
+        "search_engines_count": str(len(result.engines)),
+        "suspicious_search_engine_count": str(len(result.suspicious_defaults)),
+    }
+    if result.default_engine_name is not None:
+        key_values["default_search_engine_name"] = result.default_engine_name
+    if result.default_engine_url is not None:
+        key_values["default_search_engine_url"] = result.default_engine_url
+    if result.suspicious_defaults:
+        key_values["suspicious_search_engines"] = json.dumps(
+            [
+                {
+                    "name": item.name,
+                    "reasons": list(item.reasons),
+                    "search_url": item.search_url,
+                }
+                for item in result.suspicious_defaults
             ],
             sort_keys=True,
             separators=(",", ":"),

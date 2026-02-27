@@ -87,7 +87,22 @@ def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path
     )
 
     search_path = profile_dir / "search.json.mozlz4"
-    search_path.write_bytes(b"mozLz40\0fixture")
+    search_path.write_text(
+        json.dumps(
+            {
+                "engines": [
+                    {
+                        "name": "Google",
+                        "searchUrl": "https://www.google.com/search?q={searchTerms}",
+                        "isDefault": True,
+                    }
+                ],
+                "metaData": {"currentEngine": "Google"},
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
 
     evidence = collect_profile_artifacts(profile_dir)
     entries = {entry.rel_path: entry for entry in evidence.entries}
@@ -118,7 +133,10 @@ def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path
     assert compatibility.key_values["last_osabi"] == "Linux_x86_64-gcc3"
 
     search = entries["search.json.mozlz4"]
-    assert search.parse_status == "metadata_only"
+    assert search.parse_status == "parsed"
+    assert search.key_values["search_engines_count"] == "1"
+    assert search.key_values["default_search_engine_name"] == "Google"
+    assert search.key_values["suspicious_search_engine_count"] == "0"
     assert search.sha256 == hashlib.sha256(search_path.read_bytes()).hexdigest()
 
 
@@ -245,6 +263,46 @@ def test_collect_profile_artifacts_parses_sessionstore_sensitive_data(tmp_path: 
             "kind": "password_field",
             "path": "$.windows[0].tabs[0].entries[0].formdata.id.password",
         },
+    ]
+
+
+def test_collect_profile_artifacts_parses_search_engine_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "search.json.mozlz4").write_text(
+        json.dumps(
+            {
+                "engines": [
+                    {
+                        "name": "EvilSearch",
+                        "searchUrl": "https://search.evil-example.invalid/query?q={searchTerms}",
+                        "isDefault": True,
+                    }
+                ],
+                "metaData": {"currentEngine": "EvilSearch"},
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    search = {entry.rel_path: entry for entry in evidence.entries}["search.json.mozlz4"]
+
+    assert search.parse_status == "parsed"
+    assert search.key_values["search_engines_count"] == "1"
+    assert search.key_values["default_search_engine_name"] == "EvilSearch"
+    assert (
+        search.key_values["default_search_engine_url"]
+        == "https://search.evil-example.invalid/query?q={searchTerms}"
+    )
+    assert search.key_values["suspicious_search_engine_count"] == "1"
+    assert json.loads(search.key_values["suspicious_search_engines"]) == [
+        {
+            "name": "EvilSearch",
+            "reasons": ["custom_search_url", "non_standard_default_engine"],
+            "search_url": "https://search.evil-example.invalid/query?q={searchTerms}",
+        }
     ]
 
 

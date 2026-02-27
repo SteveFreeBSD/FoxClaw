@@ -1,5 +1,5 @@
 name: balanced
-version: 0.11.0
+version: 0.12.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -129,6 +129,16 @@ rules:
       session_restore_sensitive_data_absent: {}
     rationale: Sensitive values in active session restore state can enable session replay and local data theft (T1005, T1185).
     recommendation: Clear session restore data or disable restore for sensitive sessions; avoid storing credential/token fields in session state.
+    confidence: high
+
+  - id: FC-SEARCH-001
+    title: Default search engine should remain on trusted providers
+    severity: HIGH
+    category: artifacts
+    check:
+      search_engine_hijack_absent: {}
+    rationale: Non-standard default engines and custom search URLs can indicate search hijacking and attacker-controlled infrastructure (T1583.001).
+    recommendation: Restore an approved default engine and remove untrusted custom search provider URLs.
     confidence: high
 
   - id: FC-SQL-001

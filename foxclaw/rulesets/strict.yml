@@ -1,5 +1,5 @@
 name: strict
-version: 0.9.0
+version: 0.10.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -129,6 +129,16 @@ rules:
       session_restore_sensitive_data_absent: {}
     rationale: Strict environments should prevent sensitive session restore state that can support replay and credential theft (T1005, T1185).
     recommendation: Disable or sanitize session restore state when sensitive values are present.
+    confidence: high
+
+  - id: FC-STRICT-SEARCH-001
+    title: Default search engine must remain on trusted providers
+    severity: HIGH
+    category: artifacts
+    check:
+      search_engine_hijack_absent: {}
+    rationale: Strict environments should prevent default search hijacking and untrusted custom engine URLs (T1583.001).
+    recommendation: Enforce approved search engines and remove custom search providers not on allowlist.
     confidence: high
 
   - id: FC-STRICT-SQL-001

@@ -47,6 +47,8 @@ _PKCS11_RISK_ENTRIES_KEY = "suspicious_pkcs11_modules"
 _SESSION_RESTORE_ENABLED_KEY = "session_restore_enabled"
 _SESSION_SENSITIVE_COUNT_KEY = "session_sensitive_entry_count"
 _SESSION_SENSITIVE_ENTRIES_KEY = "session_sensitive_entries"
+_SEARCH_RISK_COUNT_KEY = "suspicious_search_engine_count"
+_SEARCH_RISK_ENTRIES_KEY = "suspicious_search_engines"
 
 
 @dataclass(slots=True)
@@ -93,6 +95,8 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_pkcs11_module_injection_absent(bundle, config)
     if check_name == "session_restore_sensitive_data_absent":
         return _check_session_restore_sensitive_data_absent(bundle, config)
+    if check_name == "search_engine_hijack_absent":
+        return _check_search_engine_hijack_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -550,6 +554,57 @@ def _check_session_restore_sensitive_data_absent(
 
     if not evidence:
         evidence = [f"sessionstore.jsonlz4: session_sensitive_entry_count={sensitive_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_search_engine_hijack_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("search_engine_hijack_absent config must be an object when provided")
+
+    search_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "search.json.mozlz4"),
+        None,
+    )
+    if search_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = search_entry.key_values.get(_SEARCH_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = search_entry.key_values.get(_SEARCH_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                search_url = entry.get("search_url")
+                reasons = entry.get("reasons")
+                if not isinstance(name, str) or not isinstance(search_url, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_name = name if name else "<unknown>"
+                evidence.append(
+                    f"{display_name}: search_url={search_url}, reasons={reason_text}"
+                )
+
+    if not evidence:
+        evidence = [f"search.json.mozlz4: suspicious_search_engine_count={suspicious_count}"]
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 
