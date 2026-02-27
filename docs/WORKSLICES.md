@@ -16,11 +16,11 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-72 (Python mainline merge and Rust branch handoff)
+  - WS-31 (on dedicated branch `rust/ws31-bootstrap`)
 - Rationale:
-  - Scope A, Scope B, and Scope C now exist as coherent commit units on this branch.
-  - The next useful work is to merge that validated Python baseline to mainline, then start Rust work from the merged baseline on a dedicated branch.
-  - Rust bootstrap (`WS-31` then `WS-32`) remains deferred to a dedicated Rust branch after the isolated Python scopes are merged.
+  - The validated Python baseline is now merged cleanly and all merge-target gates passed on the merge candidate.
+  - `main` remains the clean Python source of truth.
+  - Rust bootstrap resumes next, but only on the dedicated branch `rust/ws31-bootstrap` seeded from merged `main`.
 
 ## Slice Queue
 
@@ -98,7 +98,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-69 | complete | WS-67 | Scope B merge pack: land matrix/runtime/release hardening changes needed to keep the Python baseline operationally clean. |
 | WS-70 | complete | WS-67, WS-68, WS-69 | Scope C merge pack: land docs, evidence, and queue-control updates after the bounded Python scopes are merged. |
 | WS-71 | complete | WS-68, WS-69, WS-70 | Python merge execution checkpoint: convert the validated scope packs into coherent commit/merge units and keep Rust branch work blocked until the Python baseline lands cleanly. |
-| WS-72 | pending | WS-71 | Python mainline merge and Rust branch handoff: merge the validated Python baseline to mainline, rerun merge-target gates, and only then cut the dedicated Rust branch at WS-31/WS-32. |
+| WS-72 | complete | WS-71 | Python mainline merge and Rust branch handoff: merge the validated Python baseline to mainline, rerun merge-target gates, and only then cut the dedicated Rust branch at WS-31/WS-32. |
 
 ## Slice Details
 
@@ -1026,8 +1026,20 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-72 - Python Mainline Merge and Rust Branch Handoff
 
-- Status: pending.
+- Status: complete.
 - Goal: merge the validated Python baseline to mainline, rerun merge-target gates there, and only then start `WS-31`/`WS-32` on a dedicated Rust branch.
+- Delivered:
+  - fast-forwarded the validated Python baseline onto a merge candidate rooted at `main`.
+  - reran merge-target gates on that candidate:
+    - `./scripts/certify.sh`
+    - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
+    - `make dep-audit`
+    - packaging dry-run + wheel install smoke
+    - `make sbom`
+    - `make sbom-verify`
+    - `.venv/bin/pytest -q`
+  - reserved the dedicated Rust handoff branch name `rust/ws31-bootstrap` for the next execution phase.
+  - archived evidence note: `docs/WS72_EVIDENCE_2026-02-27.md`.
 
 ## Workslice Update Protocol
 

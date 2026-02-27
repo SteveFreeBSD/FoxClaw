@@ -13,15 +13,23 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T14:30:06.178099+00:00
-- Branch: docs/windows-profile-gen
-- Commit: `0d92517d8b4f40c5a20ec244ab31e546517d17aa`
-- Focus: WS-71: convert validated Python scopes into coherent commit units
-- Next: Execute WS-72 mainline merge and Rust branch handoff after rerunning merge-target gates
-- Risks: The commit units now exist cleanly on this branch, but Rust work must remain blocked until WS-72 lands the Python baseline on mainline
-- Decisions: Created separate Scope A and Scope B commits, closed the docs/evidence queue state in WS-71, and advanced the queue to WS-72 instead of starting Rust work from an unmerged branch
+- Updated: 2026-02-27T14:35:54.084499+00:00
+- Branch: ws72-mainline-merge
+- Commit: `6c4f546ecd4f4edfa7d537911ded37af207e227d`
+- Focus: WS-72: validate mainline merge target and hand off Rust branch
+- Next: Begin WS-31/WS-32 on rust/ws31-bootstrap from merged main
+- Risks: Rust work must remain on rust/ws31-bootstrap so main stays the clean Python source of truth
+- Decisions: Validated merge-target gates on ws72-mainline-merge, advanced queue from WS-72 to WS-31 on a dedicated Rust branch, and kept main as the canonical Python baseline
 
 ## Recent Checkpoints
+
+### 2026-02-27T14:35:54.084499+00:00
+- Branch: ws72-mainline-merge
+- Commit: `6c4f546ecd4f4edfa7d537911ded37af207e227d`
+- Focus: WS-72: validate mainline merge target and hand off Rust branch
+- Next: Begin WS-31/WS-32 on rust/ws31-bootstrap from merged main
+- Risks: Rust work must remain on rust/ws31-bootstrap so main stays the clean Python source of truth
+- Decisions: Validated merge-target gates on ws72-mainline-merge, advanced queue from WS-72 to WS-31 on a dedicated Rust branch, and kept main as the canonical Python baseline
 
 ### 2026-02-27T14:30:06.178099+00:00
 - Branch: docs/windows-profile-gen
@@ -174,11 +182,3 @@ python scripts/session_memory.py checkpoint \
 - Next: Execute WS-56 using Current Direction with memory recall loop
 - Risks: PREMERGE_READINESS queue text can lag WORKSLICES and cause planning drift
 - Decisions: Use docs/INDEX precedence, bootstrap with session_memory show, and reconcile already-implemented slices via status updates
-
-### 2026-02-27T00:04:53.951969+00:00
-- Branch: docs/windows-profile-gen
-- Commit: `e47bbe7be30cf283a0a2fbec82953c834306236e`
-- Focus: WS-55B: reconcile workslice status with implemented trend/novelty logic
-- Next: Start WS-56: fleet prevalence/correlation enrichment with deterministic aggregation queries
-- Risks: WS-56 may require schema extension and careful ordering guarantees across profiles
-- Decisions: Treat WS-55B as complete based on existing implementation/tests; update source-of-truth workslice statuses and focus

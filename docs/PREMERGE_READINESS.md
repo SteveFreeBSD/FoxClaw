@@ -63,8 +63,7 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-72**: Merge the validated Python baseline to mainline, rerun merge-target gates there, and only then hand off to the dedicated Rust branch.
-2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization only after the isolated Python baseline is merged, and do that work on a dedicated Rust branch.
+1. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap`, seeded from the merged Python baseline on `main`.
 
 Current evidence basis:
 
@@ -77,4 +76,5 @@ Current evidence basis:
 - `docs/WS69_EVIDENCE_2026-02-27.md` confirms Scope B runtime/release hardening gates and focused regressions are green.
 - `docs/WS70_EVIDENCE_2026-02-27.md` confirms the queue-control and roadmap reconciliation that closes the bounded Python scope sequence.
 - `docs/WS71_EVIDENCE_2026-02-27.md` confirms Scope A and Scope B now exist as coherent commit units and records the validation reruns at those commit boundaries.
+- `docs/WS72_EVIDENCE_2026-02-27.md` confirms merge-target gates passed on top of the mainline merge candidate and records the Rust handoff branch name.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

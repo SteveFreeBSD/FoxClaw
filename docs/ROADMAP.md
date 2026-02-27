@@ -76,7 +76,7 @@ Objectives:
 - Finish WS-28 launch-gate realism and cross-OS profile baseline hardening.
 - Complete WS-30 schema lockdown with explicit JSON/SARIF version policy.
 - Keep Python contracts, fixtures, and soak lanes stable enough to serve as the canonical merge baseline.
-- Defer WS-31 `foxclaw-rs` workspace bootstrap and WS-32 contract canonicalization implementation until the Python baseline is revalidated, isolated into bounded merge units, and merged from mainline.
+- Execute WS-31 `foxclaw-rs` workspace bootstrap and WS-32 contract canonicalization only on the dedicated branch `rust/ws31-bootstrap`, seeded from the merged Python baseline on `main`.
 - Complete WS-46 enterprise Windows-share profile staging lane for deterministic local snapshot scanning.
 - Expand fixture corpus for parser edge cases (SQLite damage modes, extension metadata anomalies, profile-version variance).
 
@@ -167,7 +167,7 @@ Phase 2.6 gating evidence baseline:
 Entry condition:
 
 - Phase 2.1 has passed.
-- WS-71 has executed and the Python source-of-truth baseline has been merged from mainline.
+- WS-72 has executed and the Python source-of-truth baseline has been merged on `main`.
 
 Objectives:
 
