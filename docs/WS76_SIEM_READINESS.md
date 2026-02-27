@@ -105,9 +105,9 @@ Required on every event:
 - `schema_version`
 - `timestamp`
 - `event_type`
+- `event_id`
 - `host`
 - `profile`
-- `rule_id`
 - `severity`
 - `title`
 - `message`
@@ -119,9 +119,9 @@ Recommended field semantics:
 - `event_type`: one of the two values above
 - `host.id`: stable host identity
 - `host.name`: display hostname
-- `profile.id`: stable profile identity
+- `profile.profile_id`: stable profile identity
 - `profile.name`: display profile name or basename
-- `rule_id`: FoxClaw rule ID for findings; `null` for scan summary events
+- `event_id`: stable event identifier for deduplication and replay safety
 - `severity`: normalized FoxClaw severity string
 - `title`: short operator-facing title
 - `message`: longer human-readable explanation
@@ -146,12 +146,23 @@ Recommended optional fields:
 - Patch version:
   - documentation or clarification only, no contract break
 
+Per-event rules:
+
+- `foxclaw.finding` must include `rule_id`.
+- `foxclaw.scan.summary` must omit `rule_id` entirely.
+
 Consumer rules:
 
 - producers must not change meaning of existing fields inside the same major version
 - consumers should ignore unknown fields
 - required field keys stay present across all minor versions
-- `scan.summary` keeps `rule_id` present but nullable for contract uniformity
+- `event_id` is computed from a canonical string that includes:
+  - `event_type`
+  - `host.id`
+  - `profile.profile_id`
+  - `timestamp`
+  - `schema_version`
+  - `rule_id` for finding events only
 
 ## Contract Shape
 
@@ -161,17 +172,18 @@ Consumer rules:
 {
   "schema_version": "1.0.0",
   "timestamp": "2026-02-27T15:00:00Z",
+  "event_id": "<sha256>",
   "event_type": "foxclaw.finding",
   "host": {
     "id": "host-01",
     "name": "workstation-01"
   },
   "profile": {
-    "id": "profile-abc123",
+    "profile_id": "profile-abc123",
     "name": "default-release"
   },
   "rule_id": "FC-HSTS-001",
-  "severity": "high",
+  "severity": "HIGH",
   "title": "HSTS downgrade state detected",
   "message": "Profile contains HSTS state inconsistent with expected downgrade-safe posture.",
   "scan_id": "scan-20260227-150000Z",
@@ -185,17 +197,17 @@ Consumer rules:
 {
   "schema_version": "1.0.0",
   "timestamp": "2026-02-27T15:00:01Z",
+  "event_id": "<sha256>",
   "event_type": "foxclaw.scan.summary",
   "host": {
     "id": "host-01",
     "name": "workstation-01"
   },
   "profile": {
-    "id": "profile-abc123",
+    "profile_id": "profile-abc123",
     "name": "default-release"
   },
-  "rule_id": null,
-  "severity": "info",
+  "severity": "INFO",
   "title": "FoxClaw scan summary",
   "message": "Scan completed with 2 findings, 0 suppressed, and 0 operational errors.",
   "scan_id": "scan-20260227-150000Z",

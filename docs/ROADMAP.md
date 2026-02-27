@@ -76,7 +76,7 @@ Objectives:
 - Finish WS-28 launch-gate realism and cross-OS profile baseline hardening.
 - Complete WS-30 schema lockdown with explicit JSON/SARIF version policy.
 - Keep Python contracts, fixtures, and soak lanes stable enough to serve as the canonical merge baseline.
-- Complete WS-75 production hardening and WS-76 SIEM-readiness work on the Python baseline before any Rust execution resumes.
+- Complete WS-75 production hardening on the Python baseline before any Rust execution resumes, building on the completed WS-76/WS-77 SIEM groundwork.
 - Complete WS-46 enterprise Windows-share profile staging lane for deterministic local snapshot scanning.
 - Expand fixture corpus for parser edge cases (SQLite damage modes, extension metadata anomalies, profile-version variance).
 
@@ -98,12 +98,10 @@ Objectives:
   - failure-mode review,
   - battle-test soak evidence,
   - deployment guardrails and rollback expectations.
-- Complete WS-76 research to define the vendor-neutral contract and proof target for Python SIEM/XDR integration.
-- Complete WS-77 implementation hardening to turn that research into deterministic export/ingest validation on the Python baseline:
-  - validate current fleet/finding contracts against downstream ingestion needs,
-  - add deterministic ingestion fixtures,
-  - document OCSF/export gaps and production integration blockers,
-  - prove the chosen open-source ingest path on the Python baseline before Rust port work starts.
+- Keep the completed WS-76/WS-77 SIEM baseline stable:
+  - vendor-neutral NDJSON contract is defined,
+  - deterministic export/ingest fixtures exist,
+  - Wazuh proof-of-ingest is recorded on the Python baseline.
 
 Exit criteria:
 
@@ -191,7 +189,7 @@ Entry condition:
 
 - Phase 2.1 has passed.
 - WS-72 has executed and the Python source-of-truth baseline has been merged on `main`.
-- WS-75 and WS-77 are complete, so production and SIEM design inputs from Python are stable enough to guide Rust decisions.
+- WS-75 is complete, with WS-77 already landed, so production and SIEM design inputs from Python are stable enough to guide Rust decisions.
 
 Objectives:
 

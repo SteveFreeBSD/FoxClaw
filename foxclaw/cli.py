@@ -1,6 +1,7 @@
 """CLI entrypoint for foxclaw."""
 
 import hashlib
+import io
 import json
 import sys
 from datetime import UTC, datetime
@@ -23,6 +24,7 @@ from foxclaw.profiles import PROFILE_LOCK_FILES, FirefoxProfile, discover_profil
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
+from foxclaw.report.siem import iter_siem_events, write_ndjson
 from foxclaw.report.snapshot import render_scan_snapshot
 from foxclaw.report.snapshot_diff import (
     build_scan_snapshot_diff,
@@ -105,6 +107,9 @@ def profiles_list() -> None:
 @app.command("scan")
 def scan(
     json_output: bool = typer.Option(False, "--json", help="Emit JSON report to stdout."),
+    ndjson_output: bool = typer.Option(
+        False, "--ndjson", help="Emit SIEM NDJSON events to stdout."
+    ),
     profile: Path | None = typer.Option(
         None, "--profile", help="Scan this Firefox profile directory directly."
     ),
@@ -191,6 +196,9 @@ def scan(
     ),
     sarif_output: bool = typer.Option(False, "--sarif", help="Emit SARIF 2.1.0 report to stdout."),
     output: Path | None = typer.Option(None, "--output", help="Write JSON report to this path."),
+    ndjson_out: Path | None = typer.Option(
+        None, "--ndjson-out", help="Write SIEM NDJSON events to this path."
+    ),
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
     ),
@@ -217,8 +225,11 @@ def scan(
     ),
 ) -> None:
     """Run read-only scan."""
-    if json_output and sarif_output:
-        console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
+    selected_stdout_modes = [json_output, sarif_output, ndjson_output]
+    if sum(1 for mode in selected_stdout_modes if mode) > 1:
+        console.print(
+            "[red]Operational error: --json, --sarif, and --ndjson are mutually exclusive.[/red]"
+        )
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
     stage_result = None
@@ -230,6 +241,7 @@ def scan(
                     source_profile=profile,
                     staging_root=staging_root,
                     json_out=output,
+                    ndjson_out=ndjson_out,
                     sarif_out=sarif_out,
                     scan_snapshot_out=snapshot_out,
                     manifest_out=stage_manifest_out,
@@ -258,8 +270,10 @@ def scan(
         profile_path=selected_profile.path,
         resolved_ruleset_path=resolved_ruleset_path,
         json_output=json_output,
+        ndjson_output=ndjson_output,
         sarif_output=sarif_output,
         output=output,
+        ndjson_out=ndjson_out,
         sarif_out=sarif_out,
         snapshot_out=snapshot_out,
         deterministic=deterministic,
@@ -334,10 +348,28 @@ def scan(
         evidence.generated_at = datetime(2025, 1, 1, tzinfo=UTC)
 
     json_payload: str | None = None
+    ndjson_payload: str | None = None
     sarif_payload: str | None = None
     snapshot_payload: str | None = None
+
+    def _render_ndjson_payload() -> str:
+        buffer = io.StringIO()
+        write_ndjson(iter_siem_events(evidence), buffer)
+        return buffer.getvalue()
+
     if json_output or output is not None:
         json_payload = render_scan_json(evidence)
+    if ndjson_output or ndjson_out is not None:
+        try:
+            ndjson_payload = _render_ndjson_payload()
+        except ValueError as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
+            console.print(f"[red]Operational error writing NDJSON output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if sarif_output or sarif_out is not None:
         sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
 
@@ -354,6 +386,20 @@ def scan(
                 strict=False,
             )
             console.print(f"[red]Operational error writing output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    if ndjson_out is not None:
+        try:
+            ndjson_out.parent.mkdir(parents=True, exist_ok=True)
+            if ndjson_payload is None:
+                ndjson_payload = _render_ndjson_payload()
+            ndjson_out.write_text(ndjson_payload, encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
+            console.print(f"[red]Operational error writing NDJSON output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if sarif_out is not None:
         try:
@@ -394,14 +440,29 @@ def scan(
         if json_payload is None:
             json_payload = render_scan_json(evidence)
         typer.echo(json_payload)
+    elif ndjson_output and ndjson_out is None:
+        if ndjson_payload is None:
+            try:
+                ndjson_payload = _render_ndjson_payload()
+            except ValueError as exc:
+                _write_stage_manifest(
+                    exit_code=EXIT_OPERATIONAL_ERROR,
+                    status="FAIL",
+                    strict=False,
+                )
+                console.print(f"[red]Operational error writing NDJSON output: {exc}[/red]")
+                raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        typer.echo(ndjson_payload, nl=False)
     elif sarif_output and sarif_out is None:
         if sarif_payload is None:
             sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
         typer.echo(sarif_payload)
-    elif not json_output and not sarif_output:
+    elif not json_output and not sarif_output and not ndjson_output:
         render_scan_summary(console, evidence)
         if output is not None:
             console.print(f"JSON report written to: {output}")
+        if ndjson_out is not None:
+            console.print(f"NDJSON report written to: {ndjson_out}")
         if sarif_out is not None:
             console.print(f"SARIF report written to: {sarif_out}")
         if snapshot_out is not None:
@@ -1368,8 +1429,10 @@ def _build_stage_scan_manifest_command(
     profile_path: Path,
     resolved_ruleset_path: Path,
     json_output: bool,
+    ndjson_output: bool,
     sarif_output: bool,
     output: Path | None,
+    ndjson_out: Path | None,
     sarif_out: Path | None,
     snapshot_out: Path | None,
     deterministic: bool,
@@ -1393,10 +1456,14 @@ def _build_stage_scan_manifest_command(
     ]
     if json_output:
         command.append("--json")
+    if ndjson_output:
+        command.append("--ndjson")
     if sarif_output:
         command.append("--sarif")
     if output is not None:
         command.extend(["--output", str(output)])
+    if ndjson_out is not None:
+        command.extend(["--ndjson-out", str(ndjson_out)])
     if sarif_out is not None:
         command.extend(["--sarif-out", str(sarif_out)])
     if snapshot_out is not None:

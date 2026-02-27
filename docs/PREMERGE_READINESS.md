@@ -64,8 +64,7 @@ Do not merge when any of the following is true:
 Ordered next implementation targets:
 
 1. **WS-75**: Harden the Python source of truth for production use with stronger operator/runbook, failure-mode, and battle-test evidence on `main`.
-2. **WS-77**: Implement the Python SIEM NDJSON/export and ingest-proof workflow informed by the completed WS-76 research.
-3. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap`, but only after WS-75 and WS-77 are complete.
+2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap`, but only after WS-75 is complete on top of the already-landed WS-76/WS-77 SIEM baseline.
 
 Current evidence basis:
 
@@ -81,4 +80,5 @@ Current evidence basis:
 - `docs/WS72_EVIDENCE_2026-02-27.md` confirms merge-target gates passed on top of the mainline merge candidate and records the Rust handoff branch name.
 - `docs/WS74_EVIDENCE_2026-02-27.md` records the Python-first production/siem reprioritization and renewed Rust deferral.
 - `docs/WS76_SIEM_READINESS.md` and `docs/WS76_EVIDENCE_2026-02-27.md` capture the vendor-neutral NDJSON contract, Wazuh proof target, and ingest workflow research.
+- `docs/WS77_EVIDENCE_2026-02-27.md` confirms the Python NDJSON exporter, deterministic contract tests, and Wazuh proof-of-ingest.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.
