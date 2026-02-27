@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 _EXECUTABLE_SUFFIX_RE = re.compile(
     r"(?i)(?:\.exe|\.bat|\.ps1|\.cmd|\.sh)(?=$|\s|['\"])"

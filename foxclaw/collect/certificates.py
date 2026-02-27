@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-import sqlite3
 from pathlib import Path
 
 from foxclaw.collect.safe_paths import sqlite_ro_uri
@@ -90,8 +90,11 @@ def audit_cert9_root_store(cert9_path: Path) -> Cert9AuditResult:
         connection.execute("PRAGMA query_only = ON;")
         connection.execute("PRAGMA temp_store = MEMORY;")
         root_rows = _load_root_rows(connection)
-        suspicious_roots = tuple(_classify_root_row(row) for row in root_rows)
-        suspicious_roots = tuple(item for item in suspicious_roots if item is not None)
+        suspicious_roots = tuple(
+            item
+            for item in (_classify_root_row(row) for row in root_rows)
+            if item is not None
+        )
     except sqlite3.Error as exc:
         return Cert9AuditResult(
             opened_ro=True,
@@ -308,4 +311,3 @@ def _decode_db_int(value: object) -> int | None:
             return int(text)
         return None
     return None
-

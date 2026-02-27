@@ -50,7 +50,7 @@ def test_audit_sessionstore_mozlz4_header_payload(tmp_path: Path) -> None:
                                     "id": {
                                         "authToken": "tok_abc123",
                                         "cardNumber": "4111 1111 1111 1111",
-                                        "password": "hunter2",
+                                        "password": "hunter2",  # pragma: allowlist secret
                                     }
                                 },
                                 "url": "https://example.com/account",
@@ -94,4 +94,3 @@ def test_audit_sessionstore_invalid_payload_reports_error(tmp_path: Path) -> Non
     assert result.session_restore_enabled is False
     assert result.windows_count == 0
     assert result.sensitive_entries == ()
-

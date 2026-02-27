@@ -20,6 +20,59 @@ def _create_sqlite_db(path: Path) -> None:
     connection.close()
 
 
+def _create_places_db(path: Path, *, urls: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.execute(
+        """
+        CREATE TABLE moz_places (
+            id INTEGER PRIMARY KEY,
+            url TEXT
+        )
+        """
+    )
+    connection.executemany("INSERT INTO moz_places (url) VALUES (?)", [(url,) for url in urls])
+    connection.commit()
+    connection.close()
+
+
+def _create_cookies_db(
+    path: Path,
+    *,
+    rows: list[tuple[str, str, int, int, int, int]],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.execute(
+        """
+        CREATE TABLE moz_cookies (
+            id INTEGER PRIMARY KEY,
+            host TEXT,
+            name TEXT,
+            expiry INTEGER,
+            isHttpOnly INTEGER,
+            sameSite INTEGER,
+            creationTime INTEGER
+        )
+        """
+    )
+    connection.executemany(
+        """
+        INSERT INTO moz_cookies (
+            host,
+            name,
+            expiry,
+            isHttpOnly,
+            sameSite,
+            creationTime
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
+    connection.commit()
+    connection.close()
+
+
 def _create_cert9_db(path: Path, *, rows: list[tuple[str, str, str, int, str]]) -> None:
     """Create a minimal cert9-like schema with deterministic test rows."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -231,7 +284,7 @@ def test_collect_profile_artifacts_parses_sessionstore_sensitive_data(tmp_path: 
                                         "formdata": {
                                             "id": {
                                                 "authToken": "tok_abc123",
-                                                "password": "hunter2",
+                                                "password": "hunter2",  # pragma: allowlist secret
                                             }
                                         },
                                         "url": "https://example.com/account",
@@ -302,6 +355,77 @@ def test_collect_profile_artifacts_parses_search_engine_risks(tmp_path: Path) ->
             "name": "EvilSearch",
             "reasons": ["custom_search_url", "non_standard_default_engine"],
             "search_url": "https://search.evil-example.invalid/query?q={searchTerms}",
+        }
+    ]
+
+
+def test_collect_profile_artifacts_parses_cookie_security_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    creation_epoch = 1_700_000_000
+    _create_cookies_db(
+        profile_dir / "cookies.sqlite",
+        rows=[
+            (
+                ".accounts.example.com",
+                "sessionid",
+                creation_epoch + (2 * 60 * 60),
+                0,
+                1,
+                creation_epoch * 1_000_000,
+            ),
+        ],
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    cookies = {entry.rel_path: entry for entry in evidence.entries}["cookies.sqlite"]
+
+    assert cookies.parse_status == "parsed"
+    assert cookies.key_values["cookies_total_count"] == "1"
+    assert cookies.key_values["auth_cookie_missing_httponly_count"] == "1"
+    assert cookies.key_values["long_lived_cookie_count"] == "0"
+    assert cookies.key_values["samesite_none_sensitive_count"] == "0"
+    assert cookies.key_values["third_party_tracking_cookie_count"] == "0"
+    assert cookies.key_values["suspicious_cookie_security_count"] == "1"
+    assert json.loads(cookies.key_values["suspicious_cookie_security_signals"]) == [
+        {
+            "host": "accounts.example.com",
+            "name": "sessionid",
+            "reasons": ["auth_cookie_missing_httponly"],
+        }
+    ]
+
+
+def test_collect_profile_artifacts_parses_hsts_integrity_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    _create_places_db(
+        profile_dir / "places.sqlite",
+        urls=[
+            "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            "https://secure.microsoftonline.com/",
+        ],
+    )
+    (profile_dir / "SiteSecurityServiceState.txt").write_text(
+        "login.microsoftonline.com:443\tHSTS\t0\t1700000000000\t1690000000000\t0\t1\t0\n",
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    hsts = {entry.rel_path: entry for entry in evidence.entries}["SiteSecurityServiceState.txt"]
+
+    assert hsts.parse_status == "parsed"
+    assert hsts.key_values["hsts_entries_count"] == "1"
+    assert hsts.key_values["hsts_critical_hosts_expected_count"] == "2"
+    assert hsts.key_values["hsts_critical_hosts_missing_count"] == "1"
+    assert hsts.key_values["suspicious_hsts_state_count"] == "1"
+    assert json.loads(hsts.key_values["hsts_critical_hosts_missing"]) == [
+        "secure.microsoftonline.com"
+    ]
+    assert json.loads(hsts.key_values["suspicious_hsts_state_entries"]) == [
+        {
+            "host": "secure.microsoftonline.com",
+            "reasons": ["missing_critical_hsts_entry", "selective_hsts_entry_deletion"],
         }
     ]
 

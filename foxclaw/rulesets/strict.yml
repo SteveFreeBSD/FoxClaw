@@ -1,5 +1,5 @@
 name: strict
-version: 0.10.0
+version: 0.12.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -139,6 +139,26 @@ rules:
       search_engine_hijack_absent: {}
     rationale: Strict environments should prevent default search hijacking and untrusted custom engine URLs (T1583.001).
     recommendation: Enforce approved search engines and remove custom search providers not on allowlist.
+    confidence: high
+
+  - id: FC-STRICT-COOKIE-001
+    title: Cookie security posture must not expose session theft signals
+    severity: HIGH
+    category: artifacts
+    check:
+      cookie_security_posture_absent: {}
+    rationale: Strict environments should block long-lived auth cookies, SameSite=None on sensitive domains, and excessive third-party tracking cookies (T1539).
+    recommendation: Enforce secure cookie attributes and expiration hygiene; eliminate excessive third-party tracking cookie persistence.
+    confidence: high
+
+  - id: FC-STRICT-HSTS-001
+    title: HSTS state must not show downgrade or removal signals
+    severity: HIGH
+    category: artifacts
+    check:
+      hsts_downgrade_absent: {}
+    rationale: Strict environments should detect missing, truncated, or selectively deleted HSTS state for critical HTTPS domains to reduce MitM downgrade exposure (T1557).
+    recommendation: Restore HSTS state from trusted profile baselines and investigate potential tampering in SiteSecurityServiceState.txt.
     confidence: high
 
   - id: FC-STRICT-SQL-001

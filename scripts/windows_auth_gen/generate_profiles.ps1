@@ -4,7 +4,21 @@ param(
   [int]$Count = 10,
   [string]$ProfilesRoot = "$env:APPDATA\Mozilla\Firefox\Profiles",
   [string]$SeedName = "foxclaw-seed.default",
-  [ValidateSet("mixed", "balanced", "adware_like", "credential_reuse", "privacy_weak", "dev_power_user")]
+  [ValidateSet(
+    "mixed",
+    "balanced",
+    "adware_like",
+    "credential_reuse",
+    "privacy_weak",
+    "dev_power_user",
+    "cve_sandbox_escape",
+    "cve_extension_abuse",
+    "cve_session_hijack",
+    "cve_cert_injection",
+    "cve_handler_hijack",
+    "cve_hsts_downgrade",
+    "cve_search_hijack"
+  )]
   [string]$Scenario = "mixed",
   [int]$Seed = 424242,
   [switch]$Overwrite,

@@ -10,10 +10,10 @@ from foxclaw.models import (
     FilePermEvidence,
     PolicyEvidence,
     PolicyFileSummary,
-    ProfileArtifactEntry,
-    ProfileArtifactEvidence,
     PrefEvidence,
     PrefValue,
+    ProfileArtifactEntry,
+    ProfileArtifactEvidence,
     ProfileEvidence,
     RuleDefinition,
     Ruleset,
@@ -421,6 +421,101 @@ def test_dsl_search_engine_hijack_absent_flags_suspicious_default() -> None:
     assert result.passed is False
     assert result.evidence == [
         "EvilSearch: search_url=https://search.evil-example.invalid/query?q={searchTerms}, reasons=custom_search_url,non_standard_default_engine"
+    ]
+
+
+def test_dsl_cookie_security_posture_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cookies.sqlite",
+                parse_status="parsed",
+                key_values={"suspicious_cookie_security_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"cookie_security_posture_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_cookie_security_posture_absent_flags_suspicious_entries() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cookies.sqlite",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_cookie_security_count": "1",
+                    "suspicious_cookie_security_signals": json.dumps(
+                        [
+                            {
+                                "host": "accounts.example.com",
+                                "name": "sessionid",
+                                "reasons": ["auth_cookie_missing_httponly"],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"cookie_security_posture_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "accounts.example.com::sessionid: reasons=auth_cookie_missing_httponly"
+    ]
+
+
+def test_dsl_hsts_downgrade_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="SiteSecurityServiceState.txt",
+                parse_status="parsed",
+                key_values={"suspicious_hsts_state_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"hsts_downgrade_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_hsts_downgrade_absent_flags_suspicious_entries() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="SiteSecurityServiceState.txt",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_hsts_state_count": "1",
+                    "suspicious_hsts_state_entries": json.dumps(
+                        [
+                            {
+                                "host": "secure.microsoftonline.com",
+                                "reasons": ["missing_critical_hsts_entry"],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"hsts_downgrade_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "secure.microsoftonline.com: reasons=missing_critical_hsts_entry"
     ]
 
 

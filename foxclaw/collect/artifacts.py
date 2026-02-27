@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Literal
 
 from foxclaw.collect.certificates import audit_cert9_root_store
+from foxclaw.collect.cookies import audit_cookies_sqlite
 from foxclaw.collect.handlers import collect_protocol_handler_hijacks
+from foxclaw.collect.hsts import audit_hsts_state
 from foxclaw.collect.pkcs11 import audit_pkcs11_modules
 from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.collect.search import audit_search_json
@@ -24,6 +26,7 @@ _PROFILE_ARTIFACTS: tuple[str, ...] = (
     "SiteSecurityServiceState.txt",
     "SiteSecurityServiceState.bin",
     "cert9.db",
+    "cookies.sqlite",
     "compatibility.ini",
     "containers.json",
     "content-prefs.sqlite",
@@ -110,12 +113,16 @@ def collect_profile_artifacts(profile_dir: Path) -> ProfileArtifactEvidence:
 
 
 def _parser_for(rel_path: str) -> _ArtifactParser | None:
+    if rel_path == "SiteSecurityServiceState.txt":
+        return _parse_hsts_state_txt
     if rel_path == "containers.json":
         return _parse_containers_json
     if rel_path == "handlers.json":
         return _parse_handlers_json
     if rel_path == "cert9.db":
         return _parse_cert9_db
+    if rel_path == "cookies.sqlite":
+        return _parse_cookies_sqlite
     if rel_path == "pkcs11.txt":
         return _parse_pkcs11_txt
     if rel_path == "search.json.mozlz4":
@@ -155,6 +162,68 @@ def _parse_cert9_db(path: Path) -> tuple[ParseStatus, list[str], dict[str, str],
                     "trust_flags": item.trust_flags,
                 }
                 for item in result.suspicious_roots
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    return "parsed", [], dict(sorted(key_values.items())), None
+
+
+def _parse_cookies_sqlite(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+    result = audit_cookies_sqlite(path)
+    if result.parse_error is not None:
+        return "error", [], {}, result.parse_error
+
+    key_values: dict[str, str] = {
+        "cookies_total_count": str(result.cookies_total),
+        "long_lived_cookie_count": str(result.long_lived_cookie_count),
+        "samesite_none_sensitive_count": str(result.samesite_none_sensitive_count),
+        "auth_cookie_missing_httponly_count": str(result.auth_cookie_missing_httponly_count),
+        "third_party_tracking_cookie_count": str(result.third_party_tracking_cookie_count),
+        "suspicious_cookie_security_count": str(len(result.suspicious_signals)),
+    }
+    if result.suspicious_signals:
+        key_values["suspicious_cookie_security_signals"] = json.dumps(
+            [
+                {
+                    "host": item.host,
+                    "name": item.name,
+                    "reasons": list(item.reasons),
+                }
+                for item in result.suspicious_signals
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    return "parsed", [], dict(sorted(key_values.items())), None
+
+
+def _parse_hsts_state_txt(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+    result = audit_hsts_state(path)
+    if result.parse_error is not None:
+        return "error", [], {}, result.parse_error
+
+    key_values: dict[str, str] = {
+        "hsts_entries_count": str(len(result.entries)),
+        "hsts_critical_hosts_expected_count": str(len(result.critical_hosts_expected)),
+        "hsts_critical_hosts_missing_count": str(len(result.missing_critical_hosts)),
+        "hsts_malformed_line_count": str(result.malformed_line_count),
+        "suspicious_hsts_state_count": str(len(result.suspicious_signals)),
+    }
+    if result.missing_critical_hosts:
+        key_values["hsts_critical_hosts_missing"] = json.dumps(
+            list(result.missing_critical_hosts),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    if result.suspicious_signals:
+        key_values["suspicious_hsts_state_entries"] = json.dumps(
+            [
+                {
+                    "host": item.host,
+                    "reasons": list(item.reasons),
+                }
+                for item in result.suspicious_signals
             ],
             sort_keys=True,
             separators=(",", ":"),

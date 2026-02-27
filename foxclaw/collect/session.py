@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 _MOZ_LZ4_HEADER = b"mozLz40\x00"
@@ -111,9 +111,10 @@ def _try_lz4_decompress(data: bytes) -> bytes | None:
         return None
 
     try:
-        return lz4.block.decompress(data)
+        result = lz4.block.decompress(data)
     except Exception:
         return None
+    return result if isinstance(result, bytes) else None
 
 
 def _collect_sensitive_entries(payload: dict[str, Any]) -> tuple[SessionSensitiveEntry, ...]:
@@ -179,4 +180,3 @@ def _passes_luhn(number: str) -> bool:
                 digit -= 9
         total += digit
     return total % 10 == 0
-

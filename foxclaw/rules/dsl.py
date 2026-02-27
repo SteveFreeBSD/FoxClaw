@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
-import json
 from pathlib import Path
 
 from foxclaw.models import EvidenceBundle, FilePermEvidence
@@ -49,6 +49,10 @@ _SESSION_SENSITIVE_COUNT_KEY = "session_sensitive_entry_count"
 _SESSION_SENSITIVE_ENTRIES_KEY = "session_sensitive_entries"
 _SEARCH_RISK_COUNT_KEY = "suspicious_search_engine_count"
 _SEARCH_RISK_ENTRIES_KEY = "suspicious_search_engines"
+_COOKIE_RISK_COUNT_KEY = "suspicious_cookie_security_count"
+_COOKIE_RISK_ENTRIES_KEY = "suspicious_cookie_security_signals"
+_HSTS_RISK_COUNT_KEY = "suspicious_hsts_state_count"
+_HSTS_RISK_ENTRIES_KEY = "suspicious_hsts_state_entries"
 
 
 @dataclass(slots=True)
@@ -97,6 +101,10 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_session_restore_sensitive_data_absent(bundle, config)
     if check_name == "search_engine_hijack_absent":
         return _check_search_engine_hijack_absent(bundle, config)
+    if check_name == "cookie_security_posture_absent":
+        return _check_cookie_security_posture_absent(bundle, config)
+    if check_name == "hsts_downgrade_absent":
+        return _check_hsts_downgrade_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -605,6 +613,106 @@ def _check_search_engine_hijack_absent(bundle: EvidenceBundle, config: object) -
 
     if not evidence:
         evidence = [f"search.json.mozlz4: suspicious_search_engine_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_cookie_security_posture_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("cookie_security_posture_absent config must be an object when provided")
+
+    cookies_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "cookies.sqlite"),
+        None,
+    )
+    if cookies_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = cookies_entry.key_values.get(_COOKIE_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = cookies_entry.key_values.get(_COOKIE_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                host = entry.get("host")
+                name = entry.get("name")
+                reasons = entry.get("reasons")
+                if not isinstance(host, str) or not isinstance(name, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_host = host if host else "<unknown-host>"
+                display_name = name if name else "<unnamed-cookie>"
+                evidence.append(
+                    f"{display_host}::{display_name}: reasons={reason_text}"
+                )
+
+    if not evidence:
+        evidence = [f"cookies.sqlite: suspicious_cookie_security_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_hsts_downgrade_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("hsts_downgrade_absent config must be an object when provided")
+
+    hsts_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "SiteSecurityServiceState.txt"),
+        None,
+    )
+    if hsts_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = hsts_entry.key_values.get(_HSTS_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = hsts_entry.key_values.get(_HSTS_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                host = entry.get("host")
+                reasons = entry.get("reasons")
+                if not isinstance(host, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_host = host if host else "<unknown-host>"
+                evidence.append(f"{display_host}: reasons={reason_text}")
+
+    if not evidence:
+        evidence = [f"SiteSecurityServiceState.txt: suspicious_hsts_state_count={suspicious_count}"]
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 

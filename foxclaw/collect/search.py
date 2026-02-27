@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -146,9 +146,10 @@ def _try_lz4_decompress(data: bytes) -> bytes | None:
         return None
 
     try:
-        return lz4.block.decompress(data)
+        result = lz4.block.decompress(data)
     except Exception:
         return None
+    return result if isinstance(result, bytes) else None
 
 
 def _extract_engines(payload: dict[str, Any]) -> tuple[SearchEngineEntry, ...]:
@@ -253,4 +254,3 @@ def _classify_default(name: str | None, url: str | None) -> tuple[SearchEngineRi
             reasons=tuple(sorted(set(reasons))),
         ),
     )
-

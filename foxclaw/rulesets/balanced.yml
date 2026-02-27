@@ -1,5 +1,5 @@
 name: balanced
-version: 0.12.0
+version: 0.14.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -139,6 +139,26 @@ rules:
       search_engine_hijack_absent: {}
     rationale: Non-standard default engines and custom search URLs can indicate search hijacking and attacker-controlled infrastructure (T1583.001).
     recommendation: Restore an approved default engine and remove untrusted custom search provider URLs.
+    confidence: high
+
+  - id: FC-COOKIE-001
+    title: Cookie security posture should not expose session theft signals
+    severity: HIGH
+    category: artifacts
+    check:
+      cookie_security_posture_absent: {}
+    rationale: Long-lived auth cookies, SameSite=None on sensitive domains, and excessive tracker cookies increase session theft and tracking risk (T1539).
+    recommendation: Reduce cookie lifetimes, enforce HttpOnly/SameSite controls on sensitive domains, and remove excessive third-party tracking cookies.
+    confidence: high
+
+  - id: FC-HSTS-001
+    title: HSTS state should not show downgrade or removal signals
+    severity: HIGH
+    category: artifacts
+    check:
+      hsts_downgrade_absent: {}
+    rationale: Missing or selectively removed HSTS entries for critical HTTPS domains can indicate downgrade or adversary-in-the-middle preparation (T1557).
+    recommendation: Rebuild trusted HSTS state from known-good browsing baselines and investigate missing critical-domain entries.
     confidence: high
 
   - id: FC-SQL-001
