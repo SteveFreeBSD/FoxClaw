@@ -14,7 +14,6 @@ Usage: scripts/container_workspace_exec.sh [options] <entry-script> [entry-args.
 
 Options:
   --workspace <path>   Mounted source workspace (default: /workspace)
-  --venv-dir <path>    Virtualenv path inside container (default: /tmp/venv)
   -h, --help           Show help.
 
 Example:
@@ -25,16 +24,11 @@ EOF
 }
 
 WORKSPACE_DIR="/workspace"
-VENV_DIR="/tmp/venv"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workspace)
       WORKSPACE_DIR="${2:-}"
-      shift 2
-      ;;
-    --venv-dir)
-      VENV_DIR="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -69,24 +63,7 @@ if [[ ! -d "${WORKSPACE_DIR}" ]]; then
   echo "error: workspace directory does not exist: ${WORKSPACE_DIR}" >&2
   exit 2
 fi
-if [[ -z "${VENV_DIR}" ]]; then
-  echo "error: --venv-dir must not be empty." >&2
-  exit 2
-fi
 WORKSPACE_REAL="$(realpath -m "${WORKSPACE_DIR}")"
-VENV_REAL="$(realpath -m "${VENV_DIR}")"
-if [[ "${VENV_REAL}" = "/" ]]; then
-  echo "error: --venv-dir must not resolve to root." >&2
-  exit 2
-fi
-if [[ "${VENV_REAL}" != /tmp/* ]]; then
-  echo "error: --venv-dir must be under /tmp for safe cleanup: ${VENV_DIR}" >&2
-  exit 2
-fi
-if [[ "${VENV_REAL}" = "${WORKSPACE_REAL}" || "${VENV_REAL}" = "${WORKSPACE_REAL}"/* ]]; then
-  echo "error: --venv-dir must not be inside workspace: ${VENV_DIR}" >&2
-  exit 2
-fi
 
 if [[ "${ENTRY_SCRIPT_ARG}" = /* ]]; then
   ENTRY_SCRIPT_WORKSPACE="${ENTRY_SCRIPT_ARG}"
@@ -109,7 +86,7 @@ fi
 TMP_SRC_DIR="$(mktemp -d /tmp/foxclaw-src-XXXXXX)"
 
 cleanup() {
-  rm -rf "${TMP_SRC_DIR}" "${VENV_REAL}"
+  rm -rf "${TMP_SRC_DIR}"
 }
 trap cleanup EXIT
 
@@ -148,11 +125,14 @@ if [[ ! -f "${ENTRY_SCRIPT_TMP}" ]]; then
   exit 1
 fi
 
-rm -rf "${VENV_REAL}"
-python -m venv "${VENV_REAL}"
-"${VENV_REAL}/bin/pip" install --upgrade pip >/dev/null
-
 cd "${TMP_SRC_DIR}"
-"${VENV_REAL}/bin/pip" install -e ".[dev]" >/dev/null
+# The image installs FoxClaw's Python/build dependencies at build time. Avoid
+# runtime pip access here so matrix scans stay offline and deterministic.
+export PYTHONPATH="${TMP_SRC_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 
-bash "${ENTRY_SCRIPT_TMP}" --python "${VENV_REAL}/bin/python" "$@"
+if ! python -c 'import cryptography, pydantic, rich, typer, yaml' >/dev/null 2>&1; then
+  echo "error: container image is missing FoxClaw Python dependencies; rebuild docker/testbed image." >&2
+  exit 1
+fi
+
+bash "${ENTRY_SCRIPT_TMP}" --python "python" "$@"

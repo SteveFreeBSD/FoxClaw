@@ -2,6 +2,8 @@ FROM python:3.12-slim
 
 SHELL ["/bin/bash", "-e", "-u", "-o", "pipefail", "-c"]
 
+COPY pyproject.toml README.md /tmp/foxclaw-build/
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
@@ -11,6 +13,16 @@ RUN apt-get update \
     tini \
     xz-utils \
   && rm -rf /var/lib/apt/lists/*
+
+RUN python -c 'import pathlib, tomllib; \
+data = tomllib.loads(pathlib.Path("/tmp/foxclaw-build/pyproject.toml").read_text(encoding="utf-8")); \
+requirements = []; \
+[requirements.append(item) for group in (data["build-system"]["requires"], data["project"]["dependencies"], data["project"]["optional-dependencies"]["dev"]) for item in group if item not in requirements]; \
+print("\n".join(requirements))' >/tmp/foxclaw-build/requirements.txt
+
+RUN python -m pip install --upgrade pip \
+  && python -m pip install --no-cache-dir -r /tmp/foxclaw-build/requirements.txt \
+  && rm -rf /tmp/foxclaw-build
 
 ARG FIREFOX_CHANNEL=esr
 
