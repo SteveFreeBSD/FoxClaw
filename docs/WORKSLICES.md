@@ -16,8 +16,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-55B (trend/novelty analysis from history snapshots)
-  - then WS-56 (fleet prevalence/correlation enrichment)
+  - WS-56 (fleet prevalence/correlation enrichment)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
   - learning expansion should proceed only after command-contract and documentation consistency are restored
@@ -81,7 +80,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-53 | pending | WS-30 | HSTS state integrity (`SiteSecurityServiceState.txt` downgrade detection; `.bin` accepted for legacy captures). |
 | WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
 | WS-55A | complete | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |
-| WS-55B | pending | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
+| WS-55B | complete | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
 | WS-56 | pending | WS-55B, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
 | WS-57 | complete | none | Restore quality gate health (`ruff`, `detect-secrets`) to unblock reliable merge validation. |
 | WS-58 | complete | WS-57 | Enforce exit-code contract conformance for operational errors vs high-signal scan outcomes. |
@@ -747,7 +746,7 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-55 - Adaptive Scan Intelligence (Self-Learning)
 
-- Status: in-progress (`WS-55A` complete, `WS-55B` pending).
+- Status: complete (`WS-55A` and `WS-55B` complete).
 - Goal: implement a local, deterministic self-learning feedback loop where FoxClaw accumulates scan history and enriches future scan outputs with trend analysis and novelty detection.
 - Scope:
   - new module `foxclaw/learning/history.py`: append-only SQLite scan history store.

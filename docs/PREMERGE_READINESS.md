@@ -63,10 +63,9 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-55B**: Implement deterministic trend/novelty enrichment on top of the WS-55A history store.
-2. **WS-56**: Add fleet prevalence/correlation once WS-55B data quality is proven.
-3. **WS-47..WS-54**: Resume threat-surface collector/rule expansion with deterministic regression tests.
-4. **WS-31 + WS-32**: Keep Rust workspace bootstrap + contract canonicalization on the critical path for migration parity.
+1. **WS-56**: Add fleet prevalence/correlation once WS-55B data quality is proven.
+2. **WS-47..WS-54**: Resume threat-surface collector/rule expansion with deterministic regression tests.
+3. **WS-31 + WS-32**: Keep Rust workspace bootstrap + contract canonicalization on the critical path for migration parity.
 
 Current evidence basis:
 
