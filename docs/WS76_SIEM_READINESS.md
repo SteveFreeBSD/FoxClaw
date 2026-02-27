@@ -120,9 +120,10 @@ Recommended field semantics:
 - `host.id`: stable host identity
 - `host.name`: display hostname
 - `profile.profile_id`: stable profile identity
+- `profile.profile_uid`: optional secondary stable identity when a deterministic path-derived UID is available
 - `profile.name`: display profile name or basename
 - `event_id`: stable event identifier for deduplication and replay safety
-- `severity`: normalized FoxClaw severity string
+- `severity`: normalized FoxClaw severity string (`HIGH`, `MEDIUM`, `INFO`)
 - `title`: short operator-facing title
 - `message`: longer human-readable explanation
 
@@ -240,7 +241,7 @@ Recommended path:
 
 1. Write FoxClaw NDJSON to a file.
 2. Configure Wazuh `localfile` with `log_format` `json`.
-3. Add a minimal local rule matching `event_type`.
+3. Add a minimal local rule matching `event_type` with anchored regex. If the Wazuh rule chain requires it in your environment, chain the rule from the parent JSON/SIEM rule with `if_sid`.
 4. Validate the sample with `wazuh-logtest`.
 5. Confirm resulting events in `alerts.json` or the dashboard.
 
