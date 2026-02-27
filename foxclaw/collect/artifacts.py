@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from foxclaw.collect.certificates import audit_cert9_root_store
 from foxclaw.collect.handlers import collect_protocol_handler_hijacks
 from foxclaw.collect.safe_paths import iter_safe_profile_files
 from foxclaw.models import ProfileArtifactEntry, ProfileArtifactEvidence
@@ -19,6 +20,7 @@ _PROFILE_ARTIFACTS: tuple[str, ...] = (
     # with historical captures.
     "SiteSecurityServiceState.txt",
     "SiteSecurityServiceState.bin",
+    "cert9.db",
     "compatibility.ini",
     "containers.json",
     "content-prefs.sqlite",
@@ -108,6 +110,8 @@ def _parser_for(rel_path: str) -> _ArtifactParser | None:
         return _parse_containers_json
     if rel_path == "handlers.json":
         return _parse_handlers_json
+    if rel_path == "cert9.db":
+        return _parse_cert9_db
     if rel_path == "compatibility.ini":
         return _parse_compatibility_ini
     return None
@@ -119,6 +123,33 @@ def _parse_containers_json(path: Path) -> tuple[ParseStatus, list[str], dict[str
 
 def _parse_handlers_json(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
     return _parse_json_artifact(path, collector=_collect_handler_keys)
+
+
+def _parse_cert9_db(path: Path) -> tuple[ParseStatus, list[str], dict[str, str], str | None]:
+    result = audit_cert9_root_store(path)
+    if result.parse_error is not None:
+        return "error", [], {}, result.parse_error
+
+    key_values: dict[str, str] = {
+        "root_ca_entries_count": str(result.root_entries_total),
+        "suspicious_root_ca_count": str(len(result.suspicious_roots)),
+    }
+    if result.suspicious_roots:
+        key_values["suspicious_root_ca_entries"] = json.dumps(
+            [
+                {
+                    "issuer": item.issuer,
+                    "not_before_utc": item.not_before_utc,
+                    "reasons": list(item.reasons),
+                    "subject": item.subject,
+                    "trust_flags": item.trust_flags,
+                }
+                for item in result.suspicious_roots
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    return "parsed", [], dict(sorted(key_values.items())), None
 
 
 def _parse_json_artifact(

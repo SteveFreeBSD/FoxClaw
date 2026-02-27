@@ -1,5 +1,5 @@
 name: strict
-version: 0.6.0
+version: 0.7.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -99,6 +99,16 @@ rules:
       protocol_handler_hijack_absent: {}
     rationale: Strict environments should block ask=false protocol handlers that execute local binaries (T1204).
     recommendation: Remove local executable handlers or enforce prompt-based handling for protocol launches.
+    confidence: high
+
+  - id: FC-STRICT-CERT-001
+    title: cert9 root store must not contain rogue trust anchors
+    severity: HIGH
+    category: artifacts
+    check:
+      rogue_root_ca_absent: {}
+    rationale: Strict environments should block non-default trusted roots in cert9.db to prevent TLS interception (T1553.004).
+    recommendation: Remove unauthorized trust anchors from cert9.db and rebuild trust store from approved baselines.
     confidence: high
 
   - id: FC-STRICT-SQL-001

@@ -40,6 +40,8 @@ _CREDENTIAL_METRIC_NAMES: tuple[str, ...] = (
 )
 _HANDLER_RISK_COUNT_KEY = "suspicious_local_exec_count"
 _HANDLER_RISK_ENTRIES_KEY = "suspicious_local_exec_handlers"
+_CERT_RISK_COUNT_KEY = "suspicious_root_ca_count"
+_CERT_RISK_ENTRIES_KEY = "suspicious_root_ca_entries"
 
 
 @dataclass(slots=True)
@@ -80,6 +82,8 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_credential_metric_max(bundle, _as_dict(config, check_name))
     if check_name == "protocol_handler_hijack_absent":
         return _check_protocol_handler_hijack_absent(bundle, config)
+    if check_name == "rogue_root_ca_absent":
+        return _check_rogue_root_ca_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -390,6 +394,54 @@ def _check_protocol_handler_hijack_absent(bundle: EvidenceBundle, config: object
     if not evidence:
         evidence = [f"handlers.json: suspicious_local_exec_count={suspicious_count}"]
 
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_rogue_root_ca_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("rogue_root_ca_absent config must be an object when provided")
+
+    cert9_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "cert9.db"),
+        None,
+    )
+    if cert9_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = cert9_entry.key_values.get(_CERT_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = cert9_entry.key_values.get(_CERT_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                subject = entry.get("subject")
+                issuer = entry.get("issuer")
+                reasons = entry.get("reasons")
+                if not isinstance(subject, str) or not isinstance(issuer, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                evidence.append(f"{subject}: issuer={issuer}, reasons={reason_text}")
+
+    if not evidence:
+        evidence = [f"cert9.db: suspicious_root_ca_count={suspicious_count}"]
     return CheckResult(passed=False, evidence=sorted(evidence))
 
 

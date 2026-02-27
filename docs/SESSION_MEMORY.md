@@ -13,15 +13,23 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T00:55:00.854517+00:00
+- Updated: 2026-02-27T01:07:05.199002+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `895bda51ca8e306b90c7ab1f39a43532bf93a3e9`
-- Focus: WS-47: protocol handler hijack detection via handlers.json and rules
-- Next: Execute WS-48 NSS certificate store audit when requested
-- Risks: Handler rule currently keys off handlers.json artifact metadata; deeper executable provenance/path trust checks may require follow-on refinement
-- Decisions: Detect ask=false handlers in schemes map with local executable suffixes, persist deterministic suspicious handler metadata in artifacts, enforce via protocol_handler_hijack_absent rules
+- Commit: `167e618b940307d29ffb37ba5081089a727c2235`
+- Focus: WS-48: cert9.db rogue root CA detection collector and rules
+- Next: Execute WS-49 PKCS#11 module injection detection when requested
+- Risks: Current cert9 parsing relies on NSS fallback table shape and heuristics; deeper PKCS#11 attribute decoding may be needed for broader real-world trust metadata
+- Decisions: Use deterministic read-only cert9 audit with static recent-issuance reference date, encode suspicious roots into artifact metadata, and enforce via rogue_root_ca_absent in balanced/strict rules
 
 ## Recent Checkpoints
+
+### 2026-02-27T01:07:05.199002+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `167e618b940307d29ffb37ba5081089a727c2235`
+- Focus: WS-48: cert9.db rogue root CA detection collector and rules
+- Next: Execute WS-49 PKCS#11 module injection detection when requested
+- Risks: Current cert9 parsing relies on NSS fallback table shape and heuristics; deeper PKCS#11 attribute decoding may be needed for broader real-world trust metadata
+- Decisions: Use deterministic read-only cert9 audit with static recent-issuance reference date, encode suspicious roots into artifact metadata, and enforce via rogue_root_ca_absent in balanced/strict rules
 
 ### 2026-02-27T00:55:00.854517+00:00
 - Branch: docs/windows-profile-gen

@@ -219,6 +219,57 @@ def test_dsl_protocol_handler_hijack_absent_flags_risky_handlers() -> None:
     ]
 
 
+def test_dsl_rogue_root_ca_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cert9.db",
+                parse_status="parsed",
+                key_values={"suspicious_root_ca_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"rogue_root_ca_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_rogue_root_ca_absent_flags_suspicious_roots() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cert9.db",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_root_ca_count": "1",
+                    "suspicious_root_ca_entries": json.dumps(
+                        [
+                            {
+                                "subject": "Evil Corp Root CA",
+                                "issuer": "Evil Corp Root CA",
+                                "reasons": [
+                                    "non_default_trust_anchor",
+                                    "recent_self_signed_root",
+                                ],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"rogue_root_ca_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "Evil Corp Root CA: issuer=Evil Corp Root CA, reasons=non_default_trust_anchor,recent_self_signed_root"
+    ]
+
+
 def test_findings_are_sorted_by_severity_then_id() -> None:
     bundle = _empty_bundle()
     ruleset = Ruleset(

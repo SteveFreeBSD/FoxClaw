@@ -1,5 +1,5 @@
 name: balanced
-version: 0.8.0
+version: 0.9.0
 min_firefox_major: 120
 rules:
   - id: FC-PREF-001
@@ -99,6 +99,16 @@ rules:
       protocol_handler_hijack_absent: {}
     rationale: Local executable protocol handlers with ask=false can trigger code execution via crafted links (T1204).
     recommendation: Remove risky protocol handlers or require a user prompt for local executable launches.
+    confidence: high
+
+  - id: FC-CERT-001
+    title: cert9 root store should not contain rogue trust anchors
+    severity: HIGH
+    category: artifacts
+    check:
+      rogue_root_ca_absent: {}
+    rationale: Unexpected root trust anchors in cert9.db can enable HTTPS interception (T1553.004).
+    recommendation: Remove non-default trusted root certificates and investigate certificate injection activity.
     confidence: high
 
   - id: FC-SQL-001

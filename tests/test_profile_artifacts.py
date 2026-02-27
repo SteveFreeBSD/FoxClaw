@@ -20,6 +20,41 @@ def _create_sqlite_db(path: Path) -> None:
     connection.close()
 
 
+def _create_cert9_db(path: Path, *, rows: list[tuple[str, str, str, int, str]]) -> None:
+    """Create a minimal cert9-like schema with deterministic test rows."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.executescript(
+        """
+        CREATE TABLE nssPublic (
+            id INTEGER PRIMARY KEY,
+            a11 BLOB,
+            a102 BLOB,
+            a81 BLOB,
+            a90 INTEGER
+        );
+        CREATE TABLE nssTrust (
+            id INTEGER PRIMARY KEY,
+            a11 BLOB,
+            a102 BLOB,
+            a81 BLOB,
+            a90 INTEGER
+        );
+        """
+    )
+    for idx, (subject, issuer, not_before_utc, root_flag, trust_flags) in enumerate(rows, start=1):
+        connection.execute(
+            "INSERT INTO nssPublic (id, a11, a102, a81, a90) VALUES (?, ?, ?, ?, ?)",
+            (idx, subject, issuer, not_before_utc, root_flag),
+        )
+        connection.execute(
+            "INSERT INTO nssTrust (id, a11, a102, a81, a90) VALUES (?, ?, ?, ?, ?)",
+            (idx, trust_flags, "", "", root_flag),
+        )
+    connection.commit()
+    connection.close()
+
+
 def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +135,34 @@ def test_collect_sqlite_quick_checks_include_additional_existing_dbs(tmp_path: P
 
     assert {"places.sqlite", "cookies.sqlite", "permissions.sqlite"} <= observed_names
     assert all(item.quick_check_result == "ok" for item in checks.checks)
+
+
+def test_collect_profile_artifacts_parses_cert9_db_root_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    _create_cert9_db(
+        profile_dir / "cert9.db",
+        rows=[
+            ("Mozilla Root CA 1", "Mozilla Root CA 1", "2018-01-01T00:00:00+00:00", 1, "builtin c,c,c"),
+            ("Evil Corp Root CA", "Evil Corp Root CA", "2025-12-01T00:00:00+00:00", 1, "trusted c,c,c"),
+        ],
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    cert9 = {entry.rel_path: entry for entry in evidence.entries}["cert9.db"]
+
+    assert cert9.parse_status == "parsed"
+    assert cert9.key_values["root_ca_entries_count"] == "2"
+    assert cert9.key_values["suspicious_root_ca_count"] == "1"
+    assert json.loads(cert9.key_values["suspicious_root_ca_entries"]) == [
+        {
+            "issuer": "Evil Corp Root CA",
+            "not_before_utc": "2025-12-01T00:00:00+00:00",
+            "reasons": ["non_default_trust_anchor", "recent_self_signed_root"],
+            "subject": "Evil Corp Root CA",
+            "trust_flags": "trusted c,c,c",
+        }
+    ]
 
 
 def test_collect_profile_artifacts_skips_hash_for_large_files(tmp_path: Path) -> None:

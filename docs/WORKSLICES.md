@@ -16,10 +16,10 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-48 (NSS certificate store audit)
+  - WS-49 (PKCS#11 module injection detection)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
-  - WS-47 protocol handler detection is complete; continue collector/rule expansion queue (`WS-48..WS-54`)
+  - WS-48 certificate-store audit is complete; continue collector/rule expansion queue (`WS-49..WS-54`)
 
 ## Slice Queue
 
@@ -72,7 +72,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-45 | pending | WS-44 | Make Rust the default runtime and deprecate Python fallback path. |
 | WS-46 | complete | WS-28 | Enterprise Windows-share profile acquisition lane with deterministic local staging scans. |
 | WS-47 | complete | WS-30 | Protocol handler hijack detection (`handlers.json` parsing, executable path flags). |
-| WS-48 | pending | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
+| WS-48 | complete | WS-30 | NSS certificate store audit (`cert9.db` rogue root CA detection). |
 | WS-49 | pending | WS-30 | PKCS#11 module injection detection (`pkcs11.txt` non-Mozilla path validation). |
 | WS-50 | pending | WS-30 | Session restore data exposure (`sessionstore.jsonlz4` sensitive data detection). |
 | WS-51 | pending | WS-30 | Search engine integrity (`search.json.mozlz4` default engine validation). |
@@ -674,15 +674,18 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-48 - NSS Certificate Store Audit
 
-- Status: pending.
+- Status: complete.
 - Goal: detect rogue or unexpected root CA certificates injected into Firefox's NSS certificate store (`cert9.db`).
-- Scope:
-  - new collector `foxclaw/collect/certificates.py`.
-  - parse `cert9.db` (SQLite-backed NSS store) for root CA entries.
-  - flag non-Mozilla, non-OS-standard root CAs.
-  - flag self-signed root CAs with recent issuance dates.
-  - new rules in `balanced.yml` and `strict.yml`.
+- Delivered:
+  - added `foxclaw/collect/certificates.py` for deterministic, read-only `cert9.db` root-audit parsing.
+  - extended artifact parsing to collect deterministic root-store metadata from `cert9.db`, including suspicious root counts and normalized risk entries.
+  - implemented `rogue_root_ca_absent` DSL operator to surface suspicious roots as findings.
+  - added new rules:
+    - `FC-CERT-001` in `balanced.yml`.
+    - `FC-STRICT-CERT-001` in `strict.yml`.
+  - added deterministic regression tests for missing/empty/benign/rogue root cases and DSL/artifact integration.
   - ATT&CK mapping: T1553.004 (Install Root Certificate).
+- Acceptance: met.
 
 ### WS-49 - PKCS#11 Module Injection Detection
 
