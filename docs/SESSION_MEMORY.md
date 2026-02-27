@@ -13,15 +13,31 @@ python scripts/session_memory.py checkpoint \
 
 ## Current Snapshot
 
-- Updated: 2026-02-27T00:17:54.275736+00:00
+- Updated: 2026-02-27T00:42:21.046729+00:00
 - Branch: docs/windows-profile-gen
-- Commit: `e47bbe7be30cf283a0a2fbec82953c834306236e`
-- Focus: AGENTS.md hardening for repo flow + cross-session memory
-- Next: Execute WS-56 using Current Direction with memory recall loop
-- Risks: PREMERGE_READINESS queue text can lag WORKSLICES and cause planning drift
-- Decisions: Use docs/INDEX precedence, bootstrap with session_memory show, and reconcile already-implemented slices via status updates
+- Commit: `696c21f61ed3a061b80f8e956a23fdd4917ab1c7`
+- Focus: WS-56: fleet prevalence/correlation enrichment completed
+- Next: Execute WS-47 protocol handler hijack detection slice when requested
+- Risks: Fleet prevalence fields currently live in learning artifact; broader scan/fleet contract exposure may require a follow-on slice
+- Decisions: Use latest snapshot per profile for fleet aggregation, threshold 0.2 for outlier elevation, deterministic sorted pairwise Jaccard correlations
 
 ## Recent Checkpoints
+
+### 2026-02-27T00:42:21.046729+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `696c21f61ed3a061b80f8e956a23fdd4917ab1c7`
+- Focus: WS-56: fleet prevalence/correlation enrichment completed
+- Next: Execute WS-47 protocol handler hijack detection slice when requested
+- Risks: Fleet prevalence fields currently live in learning artifact; broader scan/fleet contract exposure may require a follow-on slice
+- Decisions: Use latest snapshot per profile for fleet aggregation, threshold 0.2 for outlier elevation, deterministic sorted pairwise Jaccard correlations
+
+### 2026-02-27T00:27:07.352594+00:00
+- Branch: docs/windows-profile-gen
+- Commit: `696c21f61ed3a061b80f8e956a23fdd4917ab1c7`
+- Focus: WS-56: fleet prevalence/correlation enrichment in learning history artifact
+- Next: Update WS-56 status in docs and begin next Current Direction slice only when requested
+- Risks: Future integration may need surfacing fleet_prevalence into scan/fleet JSON contracts beyond learning artifact
+- Decisions: Use latest-snapshot-per-profile fleet aggregation, prevalence threshold 0.2 for outlier elevation, deterministic pairwise jaccard correlations
 
 ### 2026-02-27T00:17:54.275736+00:00
 - Branch: docs/windows-profile-gen

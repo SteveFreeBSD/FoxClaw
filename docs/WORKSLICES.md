@@ -9,17 +9,17 @@ This plan converts the current review and research into sequenced, testable exec
 - No scan-runtime network access regression is allowed.
 - Every changed behavior must be covered by deterministic assertions.
 
-## Current Direction (2026-02-26)
+## Current Direction (2026-02-27)
 
 - Latest deep soak baseline is documented in:
   - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - WS-56 (fleet prevalence/correlation enrichment)
+  - WS-47 (protocol handler hijack detection)
 - Rationale:
   - merge-readiness requires all critical/high audit findings closed first
-  - learning expansion should proceed only after command-contract and documentation consistency are restored
+  - WS-56 learning enrichment is complete; resume collector/rule expansion queue (`WS-47..WS-54`)
 
 ## Slice Queue
 
@@ -81,7 +81,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-54 | pending | WS-47, WS-48, WS-49, WS-50, WS-51, WS-52, WS-53 | CVE advisory simulation scenarios in Windows and Python profile generators. |
 | WS-55A | complete | WS-54 | Scan-history ingestion: append-only local SQLite store + deterministic learning artifact. |
 | WS-55B | complete | WS-55A | Per-rule trend/novelty analysis from history snapshots. |
-| WS-56 | pending | WS-55B, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
+| WS-56 | complete | WS-55B, WS-09 | Fleet-wide pattern correlation and finding prevalence enrichment. |
 | WS-57 | complete | none | Restore quality gate health (`ruff`, `detect-secrets`) to unblock reliable merge validation. |
 | WS-58 | complete | WS-57 | Enforce exit-code contract conformance for operational errors vs high-signal scan outcomes. |
 | WS-59 | complete | WS-58 | Align UNC fail-closed and lock-marker checks across `scan`, `live`, discovery, and acquire paths. |
@@ -759,14 +759,15 @@ This plan converts the current review and research into sequenced, testable exec
 
 ### WS-56 - Fleet Pattern Correlation
 
-- Status: pending.
+- Status: complete.
 - Goal: extend self-learning enrichment to fleet-wide scanning, adding cross-profile pattern correlation and finding prevalence metrics.
-- Scope:
-  - extend `foxclaw/learning/history.py` with fleet-level aggregation queries.
-  - new module `foxclaw/learning/fleet_patterns.py`: cross-profile finding correlation.
-  - output enrichment field: `fleet_prevalence` (percentage of scanned profiles sharing a finding).
-  - enable automatic priority elevation for findings with low fleet prevalence (outlier detection).
-  - constraints: same deterministic/offline/append-only guarantees as WS-55.
+- Delivered:
+  - extended `foxclaw/learning/history.py` with deterministic latest-snapshot fleet aggregation queries.
+  - added `foxclaw/learning/fleet_patterns.py` for deterministic fleet prevalence, outlier elevation, and pairwise Jaccard correlation helpers.
+  - learning artifact output now includes `rule_fleet_prevalence` and `fleet_rule_correlations`, including `fleet_prevalence` and outlier priority fields.
+  - added deterministic low-prevalence outlier priority elevation (`normal`/`elevated`) using the fleet prevalence threshold.
+  - expanded deterministic regression coverage in `tests/test_scan_history.py` for prevalence, latest-snapshot semantics, and cross-profile correlations.
+- Acceptance: met.
 
 ### WS-57 - Quality Gate Unblock Pack
 

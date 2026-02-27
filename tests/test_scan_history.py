@@ -226,6 +226,9 @@ class TestScanHistoryStore:
         assert artifact["rule_frequencies"][0]["trigger_rate"] == 1.0
         assert "HIGH" in artifact["severity_distribution"]
         assert len(artifact["profile_coverage"]) == 2
+        assert len(artifact["rule_fleet_prevalence"]) == 2
+        assert len(artifact["fleet_rule_correlations"]) == 1
+        assert artifact["rule_fleet_prevalence"][0]["fleet_prevalence"] == 1.0
         store.close()
 
     def test_learning_artifact_serializable(self, tmp_path: Path) -> None:
@@ -250,6 +253,8 @@ class TestScanHistoryStore:
         assert artifact["history_summary"]["total_findings"] == 0
         assert artifact["rule_frequencies"] == []
         assert artifact["rule_trend_novelty"] == []
+        assert artifact["rule_fleet_prevalence"] == []
+        assert artifact["fleet_rule_correlations"] == []
         store.close()
 
     def test_rule_trend_novelty_first_seen(self, tmp_path: Path) -> None:
@@ -329,6 +334,121 @@ class TestScanHistoryStore:
         }["FC-TREND-SWITCH"]
         assert trend_after_return["trend_direction"] == "degrading"
         assert trend_after_return["latest_present"] is True
+        store.close()
+
+    def test_rule_fleet_prevalence_and_outlier_priority(self, tmp_path: Path) -> None:
+        """Fleet prevalence and outlier-priority are deterministic by profile coverage."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        for idx in range(5):
+            findings = [_make_finding("FC-FLEET-COMMON")]
+            if idx == 0:
+                findings.append(_make_finding("FC-FLEET-RARE"))
+            store.ingest(
+                _make_evidence(
+                    profile_path=f"/profiles/{idx}.default",
+                    profile_name=f"{idx}.default",
+                    findings=findings,
+                    generated_at=datetime(2026, 2, 24, 12, idx, 0, tzinfo=UTC),
+                )
+            )
+
+        prevalence = {item["rule_id"]: item for item in store.rule_fleet_prevalence()}
+        common = prevalence["FC-FLEET-COMMON"]
+        rare = prevalence["FC-FLEET-RARE"]
+
+        assert common["fleet_prevalence"] == 1.0
+        assert common["is_outlier"] is False
+        assert common["outlier_priority"] == "normal"
+
+        assert rare["fleet_prevalence"] == 0.2
+        assert rare["is_outlier"] is True
+        assert rare["outlier_priority"] == "elevated"
+        store.close()
+
+    def test_rule_fleet_prevalence_uses_latest_profile_snapshot(self, tmp_path: Path) -> None:
+        """Fleet prevalence is computed from the latest snapshot per profile."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/a.default",
+                profile_name="a.default",
+                findings=[_make_finding("FC-OLD-ONLY")],
+                generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/a.default",
+                profile_name="a.default",
+                findings=[_make_finding("FC-NEW-CURRENT")],
+                generated_at=datetime(2026, 2, 24, 12, 5, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/b.default",
+                profile_name="b.default",
+                findings=[_make_finding("FC-NEW-CURRENT")],
+                generated_at=datetime(2026, 2, 24, 12, 10, 0, tzinfo=UTC),
+            )
+        )
+
+        prevalence = {item["rule_id"]: item for item in store.rule_fleet_prevalence()}
+        assert "FC-OLD-ONLY" not in prevalence
+        assert prevalence["FC-NEW-CURRENT"]["fleet_prevalence"] == 1.0
+        store.close()
+
+    def test_fleet_rule_correlations(self, tmp_path: Path) -> None:
+        """Cross-profile rule correlations are deterministic and skip zero overlap."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/p1.default",
+                profile_name="p1.default",
+                findings=[_make_finding("FC-A"), _make_finding("FC-B")],
+                generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/p2.default",
+                profile_name="p2.default",
+                findings=[_make_finding("FC-A"), _make_finding("FC-B")],
+                generated_at=datetime(2026, 2, 24, 12, 5, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/p3.default",
+                profile_name="p3.default",
+                findings=[_make_finding("FC-A"), _make_finding("FC-C")],
+                generated_at=datetime(2026, 2, 24, 12, 10, 0, tzinfo=UTC),
+            )
+        )
+
+        correlations = store.fleet_rule_correlations()
+        assert correlations == [
+            {
+                "rule_id_a": "FC-A",
+                "rule_id_b": "FC-B",
+                "profiles_cooccurring": 2,
+                "cooccurrence_prevalence": 0.6667,
+                "jaccard_similarity": 0.6667,
+            },
+            {
+                "rule_id_a": "FC-A",
+                "rule_id_b": "FC-C",
+                "profiles_cooccurring": 1,
+                "cooccurrence_prevalence": 0.3333,
+                "jaccard_similarity": 0.3333,
+            },
+        ]
         store.close()
 
     def test_schema_version_mismatch_raises(self, tmp_path: Path) -> None:
