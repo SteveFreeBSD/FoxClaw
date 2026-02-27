@@ -20,6 +20,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Rationale:
   - The validated Python baseline is now merged cleanly and all merge-target gates passed on the merge candidate.
   - `main` remains the clean Python source of truth.
+  - Session memory persistence is local-only, so repo pushes do not publish agent checkpoint history.
   - Rust bootstrap resumes next, but only on the dedicated branch `rust/ws31-bootstrap` seeded from merged `main`.
 
 ## Slice Queue
@@ -99,6 +100,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-70 | complete | WS-67, WS-68, WS-69 | Scope C merge pack: land docs, evidence, and queue-control updates after the bounded Python scopes are merged. |
 | WS-71 | complete | WS-68, WS-69, WS-70 | Python merge execution checkpoint: convert the validated scope packs into coherent commit/merge units and keep Rust branch work blocked until the Python baseline lands cleanly. |
 | WS-72 | complete | WS-71 | Python mainline merge and Rust branch handoff: merge the validated Python baseline to mainline, rerun merge-target gates, and only then cut the dedicated Rust branch at WS-31/WS-32. |
+| WS-73 | complete | WS-72 | Session-memory privacy hardening: make agent checkpoint persistence local-only so pushes do not publish workflow history or internal notes. |
 
 ## Slice Details
 
@@ -1040,6 +1042,17 @@ This plan converts the current review and research into sequenced, testable exec
     - `.venv/bin/pytest -q`
   - reserved the dedicated Rust handoff branch name `rust/ws31-bootstrap` for the next execution phase.
   - archived evidence note: `docs/WS72_EVIDENCE_2026-02-27.md`.
+
+### WS-73 - Session-Memory Privacy Hardening
+
+- Status: complete.
+- Goal: make agent checkpoint persistence local-only so repository pushes do not publish workflow history or internal notes.
+- Delivered:
+  - moved session-memory journal/doc defaults from tracked `docs/` files to ignored `artifacts/session_memory/`.
+  - updated active workflow instructions so they no longer claim session memory is stored in tracked docs.
+  - removed `docs/SESSION_MEMORY.jsonl` and `docs/SESSION_MEMORY.md` from git-tracked repo state.
+  - added regression coverage proving local-only default paths and override behavior for memory scripts.
+  - archived evidence note: `docs/WS73_EVIDENCE_2026-02-27.md`.
 
 ## Workslice Update Protocol
 

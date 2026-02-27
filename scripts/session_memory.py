@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -12,8 +13,17 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-JOURNAL_PATH = ROOT / "docs" / "SESSION_MEMORY.jsonl"
-DOC_PATH = ROOT / "docs" / "SESSION_MEMORY.md"
+MEMORY_DIR_ENV = "FOXCLAW_SESSION_MEMORY_DIR"
+DEFAULT_MEMORY_DIR = ROOT / "artifacts" / "session_memory"
+JOURNAL_PATH = (
+    Path(os.environ[MEMORY_DIR_ENV]).expanduser()
+    if MEMORY_DIR_ENV in os.environ and os.environ[MEMORY_DIR_ENV].strip()
+    else DEFAULT_MEMORY_DIR
+)
+if not JOURNAL_PATH.is_absolute():
+    JOURNAL_PATH = ROOT / JOURNAL_PATH
+JOURNAL_PATH = JOURNAL_PATH / "SESSION_MEMORY.jsonl"
+DOC_PATH = JOURNAL_PATH.with_name("SESSION_MEMORY.md")
 MAX_RECENT = 20
 
 
@@ -167,7 +177,11 @@ def cmd_validate(_args: argparse.Namespace) -> int:
         print("[session-memory] no checkpoints found (run checkpoint command)")
         return 1
     if not DOC_PATH.exists():
-        print(f"[session-memory] missing {DOC_PATH.relative_to(ROOT)}")
+        try:
+            relative_doc = DOC_PATH.relative_to(ROOT)
+        except ValueError:
+            relative_doc = DOC_PATH
+        print(f"[session-memory] missing {relative_doc}")
         return 1
     print(f"[session-memory] OK ({len(checkpoints)} checkpoints)")
     return 0

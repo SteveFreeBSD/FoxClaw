@@ -20,7 +20,9 @@ python scripts/session_memory.py checkpoint \
 
 ## Memory Recall
 
-Build a local-first recall index from the canonical journal:
+Session memory is local-only and stored under ignored `artifacts/session_memory/`.
+
+Build a local-first recall index from that local journal:
 
 ```bash
 python scripts/memory_index.py build

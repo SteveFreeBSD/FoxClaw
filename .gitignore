@@ -46,3 +46,5 @@ firefox-container-artifacts/
 demo-insecure-artifacts/
 
 artifacts/
+docs/SESSION_MEMORY.jsonl
+docs/SESSION_MEMORY.md

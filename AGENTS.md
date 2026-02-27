@@ -80,7 +80,8 @@ Record a checkpoint:
 Then refresh index:
 - python scripts/memory_index.py update || python scripts/memory_index.py build
 
-Expected side effect: docs/SESSION_MEMORY.jsonl and docs/SESSION_MEMORY.md will usually change.
+Expected side effect: artifacts/session_memory/SESSION_MEMORY.jsonl and
+artifacts/session_memory/SESSION_MEMORY.md will usually change locally.
 
 ### 2.8 Stop condition
 Stop after completing one workslice unless the user explicitly says to continue.

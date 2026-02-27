@@ -5,14 +5,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE_JSONL = ROOT / "docs" / "SESSION_MEMORY.jsonl"
-DB_PATH = ROOT / "artifacts" / "memory" / "index.sqlite"
+MEMORY_DIR_ENV = "FOXCLAW_SESSION_MEMORY_DIR"
+MEMORY_DIR = (
+    Path(os.environ[MEMORY_DIR_ENV]).expanduser()
+    if MEMORY_DIR_ENV in os.environ and os.environ[MEMORY_DIR_ENV].strip()
+    else ROOT / "artifacts" / "session_memory"
+)
+if not MEMORY_DIR.is_absolute():
+    MEMORY_DIR = ROOT / MEMORY_DIR
+SOURCE_JSONL = MEMORY_DIR / "SESSION_MEMORY.jsonl"
+DB_PATH = MEMORY_DIR / "index.sqlite"
 
 
 @dataclass(frozen=True)
@@ -58,6 +67,13 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return connection
 
 
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def _create_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(
         """
@@ -95,7 +111,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
 def _write_metadata(connection: sqlite3.Connection) -> None:
     stat = SOURCE_JSONL.stat()
     metadata = {
-        "source_path": str(SOURCE_JSONL.relative_to(ROOT)),
+        "source_path": _display_path(SOURCE_JSONL),
         "source_size": str(stat.st_size),
         "source_mtime_ns": str(stat.st_mtime_ns),
     }
@@ -190,8 +206,8 @@ def cmd_build(_args: argparse.Namespace) -> int:
         connection.commit()
 
     print(
-        f"[memory-index] built {DB_PATH.relative_to(ROOT)} "
-        f"from {SOURCE_JSONL.relative_to(ROOT)} ({len(checkpoints)} checkpoints)"
+        f"[memory-index] built {_display_path(DB_PATH)} "
+        f"from {_display_path(SOURCE_JSONL)} ({len(checkpoints)} checkpoints)"
     )
     return 0
 
@@ -205,7 +221,7 @@ def cmd_update(_args: argparse.Namespace) -> int:
         if _is_source_unchanged(connection):
             count = connection.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0]
             print(
-                f"[memory-index] up to date: {DB_PATH.relative_to(ROOT)} "
+                f"[memory-index] up to date: {_display_path(DB_PATH)} "
                 f"({count} checkpoints)"
             )
             return 0
@@ -217,7 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    build = sub.add_parser("build", help="rebuild index from SESSION_MEMORY.jsonl")
+    build = sub.add_parser("build", help="rebuild index from the local session memory journal")
     build.set_defaults(func=cmd_build)
 
     update = sub.add_parser("update", help="refresh index when source log changed")

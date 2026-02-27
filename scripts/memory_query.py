@@ -4,11 +4,20 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "artifacts" / "memory" / "index.sqlite"
+MEMORY_DIR_ENV = "FOXCLAW_SESSION_MEMORY_DIR"
+DB_PATH = (
+    Path(os.environ[MEMORY_DIR_ENV]).expanduser()
+    if MEMORY_DIR_ENV in os.environ and os.environ[MEMORY_DIR_ENV].strip()
+    else ROOT / "artifacts" / "session_memory"
+)
+if not DB_PATH.is_absolute():
+    DB_PATH = ROOT / DB_PATH
+DB_PATH = DB_PATH / "index.sqlite"
 
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -45,7 +54,7 @@ def main() -> int:
 
     if not DB_PATH.exists():
         print(
-            "[memory-query] missing artifacts/memory/index.sqlite; "
+            "[memory-query] missing artifacts/session_memory/index.sqlite; "
             "run: python scripts/memory_index.py build"
         )
         return 1
