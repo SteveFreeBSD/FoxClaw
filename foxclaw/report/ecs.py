@@ -120,8 +120,10 @@ def _build_finding_event(
         host=host,
         profile=profile,
     )
-    event["event"]["code"] = finding.id
-    event["event"]["severity"] = _severity_score(finding.severity)
+    event_payload = event["event"]
+    assert isinstance(event_payload, dict)
+    event_payload["code"] = finding.id
+    event_payload["severity"] = _severity_score(finding.severity)
     event["log"] = {"level": _log_level(finding.severity)}
     event["rule"] = {
         "author": ["FoxClaw"],
@@ -132,7 +134,7 @@ def _build_finding_event(
         "ruleset": "foxclaw",
     }
     if finding.risk_priority is not None:
-        event["event"]["risk_score_norm"] = _risk_score(finding.risk_priority)
+        event_payload["risk_score_norm"] = _risk_score(finding.risk_priority)
     foxclaw_payload = event["foxclaw"]
     assert isinstance(foxclaw_payload, dict)
     foxclaw_payload["finding"] = {
@@ -183,9 +185,11 @@ def _build_summary_event(
         host=host,
         profile=profile,
     )
-    event["event"]["code"] = "FOXCLAW_SCAN_SUMMARY"
-    event["event"]["outcome"] = "success"
-    event["event"]["severity"] = _severity_score("INFO")
+    event_payload = event["event"]
+    assert isinstance(event_payload, dict)
+    event_payload["code"] = "FOXCLAW_SCAN_SUMMARY"
+    event_payload["outcome"] = "success"
+    event_payload["severity"] = _severity_score("INFO")
     event["log"] = {"level": _log_level("INFO")}
     foxclaw_payload = event["foxclaw"]
     assert isinstance(foxclaw_payload, dict)
