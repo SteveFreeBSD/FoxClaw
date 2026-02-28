@@ -21,8 +21,8 @@ DEFAULT_ELASTICSEARCH_IMAGE = (
     f"docker.elastic.co/elasticsearch/elasticsearch:{DEFAULT_STACK_VERSION}"
 )
 DEFAULT_KIBANA_IMAGE = f"docker.elastic.co/kibana/kibana:{DEFAULT_STACK_VERSION}"
-DEFAULT_ELASTIC_PASSWORD = "foxclawelastic1"
-DEFAULT_KIBANA_PASSWORD = "foxclawkibana1"
+DEFAULT_ELASTIC_PASSWORD = "foxclawelastic1"  # pragma: allowlist secret
+DEFAULT_KIBANA_PASSWORD = "foxclawkibana1"  # pragma: allowlist secret
 DEFAULT_INDEX_NAME = "logs-foxclaw.scan-default"
 DEFAULT_ELASTICSEARCH_URL = "http://127.0.0.1:9200"
 DEFAULT_KIBANA_URL = "http://127.0.0.1:5601"
