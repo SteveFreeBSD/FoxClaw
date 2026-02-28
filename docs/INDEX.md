@@ -53,6 +53,7 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
   - `docs/WS78_EVIDENCE_2026-02-27.md`
   - `docs/WS79_EVIDENCE_2026-02-27.md`
   - `docs/WS80_EVIDENCE_2026-02-28.md`
+  - `docs/WS81_EVIDENCE_2026-02-28.md`
 - Apply-ready patch artifacts: `../DIFFS/patch-a-live-share-parity.diff`, `../DIFFS/patch-b-supply-chain-immutability.diff`
 
 ## Rule

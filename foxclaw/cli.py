@@ -21,6 +21,7 @@ from foxclaw.acquire.windows_share import (
 from foxclaw.acquire.windows_share_batch import run_windows_share_batch
 from foxclaw.intel.sync import sync_sources
 from foxclaw.profiles import PROFILE_LOCK_FILES, FirefoxProfile, discover_profiles
+from foxclaw.report.ecs import iter_ecs_events, write_ecs_ndjson
 from foxclaw.report.fleet import build_fleet_report, render_fleet_json
 from foxclaw.report.jsonout import render_scan_json
 from foxclaw.report.sarif import render_scan_sarif
@@ -109,6 +110,9 @@ def scan(
     json_output: bool = typer.Option(False, "--json", help="Emit JSON report to stdout."),
     ndjson_output: bool = typer.Option(
         False, "--ndjson", help="Emit SIEM NDJSON events to stdout."
+    ),
+    ecs_output: bool = typer.Option(
+        False, "--ecs", help="Emit Elastic Common Schema NDJSON events to stdout."
     ),
     profile: Path | None = typer.Option(
         None, "--profile", help="Scan this Firefox profile directory directly."
@@ -199,6 +203,9 @@ def scan(
     ndjson_out: Path | None = typer.Option(
         None, "--ndjson-out", help="Write SIEM NDJSON events to this path."
     ),
+    ecs_out: Path | None = typer.Option(
+        None, "--ecs-out", help="Write Elastic Common Schema NDJSON events to this path."
+    ),
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write SARIF 2.1.0 report to this path."
     ),
@@ -225,10 +232,10 @@ def scan(
     ),
 ) -> None:
     """Run read-only scan."""
-    selected_stdout_modes = [json_output, sarif_output, ndjson_output]
+    selected_stdout_modes = [json_output, sarif_output, ndjson_output, ecs_output]
     if sum(1 for mode in selected_stdout_modes if mode) > 1:
         console.print(
-            "[red]Operational error: --json, --sarif, and --ndjson are mutually exclusive.[/red]"
+            "[red]Operational error: --json, --sarif, --ndjson, and --ecs are mutually exclusive.[/red]"
         )
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
@@ -242,6 +249,7 @@ def scan(
                     staging_root=staging_root,
                     json_out=output,
                     ndjson_out=ndjson_out,
+                    ecs_out=ecs_out,
                     sarif_out=sarif_out,
                     scan_snapshot_out=snapshot_out,
                     manifest_out=stage_manifest_out,
@@ -271,9 +279,11 @@ def scan(
         resolved_ruleset_path=resolved_ruleset_path,
         json_output=json_output,
         ndjson_output=ndjson_output,
+        ecs_output=ecs_output,
         sarif_output=sarif_output,
         output=output,
         ndjson_out=ndjson_out,
+        ecs_out=ecs_out,
         sarif_out=sarif_out,
         snapshot_out=snapshot_out,
         deterministic=deterministic,
@@ -349,12 +359,18 @@ def scan(
 
     json_payload: str | None = None
     ndjson_payload: str | None = None
+    ecs_payload: str | None = None
     sarif_payload: str | None = None
     snapshot_payload: str | None = None
 
     def _render_ndjson_payload() -> str:
         buffer = io.StringIO()
         write_ndjson(iter_siem_events(evidence), buffer)
+        return buffer.getvalue()
+
+    def _render_ecs_payload() -> str:
+        buffer = io.StringIO()
+        write_ecs_ndjson(iter_ecs_events(evidence), buffer)
         return buffer.getvalue()
 
     if json_output or output is not None:
@@ -369,6 +385,17 @@ def scan(
                 strict=False,
             )
             console.print(f"[red]Operational error writing NDJSON output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    if ecs_output or ecs_out is not None:
+        try:
+            ecs_payload = _render_ecs_payload()
+        except ValueError as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
+            console.print(f"[red]Operational error writing ECS output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if sarif_output or sarif_out is not None:
         sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
@@ -400,6 +427,20 @@ def scan(
                 strict=False,
             )
             console.print(f"[red]Operational error writing NDJSON output: {exc}[/red]")
+            raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+    if ecs_out is not None:
+        try:
+            ecs_out.parent.mkdir(parents=True, exist_ok=True)
+            if ecs_payload is None:
+                ecs_payload = _render_ecs_payload()
+            ecs_out.write_text(ecs_payload, encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            _write_stage_manifest(
+                exit_code=EXIT_OPERATIONAL_ERROR,
+                status="FAIL",
+                strict=False,
+            )
+            console.print(f"[red]Operational error writing ECS output: {exc}[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
     if sarif_out is not None:
         try:
@@ -453,16 +494,31 @@ def scan(
                 console.print(f"[red]Operational error writing NDJSON output: {exc}[/red]")
                 raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
         typer.echo(ndjson_payload, nl=False)
+    elif ecs_output and ecs_out is None:
+        if ecs_payload is None:
+            try:
+                ecs_payload = _render_ecs_payload()
+            except ValueError as exc:
+                _write_stage_manifest(
+                    exit_code=EXIT_OPERATIONAL_ERROR,
+                    status="FAIL",
+                    strict=False,
+                )
+                console.print(f"[red]Operational error writing ECS output: {exc}[/red]")
+                raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
+        typer.echo(ecs_payload, nl=False)
     elif sarif_output and sarif_out is None:
         if sarif_payload is None:
             sarif_payload = render_scan_sarif(evidence, deterministic=deterministic)
         typer.echo(sarif_payload)
-    elif not json_output and not sarif_output and not ndjson_output:
+    elif not json_output and not sarif_output and not ndjson_output and not ecs_output:
         render_scan_summary(console, evidence)
         if output is not None:
             console.print(f"JSON report written to: {output}")
         if ndjson_out is not None:
             console.print(f"NDJSON report written to: {ndjson_out}")
+        if ecs_out is not None:
+            console.print(f"ECS report written to: {ecs_out}")
         if sarif_out is not None:
             console.print(f"SARIF report written to: {sarif_out}")
         if snapshot_out is not None:
@@ -797,6 +853,11 @@ def acquire_windows_share_scan(
         "--json-out",
         help="Optional scan JSON output path.",
     ),
+    ecs_out: Path | None = typer.Option(
+        None,
+        "--ecs-out",
+        help="Optional scan ECS NDJSON output path.",
+    ),
     sarif_out: Path | None = typer.Option(
         None,
         "--sarif-out",
@@ -852,6 +913,8 @@ def acquire_windows_share_scan(
         argv.append("--keep-stage-writable")
     if json_out is not None:
         argv.extend(["--json-out", str(json_out)])
+    if ecs_out is not None:
+        argv.extend(["--ecs-out", str(ecs_out)])
     if sarif_out is not None:
         argv.extend(["--sarif-out", str(sarif_out)])
     if scan_snapshot_out is not None:
@@ -1430,9 +1493,11 @@ def _build_stage_scan_manifest_command(
     resolved_ruleset_path: Path,
     json_output: bool,
     ndjson_output: bool,
+    ecs_output: bool,
     sarif_output: bool,
     output: Path | None,
     ndjson_out: Path | None,
+    ecs_out: Path | None,
     sarif_out: Path | None,
     snapshot_out: Path | None,
     deterministic: bool,
@@ -1458,12 +1523,16 @@ def _build_stage_scan_manifest_command(
         command.append("--json")
     if ndjson_output:
         command.append("--ndjson")
+    if ecs_output:
+        command.append("--ecs")
     if sarif_output:
         command.append("--sarif")
     if output is not None:
         command.extend(["--output", str(output)])
     if ndjson_out is not None:
         command.extend(["--ndjson-out", str(ndjson_out)])
+    if ecs_out is not None:
+        command.extend(["--ecs-out", str(ecs_out)])
     if sarif_out is not None:
         command.extend(["--sarif-out", str(sarif_out)])
     if snapshot_out is not None:

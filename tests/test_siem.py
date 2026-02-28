@@ -169,7 +169,7 @@ def test_scan_cli_rejects_json_and_ndjson_together() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["scan", "--json", "--ndjson"])
     assert result.exit_code == 1
-    assert "--json, --sarif, and --ndjson are mutually exclusive" in result.stdout
+    assert "--json, --sarif, --ndjson, and --ecs are mutually exclusive" in result.stdout
 
 
 def test_scan_cli_ndjson_write_error_returns_operational_error(
