@@ -108,7 +108,7 @@ class _ElasticHandler(BaseHTTPRequestHandler):
     mode: str
     index_name: str
 
-    def log_message(self, format: str, *args) -> None:
+    def log_message(self, _format: str, *_args) -> None:
         return
 
     def _send_json(self, status: int, payload: dict[str, object]) -> None:
