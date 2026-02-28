@@ -18,8 +18,9 @@ This plan converts the current review and research into sequenced, testable exec
 - Immediate execution focus:
   - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening and SIEM evidence.
 - Rationale:
-  - WS-75, WS-76, WS-77, WS-78, and WS-79 are now complete on `main`.
+  - WS-75, WS-76, WS-77, WS-78, WS-79, and WS-80 are now complete on `main`.
   - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, and resilient local memory-recall forensics.
+  - A live overnight soak surfaced a matrix-lane wrapper defect, and the follow-up hardening now routes Firefox ESR/Beta/Nightly Docker stages through a real executable so `timeout` no longer fails on shell-function invocation.
   - Rust bootstrap remains deferred until that Python evidence is explicitly accepted as the baseline for branch handoff.
 
 ## Slice Queue
@@ -106,6 +107,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-77 | complete | WS-75, WS-76 | Python SIEM implementation hardening: implement the vendor-neutral NDJSON export path, ingestion fixtures, and open-source SIEM proof workflow on the Python baseline before Rust resumes. |
 | WS-78 | complete | WS-75, WS-77 | Soak-gate reliability: bounded Wazuh lane timeouts, machine-readable soak summary output, and repeatable reduced production gate runs on `main`. |
 | WS-79 | complete | WS-78 | Memory recall forensics reliability: rebuild/query survive fresh checkouts and stale `checkpoints_fts` schema, and soak summaries expose local memory-index status for post-run review. |
+| WS-80 | complete | WS-78 | Matrix soak execution reliability: run Firefox ESR/Beta/Nightly Docker stages through a real executable wrapper so live production gates validate matrix behavior instead of failing on shell-function invocation under `timeout`. |
 
 ## Slice Details
 
@@ -1129,6 +1131,17 @@ This plan converts the current review and research into sequenced, testable exec
   - documented the rebuild/query workflow and captured verification evidence in:
     - `docs/SOAK.md`
     - `docs/WS79_EVIDENCE_2026-02-27.md`
+
+### WS-80 - Matrix Soak Execution Reliability
+
+- Status: complete.
+- Goal: keep the Python soak harness trustworthy after the live production-style run showed matrix ESR/Beta/Nightly stages were invoking Docker through a shell function that `timeout` could not execute.
+- Delivered:
+  - added `scripts/docker_exec.sh` as a real executable wrapper for direct Docker and sudo-backed Docker execution.
+  - updated `scripts/soak_runner.sh` matrix build/version/scan stages to call the executable wrapper instead of the in-shell `docker_exec` function.
+  - added deterministic regression coverage for the wrapper script and for soak-runner matrix command wiring in `tests/test_container_matrix_bootstrap.py`.
+  - captured the post-fix reduced soak evidence in:
+    - `docs/WS80_EVIDENCE_2026-02-28.md`
 
 ## Workslice Update Protocol
 

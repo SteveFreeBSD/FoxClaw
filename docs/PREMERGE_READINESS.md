@@ -84,4 +84,5 @@ Current evidence basis:
 - `docs/WS77_EVIDENCE_2026-02-27.md` confirms the Python NDJSON exporter, deterministic contract tests, and Wazuh proof-of-ingest.
 - `docs/WS78_EVIDENCE_2026-02-27.md` confirms bounded Wazuh-lane waits, `soak-summary.json`, and two passing reduced gate runs on `main`.
 - `docs/WS79_EVIDENCE_2026-02-27.md` confirms stale-memory-index recovery, `LIKE` fallback/repair behavior, and `soak-summary.json` forensic memory metadata.
+- `docs/WS80_EVIDENCE_2026-02-28.md` confirms the live-soak matrix wrapper failure was fixed and that a post-fix reduced gate now passes with `siem_wazuh` plus ESR/Beta/Nightly matrix build/version/scan stages on `main`.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

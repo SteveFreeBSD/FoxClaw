@@ -325,13 +325,8 @@ else
   exit 1
 fi
 
-docker_exec() {
-  if [[ "${USE_SUDO_DOCKER}" -eq 1 ]]; then
-    printf '%s\n' "${SOAK_SUDO_PASSWORD}" | sudo -S docker "$@"
-  else
-    docker "$@"
-  fi
-}
+export FOXCLAW_USE_SUDO_DOCKER="${USE_SUDO_DOCKER}"
+DOCKER_EXEC="${ROOT_DIR}/scripts/docker_exec.sh"
 
 run_snapshot_determinism_cycle() {
   local cycle="$1"
@@ -408,16 +403,16 @@ run_matrix_cycle() {
     scan_log="${LOG_DIR}/cycle-${cycle}-matrix-${matrix_iter}-${channel}-scan.log"
 
     run_step_cmd "${cycle}" "matrix_build_${channel}" "${matrix_iter}" "${build_log}" "-" \
-      docker_exec build --build-arg FIREFOX_CHANNEL="${channel}" \
+      "${DOCKER_EXEC}" build --build-arg FIREFOX_CHANNEL="${channel}" \
       -f "${ROOT_DIR}/docker/testbed/Dockerfile" \
       -t "foxclaw-firefox-testbed:${channel}" \
       "${ROOT_DIR}" || fail_local=1
 
     run_step_cmd "${cycle}" "matrix_version_${channel}" "${matrix_iter}" "${version_log}" "-" \
-      docker_exec run --rm "foxclaw-firefox-testbed:${channel}" firefox --version || fail_local=1
+      "${DOCKER_EXEC}" run --rm "foxclaw-firefox-testbed:${channel}" firefox --version || fail_local=1
 
     run_step_cmd "${cycle}" "matrix_scan_${channel}" "${matrix_iter}" "${scan_log}" "-" \
-      docker_exec run --rm \
+      "${DOCKER_EXEC}" run --rm \
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
         -v "${ROOT_DIR}:/workspace" \
