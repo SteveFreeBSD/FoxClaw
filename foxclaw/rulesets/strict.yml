@@ -1,5 +1,5 @@
 name: strict
-version: 0.5.0
+version: 0.12.0
 min_firefox_major: 120
 rules:
   - id: FC-STRICT-PREF-001
@@ -89,6 +89,76 @@ rules:
         path: policies.HTTPSOnlyMode
     rationale: Strict environments should enforce policy-controlled secure transport defaults.
     recommendation: Add HTTPSOnlyMode policy in policies.json.
+    confidence: high
+
+  - id: FC-STRICT-HANDLER-001
+    title: Protocol handlers must not auto-launch local executables
+    severity: HIGH
+    category: artifacts
+    check:
+      protocol_handler_hijack_absent: {}
+    rationale: Strict environments should block ask=false protocol handlers that execute local binaries (T1204).
+    recommendation: Remove local executable handlers or enforce prompt-based handling for protocol launches.
+    confidence: high
+
+  - id: FC-STRICT-CERT-001
+    title: cert9 root store must not contain rogue trust anchors
+    severity: HIGH
+    category: artifacts
+    check:
+      rogue_root_ca_absent: {}
+    rationale: Strict environments should block non-default trusted roots in cert9.db to prevent TLS interception (T1553.004).
+    recommendation: Remove unauthorized trust anchors from cert9.db and rebuild trust store from approved baselines.
+    confidence: high
+
+  - id: FC-STRICT-PKCS11-001
+    title: PKCS#11 modules must only load from trusted library paths
+    severity: HIGH
+    category: artifacts
+    check:
+      pkcs11_module_injection_absent: {}
+    rationale: Strict environments should block non-standard PKCS#11 libraries to prevent shared-module injection (T1129).
+    recommendation: Remove or disable PKCS#11 modules outside Mozilla and OS-standard trusted crypto paths.
+    confidence: high
+
+  - id: FC-STRICT-SESSION-001
+    title: Session restore must not retain sensitive form or token data
+    severity: HIGH
+    category: artifacts
+    check:
+      session_restore_sensitive_data_absent: {}
+    rationale: Strict environments should prevent sensitive session restore state that can support replay and credential theft (T1005, T1185).
+    recommendation: Disable or sanitize session restore state when sensitive values are present.
+    confidence: high
+
+  - id: FC-STRICT-SEARCH-001
+    title: Default search engine must remain on trusted providers
+    severity: HIGH
+    category: artifacts
+    check:
+      search_engine_hijack_absent: {}
+    rationale: Strict environments should prevent default search hijacking and untrusted custom engine URLs (T1583.001).
+    recommendation: Enforce approved search engines and remove custom search providers not on allowlist.
+    confidence: high
+
+  - id: FC-STRICT-COOKIE-001
+    title: Cookie security posture must not expose session theft signals
+    severity: HIGH
+    category: artifacts
+    check:
+      cookie_security_posture_absent: {}
+    rationale: Strict environments should block long-lived auth cookies, SameSite=None on sensitive domains, and excessive third-party tracking cookies (T1539).
+    recommendation: Enforce secure cookie attributes and expiration hygiene; eliminate excessive third-party tracking cookie persistence.
+    confidence: high
+
+  - id: FC-STRICT-HSTS-001
+    title: HSTS state must not show downgrade or removal signals
+    severity: HIGH
+    category: artifacts
+    check:
+      hsts_downgrade_absent: {}
+    rationale: Strict environments should detect missing, truncated, or selectively deleted HSTS state for critical HTTPS domains to reduce MitM downgrade exposure (T1557).
+    recommendation: Restore HSTS state from trusted profile baselines and investigate potential tampering in SiteSecurityServiceState.txt.
     confidence: high
 
   - id: FC-STRICT-SQL-001

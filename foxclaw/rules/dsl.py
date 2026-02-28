@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
@@ -37,6 +38,21 @@ _CREDENTIAL_METRIC_NAMES: tuple[str, ...] = (
     "formhistory_password_field_count",
     "formhistory_credential_field_count",
 )
+_HANDLER_RISK_COUNT_KEY = "suspicious_local_exec_count"
+_HANDLER_RISK_ENTRIES_KEY = "suspicious_local_exec_handlers"
+_CERT_RISK_COUNT_KEY = "suspicious_root_ca_count"
+_CERT_RISK_ENTRIES_KEY = "suspicious_root_ca_entries"
+_PKCS11_RISK_COUNT_KEY = "suspicious_pkcs11_module_count"
+_PKCS11_RISK_ENTRIES_KEY = "suspicious_pkcs11_modules"
+_SESSION_RESTORE_ENABLED_KEY = "session_restore_enabled"
+_SESSION_SENSITIVE_COUNT_KEY = "session_sensitive_entry_count"
+_SESSION_SENSITIVE_ENTRIES_KEY = "session_sensitive_entries"
+_SEARCH_RISK_COUNT_KEY = "suspicious_search_engine_count"
+_SEARCH_RISK_ENTRIES_KEY = "suspicious_search_engines"
+_COOKIE_RISK_COUNT_KEY = "suspicious_cookie_security_count"
+_COOKIE_RISK_ENTRIES_KEY = "suspicious_cookie_security_signals"
+_HSTS_RISK_COUNT_KEY = "suspicious_hsts_state_count"
+_HSTS_RISK_ENTRIES_KEY = "suspicious_hsts_state_entries"
 
 
 @dataclass(slots=True)
@@ -75,6 +91,20 @@ def evaluate_check(bundle: EvidenceBundle, check: dict[str, object]) -> CheckRes
         return _check_extension_intel_reputation_absent(bundle, config)
     if check_name == "credential_metric_max":
         return _check_credential_metric_max(bundle, _as_dict(config, check_name))
+    if check_name == "protocol_handler_hijack_absent":
+        return _check_protocol_handler_hijack_absent(bundle, config)
+    if check_name == "rogue_root_ca_absent":
+        return _check_rogue_root_ca_absent(bundle, config)
+    if check_name == "pkcs11_module_injection_absent":
+        return _check_pkcs11_module_injection_absent(bundle, config)
+    if check_name == "session_restore_sensitive_data_absent":
+        return _check_session_restore_sensitive_data_absent(bundle, config)
+    if check_name == "search_engine_hijack_absent":
+        return _check_search_engine_hijack_absent(bundle, config)
+    if check_name == "cookie_security_posture_absent":
+        return _check_cookie_security_posture_absent(bundle, config)
+    if check_name == "hsts_downgrade_absent":
+        return _check_hsts_downgrade_absent(bundle, config)
     raise ValueError(f"unsupported DSL check: {check_name}")
 
 
@@ -344,6 +374,346 @@ def _check_credential_metric_max(bundle: EvidenceBundle, config: dict[str, objec
     if observed <= max_value:
         return CheckResult(passed=True, evidence=[evidence_line])
     return CheckResult(passed=False, evidence=[evidence_line])
+
+
+def _check_protocol_handler_hijack_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("protocol_handler_hijack_absent config must be an object when provided")
+
+    handlers_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "handlers.json"),
+        None,
+    )
+    if handlers_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = handlers_entry.key_values.get(_HANDLER_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = handlers_entry.key_values.get(_HANDLER_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                scheme = entry.get("scheme")
+                path = entry.get("path")
+                if isinstance(scheme, str) and isinstance(path, str):
+                    evidence.append(f"{scheme}: ask=0, handler={path}")
+
+    if not evidence:
+        evidence = [f"handlers.json: suspicious_local_exec_count={suspicious_count}"]
+
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_rogue_root_ca_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("rogue_root_ca_absent config must be an object when provided")
+
+    cert9_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "cert9.db"),
+        None,
+    )
+    if cert9_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = cert9_entry.key_values.get(_CERT_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = cert9_entry.key_values.get(_CERT_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                subject = entry.get("subject")
+                issuer = entry.get("issuer")
+                reasons = entry.get("reasons")
+                if not isinstance(subject, str) or not isinstance(issuer, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                evidence.append(f"{subject}: issuer={issuer}, reasons={reason_text}")
+
+    if not evidence:
+        evidence = [f"cert9.db: suspicious_root_ca_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_pkcs11_module_injection_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("pkcs11_module_injection_absent config must be an object when provided")
+
+    pkcs11_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "pkcs11.txt"),
+        None,
+    )
+    if pkcs11_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = pkcs11_entry.key_values.get(_PKCS11_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = pkcs11_entry.key_values.get(_PKCS11_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                library_path = entry.get("library_path")
+                reasons = entry.get("reasons")
+                if not isinstance(name, str) or not isinstance(library_path, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_name = name if name else "<unnamed>"
+                evidence.append(
+                    f"{display_name}: library={library_path}, reasons={reason_text}"
+                )
+
+    if not evidence:
+        evidence = [f"pkcs11.txt: suspicious_pkcs11_module_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_session_restore_sensitive_data_absent(
+    bundle: EvidenceBundle, config: object
+) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError(
+            "session_restore_sensitive_data_absent config must be an object when provided"
+        )
+
+    session_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "sessionstore.jsonlz4"),
+        None,
+    )
+    if session_entry is None:
+        return CheckResult(passed=True)
+
+    restore_enabled_raw = session_entry.key_values.get(_SESSION_RESTORE_ENABLED_KEY, "0").strip()
+    restore_enabled = restore_enabled_raw in {"1", "true", "True"}
+
+    sensitive_count_raw = session_entry.key_values.get(_SESSION_SENSITIVE_COUNT_KEY, "0")
+    try:
+        sensitive_count = int(sensitive_count_raw)
+    except ValueError:
+        sensitive_count = 0
+
+    if not restore_enabled or sensitive_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = session_entry.key_values.get(_SESSION_SENSITIVE_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                path = entry.get("path")
+                kind = entry.get("kind")
+                if isinstance(path, str) and isinstance(kind, str):
+                    evidence.append(f"{path}: kind={kind}")
+
+    if not evidence:
+        evidence = [f"sessionstore.jsonlz4: session_sensitive_entry_count={sensitive_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_search_engine_hijack_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("search_engine_hijack_absent config must be an object when provided")
+
+    search_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "search.json.mozlz4"),
+        None,
+    )
+    if search_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = search_entry.key_values.get(_SEARCH_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = search_entry.key_values.get(_SEARCH_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                search_url = entry.get("search_url")
+                reasons = entry.get("reasons")
+                if not isinstance(name, str) or not isinstance(search_url, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_name = name if name else "<unknown>"
+                evidence.append(
+                    f"{display_name}: search_url={search_url}, reasons={reason_text}"
+                )
+
+    if not evidence:
+        evidence = [f"search.json.mozlz4: suspicious_search_engine_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_cookie_security_posture_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("cookie_security_posture_absent config must be an object when provided")
+
+    cookies_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "cookies.sqlite"),
+        None,
+    )
+    if cookies_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = cookies_entry.key_values.get(_COOKIE_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = cookies_entry.key_values.get(_COOKIE_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                host = entry.get("host")
+                name = entry.get("name")
+                reasons = entry.get("reasons")
+                if not isinstance(host, str) or not isinstance(name, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_host = host if host else "<unknown-host>"
+                display_name = name if name else "<unnamed-cookie>"
+                evidence.append(
+                    f"{display_host}::{display_name}: reasons={reason_text}"
+                )
+
+    if not evidence:
+        evidence = [f"cookies.sqlite: suspicious_cookie_security_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
+
+
+def _check_hsts_downgrade_absent(bundle: EvidenceBundle, config: object) -> CheckResult:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("hsts_downgrade_absent config must be an object when provided")
+
+    hsts_entry = next(
+        (item for item in bundle.artifacts.entries if item.rel_path == "SiteSecurityServiceState.txt"),
+        None,
+    )
+    if hsts_entry is None:
+        return CheckResult(passed=True)
+
+    raw_count = hsts_entry.key_values.get(_HSTS_RISK_COUNT_KEY, "0")
+    try:
+        suspicious_count = int(raw_count)
+    except ValueError:
+        suspicious_count = 0
+
+    if suspicious_count <= 0:
+        return CheckResult(passed=True)
+
+    evidence: list[str] = []
+    raw_entries = hsts_entry.key_values.get(_HSTS_RISK_ENTRIES_KEY)
+    if raw_entries:
+        try:
+            parsed_entries = json.loads(raw_entries)
+        except json.JSONDecodeError:
+            parsed_entries = None
+        if isinstance(parsed_entries, list):
+            for entry in parsed_entries:
+                if not isinstance(entry, dict):
+                    continue
+                host = entry.get("host")
+                reasons = entry.get("reasons")
+                if not isinstance(host, str):
+                    continue
+                reason_text = (
+                    ",".join(str(item) for item in reasons)
+                    if isinstance(reasons, list)
+                    else "unknown"
+                )
+                display_host = host if host else "<unknown-host>"
+                evidence.append(f"{display_host}: reasons={reason_text}")
+
+    if not evidence:
+        evidence = [f"SiteSecurityServiceState.txt: suspicious_hsts_state_count={suspicious_count}"]
+    return CheckResult(passed=False, evidence=sorted(evidence))
 
 
 def _match_file_evidence(

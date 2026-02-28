@@ -2,6 +2,7 @@
 
 This canonical system model is maintained at:
 
-- `../SYSTEM_MODEL_FROM_CODE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/SECURITY_MODEL.md`
 
-Use that document for runtime boundaries, trust assumptions, and command-surface behavior grounded in current code.
+Use those documents for runtime boundaries, trust assumptions, and command-surface behavior grounded in current code.

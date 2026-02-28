@@ -57,6 +57,7 @@ class WindowsShareStagePaths:
     staged_profile: Path
     output_dir: Path
     json_out: Path
+    ndjson_out: Path | None
     sarif_out: Path
     scan_snapshot_out: Path
     manifest_out: Path
@@ -237,6 +238,7 @@ def resolve_windows_share_stage_paths(
     snapshot_id: str | None = None,
     output_dir: Path | None = None,
     json_out: Path | None = None,
+    ndjson_out: Path | None = None,
     sarif_out: Path | None = None,
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
@@ -260,6 +262,7 @@ def resolve_windows_share_stage_paths(
     resolved_json_out = (
         json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
     )
+    resolved_ndjson_out = ndjson_out.expanduser().resolve() if ndjson_out else None
     resolved_sarif_out = (
         sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
     )
@@ -281,6 +284,7 @@ def resolve_windows_share_stage_paths(
         staged_profile=staged_profile,
         output_dir=resolved_output_dir,
         json_out=resolved_json_out,
+        ndjson_out=resolved_ndjson_out,
         sarif_out=resolved_sarif_out,
         scan_snapshot_out=resolved_scan_snapshot_out,
         manifest_out=resolved_manifest_out,
@@ -481,6 +485,7 @@ def stage_windows_share_profile(
     snapshot_id: str | None = None,
     output_dir: Path | None = None,
     json_out: Path | None = None,
+    ndjson_out: Path | None = None,
     sarif_out: Path | None = None,
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
@@ -493,6 +498,7 @@ def stage_windows_share_profile(
         snapshot_id=snapshot_id,
         output_dir=output_dir,
         json_out=json_out,
+        ndjson_out=ndjson_out,
         sarif_out=sarif_out,
         scan_snapshot_out=scan_snapshot_out,
         manifest_out=manifest_out,
@@ -533,6 +539,14 @@ def stage_windows_share_profile(
     except (OSError, RuntimeError) as exc:
         raise RuntimeError(f"failed to stage source profile: {exc}") from exc
 
+    artifacts: dict[str, str] = {
+        "json": str(paths.json_out),
+        "sarif": str(paths.sarif_out),
+        "snapshot": str(paths.scan_snapshot_out),
+    }
+    if paths.ndjson_out is not None:
+        artifacts["ndjson"] = str(paths.ndjson_out)
+
     manifest_payload: dict[str, object] = {
         "schema_version": "1.0.0",
         "captured_at_utc": _utc_now_iso(),
@@ -555,11 +569,7 @@ def stage_windows_share_profile(
             }
             for entry in copy_stats.file_entries
         ],
-        "artifacts": {
-            "json": str(paths.json_out),
-            "sarif": str(paths.sarif_out),
-            "snapshot": str(paths.scan_snapshot_out),
-        },
+        "artifacts": artifacts,
         "scan": {
             "command": [],
             "exit_code": 0,

@@ -1,17 +1,45 @@
-# CTO Review Packet (2026-02-26)
+# CTO Review Packet (2026-02-28)
 
 ## Executive Summary
 
 ### Health Snapshot
-- Local gate baseline is clean as of 2026-02-26: `./scripts/certify.sh` passed end-to-end and `pytest -q` reports `199 passed`.
+- Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` reports `289 passed, 7 skipped`.
+- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-80 now cover native Wazuh proof, vendor-neutral NDJSON export, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- Merge-readiness gates were rerun on the merged `main` tip on 2026-02-28: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on the WS-80 tip.
 - Core scan architecture is structured and reviewable: collection, rule evaluation, suppressions, and reporting are separated in `run_scan()` (`foxclaw/scan.py:37-187`).
 - Deterministic output contracts are explicit in JSON/SARIF/snapshot/diff renderers (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/snapshot_diff.py:45-92`).
 - Trust boundaries are present and fail closed in critical paths: ruleset trust verification (`foxclaw/rules/trust.py:81-162`), profile path safety (`foxclaw/collect/safe_paths.py:38-68`), and UNC/share staging controls (`foxclaw/cli.py:226-243`, `foxclaw/cli.py:536-542`, `foxclaw/acquire/windows_share.py:520-526`).
+- A post-fix reduced soak at `/var/tmp/foxclaw-soak/20260228T103227Z-ws80-gate` finished `PASS` with `steps_total=16` and `steps_failed=0`, including `siem_wazuh` and all ESR/Beta/Nightly matrix stages.
 
 ### Readiness Call
-- **CTO review ready for current scope.**
-- WS-64 closure evidence is now recorded (`docs/WORKSLICES.md:836-845`, `docs/WS64_EVIDENCE_2026-02-26.md`).
-- Remaining risk is primarily long-horizon maintainability (shared CLI orchestration and mount-detection hardening), not runtime correctness.
+- **CTO review ready for the current Python baseline and push/merge prep.**
+- Rust remains intentionally blocked until the WS-75 through WS-80 evidence packet is explicitly accepted as the handoff baseline.
+- Remaining risk is primarily long-horizon maintainability (shared CLI orchestration and mount-detection hardening), not objective runtime correctness of the current Python release path.
+
+## Review Order
+
+1. Source-of-truth and gate framing:
+   - `docs/WORKSLICES.md`
+   - `docs/PREMERGE_READINESS.md`
+2. Production/SIEM/forensics evidence sequence:
+   - `docs/WS75_EVIDENCE_2026-02-27.md`
+   - `docs/WS76_EVIDENCE_2026-02-27.md`
+   - `docs/WS77_EVIDENCE_2026-02-27.md`
+   - `docs/WS78_EVIDENCE_2026-02-27.md`
+   - `docs/WS79_EVIDENCE_2026-02-27.md`
+   - `docs/WS80_EVIDENCE_2026-02-28.md`
+3. Contract and runtime reference:
+   - `docs/CLI_CONTRACT.md`
+   - `docs/SOAK.md`
+   - `README.md`
+
+## What Changed Since The February 27 Packet
+
+- Python `main` now carries first-party Wazuh smoke coverage and a bounded soak-harness SIEM lane.
+- The SIEM contract is now vendor-neutral NDJSON, with `foxclaw.finding` and `foxclaw.scan.summary` as the stable event types.
+- Soak runs now emit machine-readable `soak-summary.json`, including artifact-first stage summaries and Wazuh image tracking.
+- Local forensic recall is now resilient on fresh checkouts and stale `checkpoints_fts` schema, with optional repair and safe fallback behavior.
+- The matrix soak lane now executes through a real Docker wrapper under `timeout`, and the post-fix reduced gate proves ESR/Beta/Nightly build/version/scan stages all pass.
 
 ## Architecture Map
 
@@ -44,7 +72,7 @@
 2. **Maintainability:** `scan` and `live` duplicate substantial orchestration logic, increasing drift risk on future contract edits (`foxclaw/cli.py:105-454`, `foxclaw/cli.py:457-661`).
 3. **Determinism Expectations:** Default timestamps remain runtime-generated unless deterministic modes/inputs are pinned (`foxclaw/models.py:327`, `foxclaw/intel/store.py:76-79`, `foxclaw/learning/history.py:321-324`).
 4. **Compatibility Debt:** dual HSTS filename support should be time-boxed and eventually retired (`foxclaw/collect/artifacts.py:16-21`).
-5. **Governance Discipline:** roadmap draft is now archived and must stay non-canonical (`docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`, `docs/ROADMAP.md:5-13`).
+5. **Governance Discipline:** roadmap draft is now archived and must stay non-canonical (`docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`, `docs/ROADMAP.md`).
 
 ## Findings
 
@@ -52,7 +80,7 @@
 - None found in active runtime paths reviewed.
 
 ### High
-- None found after remediation of history metadata wiring, HSTS contract normalization, and documentation drift (`foxclaw/cli.py:415-421`, `foxclaw/collect/artifacts.py:16-21`, `README.md:225`, `docs/PREMERGE_READINESS.md:62-70`, `docs/QUALITY_GATES.md:22-34`, `docs/VULNERABILITY_INTEL.md:95-101`).
+- None found after remediation of history metadata wiring, HSTS contract normalization, and documentation drift (`foxclaw/cli.py:415-421`, `foxclaw/collect/artifacts.py:16-21`, `README.md`, `docs/PREMERGE_READINESS.md`, `docs/QUALITY_GATES.md`, `docs/VULNERABILITY_INTEL.md`).
 
 ### Medium
 1. **Share-source classification relies on static mount fs-type list**
@@ -68,7 +96,7 @@
   - `pytest -q tests/test_cli_exit_codes.py tests/test_live_orchestration.py tests/test_determinism.py`
 
 3. **Roadmap governance must remain canonical**
-- Evidence: historical draft is archived and explicitly non-canonical (`docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`, `docs/ROADMAP.md:5-13`, `docs/WORKSLICES.md:74-93`).
+- Evidence: historical draft is archived and explicitly non-canonical (`docs/archive/roadmap/ROADMAP_UPDATE_2026_DRAFT.md`, `docs/ROADMAP.md`, `docs/WORKSLICES.md`).
 - Fix approach: keep archive-only status and reject roadmap decisions sourced from draft docs.
 - Verification:
   - `rg -n "ROADMAP_UPDATE_2026|ROADMAP_UPDATE_2026_DRAFT|ROADMAP.md|WORKSLICES.md" README.md docs`
@@ -111,7 +139,7 @@
 ### Coverage Gaps
 - No automated docs-contract consistency gate (docs can drift unless manually reviewed).
 - Share-source mount classification tests should expand beyond current UNC/cifs/local cases (`foxclaw/acquire/windows_share.py:118-126`).
-- WS-64 evidence exists, but long-horizon soak evidence (multi-hour) is not yet part of a recurring gate (`docs/WS64_EVIDENCE_2026-02-26.md`, `docs/SOAK.md:1-151`).
+- WS-75, WS-78, and WS-80 now provide real production-soak evidence, but long-horizon soak remains an evidence runbook rather than a recurring CI gate (`docs/WS75_EVIDENCE_2026-02-27.md`, `docs/WS78_EVIDENCE_2026-02-27.md`, `docs/WS80_EVIDENCE_2026-02-28.md`, `docs/SOAK.md`).
 
 ### Flakiness Risk Zones
 - Time-based fields without deterministic override (`foxclaw/models.py:327`, `foxclaw/intel/store.py:76-79`, `foxclaw/learning/history.py:321-324`).

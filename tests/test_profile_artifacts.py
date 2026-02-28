@@ -20,6 +20,94 @@ def _create_sqlite_db(path: Path) -> None:
     connection.close()
 
 
+def _create_places_db(path: Path, *, urls: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.execute(
+        """
+        CREATE TABLE moz_places (
+            id INTEGER PRIMARY KEY,
+            url TEXT
+        )
+        """
+    )
+    connection.executemany("INSERT INTO moz_places (url) VALUES (?)", [(url,) for url in urls])
+    connection.commit()
+    connection.close()
+
+
+def _create_cookies_db(
+    path: Path,
+    *,
+    rows: list[tuple[str, str, int, int, int, int]],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.execute(
+        """
+        CREATE TABLE moz_cookies (
+            id INTEGER PRIMARY KEY,
+            host TEXT,
+            name TEXT,
+            expiry INTEGER,
+            isHttpOnly INTEGER,
+            sameSite INTEGER,
+            creationTime INTEGER
+        )
+        """
+    )
+    connection.executemany(
+        """
+        INSERT INTO moz_cookies (
+            host,
+            name,
+            expiry,
+            isHttpOnly,
+            sameSite,
+            creationTime
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
+    connection.commit()
+    connection.close()
+
+
+def _create_cert9_db(path: Path, *, rows: list[tuple[str, str, str, int, str]]) -> None:
+    """Create a minimal cert9-like schema with deterministic test rows."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.executescript(
+        """
+        CREATE TABLE nssPublic (
+            id INTEGER PRIMARY KEY,
+            a11 BLOB,
+            a102 BLOB,
+            a81 BLOB,
+            a90 INTEGER
+        );
+        CREATE TABLE nssTrust (
+            id INTEGER PRIMARY KEY,
+            a11 BLOB,
+            a102 BLOB,
+            a81 BLOB,
+            a90 INTEGER
+        );
+        """
+    )
+    for idx, (subject, issuer, not_before_utc, root_flag, trust_flags) in enumerate(rows, start=1):
+        connection.execute(
+            "INSERT INTO nssPublic (id, a11, a102, a81, a90) VALUES (?, ?, ?, ?, ?)",
+            (idx, subject, issuer, not_before_utc, root_flag),
+        )
+        connection.execute(
+            "INSERT INTO nssTrust (id, a11, a102, a81, a90) VALUES (?, ?, ?, ?, ?)",
+            (idx, trust_flags, "", "", root_flag),
+        )
+    connection.commit()
+    connection.close()
+
+
 def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path) -> None:
     profile_dir = tmp_path / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -52,7 +140,22 @@ def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path
     )
 
     search_path = profile_dir / "search.json.mozlz4"
-    search_path.write_bytes(b"mozLz40\0fixture")
+    search_path.write_text(
+        json.dumps(
+            {
+                "engines": [
+                    {
+                        "name": "Google",
+                        "searchUrl": "https://www.google.com/search?q={searchTerms}",
+                        "isDefault": True,
+                    }
+                ],
+                "metaData": {"currentEngine": "Google"},
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
 
     evidence = collect_profile_artifacts(profile_dir)
     entries = {entry.rel_path: entry for entry in evidence.entries}
@@ -69,6 +172,7 @@ def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path
     assert handlers.key_values["default_handlers_version"] == "1"
     assert handlers.key_values["mime_types_count"] == "1"
     assert handlers.key_values["schemes_count"] == "1"
+    assert handlers.key_values["suspicious_local_exec_count"] == "0"
     assert handlers.sha256 == hashlib.sha256(handlers_path.read_bytes()).hexdigest()
 
     containers = entries["containers.json"]
@@ -82,7 +186,10 @@ def test_collect_profile_artifacts_collects_hashes_and_key_fields(tmp_path: Path
     assert compatibility.key_values["last_osabi"] == "Linux_x86_64-gcc3"
 
     search = entries["search.json.mozlz4"]
-    assert search.parse_status == "metadata_only"
+    assert search.parse_status == "parsed"
+    assert search.key_values["search_engines_count"] == "1"
+    assert search.key_values["default_search_engine_name"] == "Google"
+    assert search.key_values["suspicious_search_engine_count"] == "0"
     assert search.sha256 == hashlib.sha256(search_path.read_bytes()).hexdigest()
 
 
@@ -99,6 +206,228 @@ def test_collect_sqlite_quick_checks_include_additional_existing_dbs(tmp_path: P
 
     assert {"places.sqlite", "cookies.sqlite", "permissions.sqlite"} <= observed_names
     assert all(item.quick_check_result == "ok" for item in checks.checks)
+
+
+def test_collect_profile_artifacts_parses_cert9_db_root_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    _create_cert9_db(
+        profile_dir / "cert9.db",
+        rows=[
+            ("Mozilla Root CA 1", "Mozilla Root CA 1", "2018-01-01T00:00:00+00:00", 1, "builtin c,c,c"),
+            ("Evil Corp Root CA", "Evil Corp Root CA", "2025-12-01T00:00:00+00:00", 1, "trusted c,c,c"),
+        ],
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    cert9 = {entry.rel_path: entry for entry in evidence.entries}["cert9.db"]
+
+    assert cert9.parse_status == "parsed"
+    assert cert9.key_values["root_ca_entries_count"] == "2"
+    assert cert9.key_values["suspicious_root_ca_count"] == "1"
+    assert json.loads(cert9.key_values["suspicious_root_ca_entries"]) == [
+        {
+            "issuer": "Evil Corp Root CA",
+            "not_before_utc": "2025-12-01T00:00:00+00:00",
+            "reasons": ["non_default_trust_anchor", "recent_self_signed_root"],
+            "subject": "Evil Corp Root CA",
+            "trust_flags": "trusted c,c,c",
+        }
+    ]
+
+
+def test_collect_profile_artifacts_parses_pkcs11_module_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "pkcs11.txt").write_text(
+        "\n".join(
+            [
+                "name=NSS Internal PKCS #11 Module",
+                "library=",
+                "",
+                "name=Injected Module",
+                "library=/tmp/evilpkcs11.so",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    pkcs11 = {entry.rel_path: entry for entry in evidence.entries}["pkcs11.txt"]
+
+    assert pkcs11.parse_status == "parsed"
+    assert pkcs11.key_values["pkcs11_modules_count"] == "2"
+    assert pkcs11.key_values["suspicious_pkcs11_module_count"] == "1"
+    assert json.loads(pkcs11.key_values["suspicious_pkcs11_modules"]) == [
+        {
+            "library_path": "/tmp/evilpkcs11.so",
+            "name": "Injected Module",
+            "reasons": ["non_standard_library_path"],
+        }
+    ]
+
+
+def test_collect_profile_artifacts_parses_sessionstore_sensitive_data(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "sessionstore.jsonlz4").write_text(
+        json.dumps(
+            {
+                "selectedWindow": 1,
+                "windows": [
+                    {
+                        "tabs": [
+                            {
+                                "entries": [
+                                    {
+                                        "formdata": {
+                                            "id": {
+                                                "authToken": "tok_abc123",
+                                                "password": "hunter2",  # pragma: allowlist secret
+                                            }
+                                        },
+                                        "url": "https://example.com/account",
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    session = {entry.rel_path: entry for entry in evidence.entries}["sessionstore.jsonlz4"]
+
+    assert session.parse_status == "parsed"
+    assert session.key_values["session_restore_enabled"] == "1"
+    assert session.key_values["session_windows_count"] == "1"
+    assert session.key_values["session_sensitive_entry_count"] == "2"
+    assert json.loads(session.key_values["session_sensitive_entries"]) == [
+        {
+            "kind": "auth_token_field",
+            "path": "$.windows[0].tabs[0].entries[0].formdata.id.authToken",
+        },
+        {
+            "kind": "password_field",
+            "path": "$.windows[0].tabs[0].entries[0].formdata.id.password",
+        },
+    ]
+
+
+def test_collect_profile_artifacts_parses_search_engine_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "search.json.mozlz4").write_text(
+        json.dumps(
+            {
+                "engines": [
+                    {
+                        "name": "EvilSearch",
+                        "searchUrl": "https://search.evil-example.invalid/query?q={searchTerms}",
+                        "isDefault": True,
+                    }
+                ],
+                "metaData": {"currentEngine": "EvilSearch"},
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    search = {entry.rel_path: entry for entry in evidence.entries}["search.json.mozlz4"]
+
+    assert search.parse_status == "parsed"
+    assert search.key_values["search_engines_count"] == "1"
+    assert search.key_values["default_search_engine_name"] == "EvilSearch"
+    assert (
+        search.key_values["default_search_engine_url"]
+        == "https://search.evil-example.invalid/query?q={searchTerms}"
+    )
+    assert search.key_values["suspicious_search_engine_count"] == "1"
+    assert json.loads(search.key_values["suspicious_search_engines"]) == [
+        {
+            "name": "EvilSearch",
+            "reasons": ["custom_search_url", "non_standard_default_engine"],
+            "search_url": "https://search.evil-example.invalid/query?q={searchTerms}",
+        }
+    ]
+
+
+def test_collect_profile_artifacts_parses_cookie_security_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    creation_epoch = 1_700_000_000
+    _create_cookies_db(
+        profile_dir / "cookies.sqlite",
+        rows=[
+            (
+                ".accounts.example.com",
+                "sessionid",
+                creation_epoch + (2 * 60 * 60),
+                0,
+                1,
+                creation_epoch * 1_000_000,
+            ),
+        ],
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    cookies = {entry.rel_path: entry for entry in evidence.entries}["cookies.sqlite"]
+
+    assert cookies.parse_status == "parsed"
+    assert cookies.key_values["cookies_total_count"] == "1"
+    assert cookies.key_values["auth_cookie_missing_httponly_count"] == "1"
+    assert cookies.key_values["long_lived_cookie_count"] == "0"
+    assert cookies.key_values["samesite_none_sensitive_count"] == "0"
+    assert cookies.key_values["third_party_tracking_cookie_count"] == "0"
+    assert cookies.key_values["suspicious_cookie_security_count"] == "1"
+    assert json.loads(cookies.key_values["suspicious_cookie_security_signals"]) == [
+        {
+            "host": "accounts.example.com",
+            "name": "sessionid",
+            "reasons": ["auth_cookie_missing_httponly"],
+        }
+    ]
+
+
+def test_collect_profile_artifacts_parses_hsts_integrity_risks(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    _create_places_db(
+        profile_dir / "places.sqlite",
+        urls=[
+            "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            "https://secure.microsoftonline.com/",
+        ],
+    )
+    (profile_dir / "SiteSecurityServiceState.txt").write_text(
+        "login.microsoftonline.com:443\tHSTS\t0\t1700000000000\t1690000000000\t0\t1\t0\n",
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    hsts = {entry.rel_path: entry for entry in evidence.entries}["SiteSecurityServiceState.txt"]
+
+    assert hsts.parse_status == "parsed"
+    assert hsts.key_values["hsts_entries_count"] == "1"
+    assert hsts.key_values["hsts_critical_hosts_expected_count"] == "2"
+    assert hsts.key_values["hsts_critical_hosts_missing_count"] == "1"
+    assert hsts.key_values["suspicious_hsts_state_count"] == "1"
+    assert json.loads(hsts.key_values["hsts_critical_hosts_missing"]) == [
+        "secure.microsoftonline.com"
+    ]
+    assert json.loads(hsts.key_values["suspicious_hsts_state_entries"]) == [
+        {
+            "host": "secure.microsoftonline.com",
+            "reasons": ["missing_critical_hsts_entry", "selective_hsts_entry_deletion"],
+        }
+    ]
 
 
 def test_collect_profile_artifacts_skips_hash_for_large_files(tmp_path: Path) -> None:
@@ -138,6 +467,41 @@ def test_collect_profile_artifacts_includes_hsts_txt_and_bin(tmp_path: Path) -> 
     assert entries["SiteSecurityServiceState.bin"].sha256 == hashlib.sha256(
         hsts_bin.read_bytes()
     ).hexdigest()
+
+
+def test_collect_profile_artifacts_flags_suspicious_protocol_handlers(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "handlers.json").write_text(
+        json.dumps(
+            {
+                "schemes": {
+                    "benign": {
+                        "ask": True,
+                        "handlers": [{"path": "C:\\Program Files\\App\\app.exe"}],
+                    },
+                    "dangerous": {
+                        "ask": False,
+                        "handlers": [{"path": "C:\\Windows\\System32\\cmd.exe /c whoami"}],
+                    },
+                    "dangerous-posix": {
+                        "ask": False,
+                        "handlers": [{"path": "/tmp/launcher.sh"}],
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = collect_profile_artifacts(profile_dir)
+    handlers = {entry.rel_path: entry for entry in evidence.entries}["handlers.json"]
+
+    assert handlers.key_values["suspicious_local_exec_count"] == "2"
+    assert json.loads(handlers.key_values["suspicious_local_exec_handlers"]) == [
+        {"path": "C:\\Windows\\System32\\cmd.exe /c whoami", "scheme": "dangerous"},
+        {"path": "/tmp/launcher.sh", "scheme": "dangerous-posix"},
+    ]
 
 
 def test_scan_rejects_symlinked_artifact_path(tmp_path: Path) -> None:

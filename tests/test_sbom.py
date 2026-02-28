@@ -58,3 +58,10 @@ def test_validate_cyclonedx_sbom_rejects_missing_foxclaw_component(tmp_path: Pat
 
     with pytest.raises(ValueError, match="missing foxclaw component metadata"):
         validate_cyclonedx_sbom(sbom_path)
+
+
+def test_generate_sbom_script_pins_python_314_compatible_cyclonedx_tooling() -> None:
+    payload = Path("scripts/generate_sbom.sh").read_text(encoding="utf-8")
+    assert 'cyclonedx-bom==4.1.5' not in payload
+    assert 'cyclonedx-bom==7.2.2' in payload
+    assert 'cyclonedx-py" environment' in payload

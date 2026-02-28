@@ -12,6 +12,8 @@ from foxclaw.models import (
     PolicyFileSummary,
     PrefEvidence,
     PrefValue,
+    ProfileArtifactEntry,
+    ProfileArtifactEvidence,
     ProfileEvidence,
     RuleDefinition,
     Ruleset,
@@ -169,6 +171,352 @@ def test_dsl_sqlite_quickcheck_ok() -> None:
     bundle.sqlite.checks[0].quick_check_result = "error: database is locked"
     bad_result = evaluate_check(bundle, {"sqlite_quickcheck_ok": {"db": "places"}})
     assert bad_result.passed is False
+
+
+def test_dsl_protocol_handler_hijack_absent_passes_without_risky_handlers() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="handlers.json",
+                parse_status="parsed",
+                key_values={"suspicious_local_exec_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"protocol_handler_hijack_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_protocol_handler_hijack_absent_flags_risky_handlers() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="handlers.json",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_local_exec_count": "2",
+                    "suspicious_local_exec_handlers": json.dumps(
+                        [
+                            {"scheme": "dangerous", "path": "C:\\Windows\\System32\\cmd.exe /c calc"},
+                            {"scheme": "dangerous-posix", "path": "/tmp/launch.sh"},
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"protocol_handler_hijack_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "dangerous-posix: ask=0, handler=/tmp/launch.sh",
+        "dangerous: ask=0, handler=C:\\Windows\\System32\\cmd.exe /c calc",
+    ]
+
+
+def test_dsl_rogue_root_ca_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cert9.db",
+                parse_status="parsed",
+                key_values={"suspicious_root_ca_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"rogue_root_ca_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_rogue_root_ca_absent_flags_suspicious_roots() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cert9.db",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_root_ca_count": "1",
+                    "suspicious_root_ca_entries": json.dumps(
+                        [
+                            {
+                                "subject": "Evil Corp Root CA",
+                                "issuer": "Evil Corp Root CA",
+                                "reasons": [
+                                    "non_default_trust_anchor",
+                                    "recent_self_signed_root",
+                                ],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"rogue_root_ca_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "Evil Corp Root CA: issuer=Evil Corp Root CA, reasons=non_default_trust_anchor,recent_self_signed_root"
+    ]
+
+
+def test_dsl_pkcs11_module_injection_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="pkcs11.txt",
+                parse_status="parsed",
+                key_values={"suspicious_pkcs11_module_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"pkcs11_module_injection_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_pkcs11_module_injection_absent_flags_suspicious_modules() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="pkcs11.txt",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_pkcs11_module_count": "1",
+                    "suspicious_pkcs11_modules": json.dumps(
+                        [
+                            {
+                                "name": "Injected Module",
+                                "library_path": "/tmp/evilpkcs11.so",
+                                "reasons": ["non_standard_library_path"],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"pkcs11_module_injection_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "Injected Module: library=/tmp/evilpkcs11.so, reasons=non_standard_library_path"
+    ]
+
+
+def test_dsl_session_restore_sensitive_data_absent_passes_when_no_sensitive_data() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="sessionstore.jsonlz4",
+                parse_status="parsed",
+                key_values={
+                    "session_restore_enabled": "1",
+                    "session_sensitive_entry_count": "0",
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"session_restore_sensitive_data_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_session_restore_sensitive_data_absent_flags_sensitive_data() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="sessionstore.jsonlz4",
+                parse_status="parsed",
+                key_values={
+                    "session_restore_enabled": "1",
+                    "session_sensitive_entry_count": "1",
+                    "session_sensitive_entries": json.dumps(
+                        [
+                            {
+                                "kind": "auth_token_field",
+                                "path": "$.windows[0].tabs[0].entries[0].formdata.id.authToken",
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"session_restore_sensitive_data_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "$.windows[0].tabs[0].entries[0].formdata.id.authToken: kind=auth_token_field"
+    ]
+
+
+def test_dsl_search_engine_hijack_absent_passes_with_trusted_default() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="search.json.mozlz4",
+                parse_status="parsed",
+                key_values={
+                    "default_search_engine_name": "Google",
+                    "default_search_engine_url": "https://www.google.com/search?q={searchTerms}",
+                    "suspicious_search_engine_count": "0",
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"search_engine_hijack_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_search_engine_hijack_absent_flags_suspicious_default() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="search.json.mozlz4",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_search_engine_count": "1",
+                    "suspicious_search_engines": json.dumps(
+                        [
+                            {
+                                "name": "EvilSearch",
+                                "reasons": [
+                                    "custom_search_url",
+                                    "non_standard_default_engine",
+                                ],
+                                "search_url": "https://search.evil-example.invalid/query?q={searchTerms}",
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"search_engine_hijack_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "EvilSearch: search_url=https://search.evil-example.invalid/query?q={searchTerms}, reasons=custom_search_url,non_standard_default_engine"
+    ]
+
+
+def test_dsl_cookie_security_posture_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cookies.sqlite",
+                parse_status="parsed",
+                key_values={"suspicious_cookie_security_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"cookie_security_posture_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_cookie_security_posture_absent_flags_suspicious_entries() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="cookies.sqlite",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_cookie_security_count": "1",
+                    "suspicious_cookie_security_signals": json.dumps(
+                        [
+                            {
+                                "host": "accounts.example.com",
+                                "name": "sessionid",
+                                "reasons": ["auth_cookie_missing_httponly"],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"cookie_security_posture_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "accounts.example.com::sessionid: reasons=auth_cookie_missing_httponly"
+    ]
+
+
+def test_dsl_hsts_downgrade_absent_passes_without_risks() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="SiteSecurityServiceState.txt",
+                parse_status="parsed",
+                key_values={"suspicious_hsts_state_count": "0"},
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"hsts_downgrade_absent": {}})
+    assert result.passed is True
+
+
+def test_dsl_hsts_downgrade_absent_flags_suspicious_entries() -> None:
+    bundle = _empty_bundle()
+    bundle.artifacts = ProfileArtifactEvidence(
+        entries=[
+            ProfileArtifactEntry(
+                rel_path="SiteSecurityServiceState.txt",
+                parse_status="parsed",
+                key_values={
+                    "suspicious_hsts_state_count": "1",
+                    "suspicious_hsts_state_entries": json.dumps(
+                        [
+                            {
+                                "host": "secure.microsoftonline.com",
+                                "reasons": ["missing_critical_hsts_entry"],
+                            }
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+        ]
+    )
+
+    result = evaluate_check(bundle, {"hsts_downgrade_absent": {}})
+    assert result.passed is False
+    assert result.evidence == [
+        "secure.microsoftonline.com: reasons=missing_critical_hsts_entry"
+    ]
 
 
 def test_findings_are_sorted_by_severity_then_id() -> None:

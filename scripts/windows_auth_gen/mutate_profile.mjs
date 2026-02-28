@@ -260,6 +260,13 @@ const SCENARIO_PREF_GROUPS = {
     privacy_weak: ['core', 'safebrowsing', 'tls', 'content'],
     adware_like: ['core', 'safebrowsing', 'content', 'proxy'],
     dev_power_user: ['core'],
+    cve_sandbox_escape: ['core'],
+    cve_extension_abuse: ['core'],
+    cve_session_hijack: ['core'],
+    cve_cert_injection: ['core'],
+    cve_handler_hijack: ['core'],
+    cve_hsts_downgrade: ['core'],
+    cve_search_hijack: ['core'],
 };
 
 // ── SQL injection / XSS payload pool ─────────────────────────────────
@@ -430,6 +437,121 @@ const SCENARIOS = {
             "https://nodejs.org/en/docs",
         ],
     },
+    cve_sandbox_escape: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://support.mozilla.org/"],
+    },
+    cve_extension_abuse: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://addons.mozilla.org/"],
+    },
+    cve_session_hijack: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://mail.example.test/"],
+    },
+    cve_cert_injection: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://pki.goog/"],
+    },
+    cve_handler_hijack: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://learn.microsoft.com/windows/"],
+    },
+    cve_hsts_downgrade: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://login.microsoftonline.com/"],
+    },
+    cve_search_hijack: {
+        site_min: 3,
+        site_max: 5,
+        login_rate: 0.20,
+        form_rate: 0.10,
+        download_rate: 0.10,
+        permissions_rate: 0.20,
+        storage_rate: 0.20,
+        risky_settings: false,
+        sqli_rate: 0.00,
+        cert_override_rate: 0.00,
+        autofill_rate: 0.00,
+        insecure_cookie_rate: 0.00,
+        extra_urls: ["https://search.brave.com/"],
+    },
+};
+
+const CVE_EXPECTED_STRICT_RULES = {
+    cve_sandbox_escape: "FC-STRICT-COOKIE-001",
+    cve_extension_abuse: "FC-STRICT-PKCS11-001",
+    cve_session_hijack: "FC-STRICT-SESSION-001",
+    cve_cert_injection: "FC-STRICT-CERT-001",
+    cve_handler_hijack: "FC-STRICT-HANDLER-001",
+    cve_hsts_downgrade: "FC-STRICT-HSTS-001",
+    cve_search_hijack: "FC-STRICT-SEARCH-001",
 };
 
 const SCENARIO_PICK_LIST = [
@@ -1422,6 +1544,332 @@ function seedFaviconsDatabase(profileDir, actionLog) {
     appendAction(actionLog, { stage: "favicons_db", status: "ok" });
 }
 
+function loadJsonObject(filePath) {
+    if (!fs.existsSync(filePath)) return {};
+    try {
+        const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+        return typeof parsed === "object" && parsed !== null ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeJsonObject(filePath, payload) {
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2) + "\n", "utf-8");
+}
+
+function tableExists(db, tableName) {
+    const row = db.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1").get(tableName);
+    return !!row;
+}
+
+function applyCveHandlerHijack(profileDir, actionLog) {
+    const handlersPath = path.join(profileDir, "handlers.json");
+    const payload = loadJsonObject(handlersPath);
+    if (!payload.defaultHandlersVersion || typeof payload.defaultHandlersVersion !== "object") {
+        payload.defaultHandlersVersion = { "en-US": 4 };
+    }
+    if (!payload.mimeTypes || typeof payload.mimeTypes !== "object") {
+        payload.mimeTypes = {};
+    }
+    if (!payload.schemes || typeof payload.schemes !== "object") {
+        payload.schemes = {};
+    }
+    payload.schemes["ms-cve-handler"] = {
+        action: 4,
+        ask: false,
+        handlers: [
+            {
+                name: "CVE Handler Bridge",
+                path: "C:\\Users\\Public\\cve-handler.exe",
+            },
+        ],
+    };
+    writeJsonObject(handlersPath, payload);
+    appendAction(actionLog, {
+        stage: "cve_handler_hijack",
+        status: "ok",
+        scheme: "ms-cve-handler",
+        handler_path: "C:\\Users\\Public\\cve-handler.exe",
+    });
+    return { suspicious_handler_scheme: "ms-cve-handler" };
+}
+
+function applyCveCertInjection(profileDir, actionLog) {
+    const cert9Path = path.join(profileDir, "cert9.db");
+    const db = new Database(cert9Path);
+    db.pragma("journal_mode = WAL");
+    if (!tableExists(db, "nssPublic")) {
+        db.exec("CREATE TABLE nssPublic (id INTEGER PRIMARY KEY, a11 BLOB, a102 BLOB, a81 BLOB, a90 INTEGER)");
+    }
+    if (!tableExists(db, "nssTrust")) {
+        db.exec("CREATE TABLE nssTrust (id INTEGER PRIMARY KEY, a11 BLOB)");
+    }
+    const nextId = Number(db.prepare("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM nssPublic").get().next_id);
+    const subject = "CN=Contoso Inspection Root,O=Contoso Security Lab,C=US";
+    db.prepare("INSERT OR REPLACE INTO nssPublic (id, a11, a102, a81, a90) VALUES (?, ?, ?, ?, ?)")
+        .run(nextId, subject, subject, "2025-12-01T00:00:00+00:00", 1);
+    db.prepare("INSERT OR REPLACE INTO nssTrust (id, a11) VALUES (?, ?)")
+        .run(nextId, "CT,C,C");
+    db.close();
+    appendAction(actionLog, {
+        stage: "cve_cert_injection",
+        status: "ok",
+        cert_subject: subject,
+    });
+    return { suspicious_cert_subject: subject };
+}
+
+function applyCveExtensionAbuse(profileDir, actionLog) {
+    const pkcs11Path = path.join(profileDir, "pkcs11.txt");
+    const injectedLibrary = "C:\\Users\\Public\\AppData\\Roaming\\tokenbridge.dll";
+    const existing = fs.existsSync(pkcs11Path) ? fs.readFileSync(pkcs11Path, "utf-8") : "";
+    if (!existing.includes(injectedLibrary)) {
+        const block = [
+            "",
+            "name=Extension Token Bridge",
+            `library=${injectedLibrary}`,
+            "",
+        ].join("\n");
+        fs.writeFileSync(pkcs11Path, `${existing.replace(/\s*$/, "")}\n${block}`, "utf-8");
+    }
+    appendAction(actionLog, {
+        stage: "cve_extension_abuse",
+        status: "ok",
+        pkcs11_library: injectedLibrary,
+    });
+    return { suspicious_pkcs11_library: injectedLibrary };
+}
+
+function applyCveSessionHijack(profileDir, actionLog) {
+    const payload = {
+        windows: [
+            {
+                extData: {
+                    session_token: "tok-cve-session-hijack",
+                    auth_bearer: "Bearer cve-proof",
+                },
+                tabs: [
+                    {
+                        entries: [{ url: "https://mail.example.test/inbox" }],
+                        formdata: {
+                            id: {
+                                password: "Password1", // pragma: allowlist secret
+                                card_number: "4111111111111111",
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+        selectedWindow: 1,
+    };
+    writeJsonObject(path.join(profileDir, "sessionstore.jsonlz4"), payload);
+    appendAction(actionLog, {
+        stage: "cve_session_hijack",
+        status: "ok",
+        sensitive_keys: ["session_token", "auth_bearer", "password", "card_number"],
+    });
+    return { session_sensitive_fields: 4 };
+}
+
+function applyCveSearchHijack(profileDir, actionLog) {
+    const payload = {
+        engines: [
+            {
+                name: "CVE Search Relay",
+                searchUrl: "https://search.attacker.example/query?q={searchTerms}",
+                isDefault: true,
+            },
+            {
+                name: "Google",
+                searchUrl: "https://www.google.com/search?q={searchTerms}",
+            },
+        ],
+        metaData: {
+            current: "CVE Search Relay",
+        },
+    };
+    writeJsonObject(path.join(profileDir, "search.json.mozlz4"), payload);
+    appendAction(actionLog, {
+        stage: "cve_search_hijack",
+        status: "ok",
+        default_engine: "CVE Search Relay",
+    });
+    return { default_engine: "CVE Search Relay" };
+}
+
+function ensureCookiesTable(db) {
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS moz_cookies (
+            id INTEGER PRIMARY KEY,
+            originAttributes TEXT NOT NULL DEFAULT '',
+            name TEXT,
+            value TEXT,
+            host TEXT,
+            path TEXT,
+            expiry INTEGER,
+            lastAccessed INTEGER,
+            creationTime INTEGER,
+            isSecure INTEGER,
+            isHttpOnly INTEGER,
+            inBrowserElement INTEGER DEFAULT 0,
+            sameSite INTEGER DEFAULT 0,
+            schemeMap INTEGER DEFAULT 0,
+            isPartitionedAttributeSet INTEGER DEFAULT 0,
+            updateTime INTEGER
+        )
+    `);
+}
+
+function applyCveSandboxEscape(profileDir, actionLog) {
+    const cookiesPath = path.join(profileDir, "cookies.sqlite");
+    const db = new Database(cookiesPath);
+    db.pragma("journal_mode = WAL");
+    ensureCookiesTable(db);
+
+    const creationMicros = 1735689600000000;
+    const expirySeconds = 1893456000;
+    db.prepare(`
+        INSERT OR REPLACE INTO moz_cookies (
+            originAttributes,
+            name,
+            value,
+            host,
+            path,
+            expiry,
+            lastAccessed,
+            creationTime,
+            isSecure,
+            isHttpOnly,
+            inBrowserElement,
+            sameSite,
+            schemeMap,
+            updateTime
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        "",
+        "session_token",
+        "tok-cve-sandbox-escape",
+        ".login.microsoftonline.com",
+        "/",
+        expirySeconds,
+        creationMicros + 1000000,
+        creationMicros,
+        0,
+        0,
+        0,
+        0,
+        0,
+        creationMicros + 2000000
+    );
+    db.close();
+    appendAction(actionLog, {
+        stage: "cve_sandbox_escape",
+        status: "ok",
+        cookie_name: "session_token",
+    });
+    return { suspicious_cookie_name: "session_token" };
+}
+
+function ensurePlacesTable(db) {
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS moz_places (
+            id INTEGER PRIMARY KEY,
+            url LONGVARCHAR,
+            title LONGVARCHAR,
+            rev_host LONGVARCHAR,
+            visit_count INTEGER DEFAULT 0,
+            hidden INTEGER DEFAULT 0 NOT NULL,
+            typed INTEGER DEFAULT 0 NOT NULL,
+            frecency INTEGER DEFAULT -1 NOT NULL,
+            last_visit_date INTEGER,
+            guid TEXT,
+            foreign_count INTEGER DEFAULT 0 NOT NULL,
+            url_hash INTEGER DEFAULT 0 NOT NULL
+        )
+    `);
+}
+
+function applyCveHstsDowngrade(profileDir, actionLog) {
+    const placesPath = path.join(profileDir, "places.sqlite");
+    const db = new Database(placesPath);
+    db.pragma("journal_mode = WAL");
+    ensurePlacesTable(db);
+
+    const hosts = ["login.microsoftonline.com", "account.microsoftonline.com"];
+    for (let i = 0; i < hosts.length; i++) {
+        const host = hosts[i];
+        const url = `https://${host}/`;
+        const exists = db.prepare("SELECT 1 AS ok FROM moz_places WHERE url = ? LIMIT 1").get(url);
+        if (exists) {
+            continue;
+        }
+        const nextId = Number(db.prepare("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM moz_places").get().next_id);
+        db.prepare(`
+            INSERT INTO moz_places (
+                id, url, title, rev_host, visit_count, hidden, typed, frecency,
+                last_visit_date, guid, foreign_count, url_hash
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            nextId,
+            url,
+            `CVE HSTS ${i + 1}`,
+            `${host.split("").reverse().join("")}.`,
+            4,
+            0,
+            1,
+            900,
+            1735689600000000 + i + 1,
+            `cvehsts${String(i + 1).padStart(4, "0")}`,
+            0,
+            0
+        );
+    }
+    db.close();
+
+    const lines = [
+        "# HSTS state (CVE simulation)",
+        "login.microsoftonline.com:443\tHSTS\t0\t1893456000000\t1735689600000\t1\t1\t0",
+    ];
+    fs.writeFileSync(path.join(profileDir, "SiteSecurityServiceState.txt"), `${lines.join("\n")}\n`, "utf-8");
+    appendAction(actionLog, {
+        stage: "cve_hsts_downgrade",
+        status: "ok",
+        missing_host: "account.microsoftonline.com",
+    });
+    return { missing_hsts_host: "account.microsoftonline.com" };
+}
+
+function applyCveScenarioArtifacts(profileDir, scenarioName, actionLog) {
+    const expectedRule = CVE_EXPECTED_STRICT_RULES[scenarioName];
+    if (!expectedRule) {
+        return { expected_rule_id: null, scenario_applied: false };
+    }
+
+    let details = {};
+    if (scenarioName === "cve_handler_hijack") {
+        details = applyCveHandlerHijack(profileDir, actionLog);
+    } else if (scenarioName === "cve_cert_injection") {
+        details = applyCveCertInjection(profileDir, actionLog);
+    } else if (scenarioName === "cve_extension_abuse") {
+        details = applyCveExtensionAbuse(profileDir, actionLog);
+    } else if (scenarioName === "cve_session_hijack") {
+        details = applyCveSessionHijack(profileDir, actionLog);
+    } else if (scenarioName === "cve_search_hijack") {
+        details = applyCveSearchHijack(profileDir, actionLog);
+    } else if (scenarioName === "cve_sandbox_escape") {
+        details = applyCveSandboxEscape(profileDir, actionLog);
+    } else if (scenarioName === "cve_hsts_downgrade") {
+        details = applyCveHstsDowngrade(profileDir, actionLog);
+    }
+    return {
+        expected_rule_id: expectedRule,
+        scenario_applied: true,
+        ...details,
+    };
+}
+
 function writeManifest(manifestPath, payload) {
     safeMkdir(path.dirname(manifestPath));
     fs.writeFileSync(manifestPath, JSON.stringify(payload, null, 2) + "\n", "utf-8");
@@ -1542,6 +1990,8 @@ async function main() {
     seedProtectionsDatabase(profileDir, actionLog);
     seedFaviconsDatabase(profileDir, actionLog);
 
+    const cveSignals = applyCveScenarioArtifacts(profileDir, scenarioName, actionLog);
+
     appendAction(actionLog, { stage: "all_phases_complete", status: "ok" });
 
     // ══════════════════════════════════════════════════════════════════
@@ -1576,6 +2026,12 @@ async function main() {
         },
         actions: actionLog,
     };
+    if (cveSignals.scenario_applied) {
+        manifestPayload.expected_scan_signals.cve_advisory = cveSignals;
+    }
+    if (cveSignals.expected_rule_id) {
+        manifestPayload.expected_rule_ids = [cveSignals.expected_rule_id];
+    }
 
     const defaultManifestOut = path.join(profileDir, "foxclaw-sim-metadata.json");
     writeManifest(manifestOut || defaultManifestOut, manifestPayload);

@@ -23,6 +23,9 @@ FoxClaw provides deterministic browser profile posture inspection for assurance-
 - Read-only collection of preferences, filesystem permissions, policy artifacts, and extension posture.
 - Declarative ruleset evaluation with trust-manifest verification support.
 - Offline intelligence correlation with pinned snapshot identifiers.
+- Vendor-neutral NDJSON SIEM export with `foxclaw.finding` and `foxclaw.scan.summary` event types.
+- Native Wazuh proof lane pinned to `wazuh/wazuh-manager:4.14.3`.
+- Machine-readable soak summaries and local memory-recall forensics for post-run review.
 - Stage-first handling for share-hosted profile sources.
 - Structured outputs for terminal summaries, JSON, SARIF, and snapshots.
 - Fail-closed CI checks for immutable action refs and lockfile usage.
@@ -35,7 +38,14 @@ FoxClaw provides deterministic browser profile posture inspection for assurance-
 - Snapshot output (`--snapshot-out`)
 - Evidence bundle output (`artifacts/evidence/<git-sha>/`)
 
-Evidence contract: [EVIDENCE_BUNDLE_SPEC.md](EVIDENCE_BUNDLE_SPEC.md)
+Delivery and merge gates: [docs/DELIVERY_GATES.md](docs/DELIVERY_GATES.md), [docs/PREMERGE_READINESS.md](docs/PREMERGE_READINESS.md)
+
+## Current Baseline
+
+- Python `main` is the current source-of-truth baseline.
+- WS-75 through WS-80 are complete on `main`, covering production hardening, SIEM proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- The latest reduced production gate passed on February 28, 2026 with `siem_wazuh` plus Firefox ESR/Beta/Nightly matrix build, version, and scan stages.
+- Rust bootstrap remains intentionally blocked until that Python evidence packet is explicitly accepted.
 
 ## Trust Boundaries and Safety Model
 
@@ -44,8 +54,8 @@ Evidence contract: [EVIDENCE_BUNDLE_SPEC.md](EVIDENCE_BUNDLE_SPEC.md)
 - Remediation and mutation are intentionally out of scope.
 
 System model references:
-- [SYSTEM_MODEL_FROM_CODE.md](SYSTEM_MODEL_FROM_CODE.md)
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md)
+- [docs/SYSTEM_MODEL.md](docs/SYSTEM_MODEL.md)
 
 ## Quality Gates
 
@@ -75,9 +85,10 @@ foxclaw scan --profile tests/fixtures/firefox_profile --json
 ## Documentation Map
 
 - Docs index: [docs/INDEX.md](docs/INDEX.md)
-- Packet index: [CTO_PACKET_INDEX.md](CTO_PACKET_INDEX.md)
+- CTO review packet: [CTO_REVIEW_PACKET.md](CTO_REVIEW_PACKET.md)
 - Assurance summary: [FOXCLAW_ASSURANCE_SUMMARY.md](FOXCLAW_ASSURANCE_SUMMARY.md)
-- Posture baseline: [POSTURE_2026_GAP_REPORT.md](POSTURE_2026_GAP_REPORT.md)
+- Merge readiness: [docs/PREMERGE_READINESS.md](docs/PREMERGE_READINESS.md)
+- Audit baseline: [docs/AUDIT_2026-02-24.md](docs/AUDIT_2026-02-24.md)
 
 ## Security and Disclosure
 
