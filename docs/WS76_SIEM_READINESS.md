@@ -245,7 +245,7 @@ Recommended path:
 4. Validate the sample with `wazuh-logtest`.
 5. Confirm resulting events in `alerts.json` or the dashboard.
 
-Detailed commands are in [WS76_EVIDENCE_2026-02-27.md](/home/steve/apps/FoxClaw/docs/WS76_EVIDENCE_2026-02-27.md).
+Detailed commands are in [WS76_EVIDENCE_2026-02-27.md](WS76_EVIDENCE_2026-02-27.md).
 
 ## Source Links
 

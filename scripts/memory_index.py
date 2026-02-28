@@ -16,13 +16,18 @@ MEMORY_DIR_ENV = "FOXCLAW_SESSION_MEMORY_DIR"
 INDEX_FILENAME = "index.sqlite"
 SOURCE_FILENAME = "SESSION_MEMORY.jsonl"
 SCHEMA_VERSION = "2"
-MEMORY_DIR = (
-    Path(os.environ[MEMORY_DIR_ENV]).expanduser()
-    if MEMORY_DIR_ENV in os.environ and os.environ[MEMORY_DIR_ENV].strip()
-    else ROOT / "artifacts" / "session_memory"
-)
-if not MEMORY_DIR.is_absolute():
-    MEMORY_DIR = ROOT / MEMORY_DIR
+DEFAULT_MEMORY_DIR = ROOT / "artifacts" / "session_memory"
+
+
+def configured_memory_dir() -> Path:
+    override = os.environ.get(MEMORY_DIR_ENV, "").strip()
+    memory_dir = Path(override).expanduser() if override else DEFAULT_MEMORY_DIR
+    if not memory_dir.is_absolute():
+        memory_dir = ROOT / memory_dir
+    return memory_dir
+
+
+MEMORY_DIR = configured_memory_dir()
 SOURCE_JSONL = MEMORY_DIR / SOURCE_FILENAME
 DB_PATH = MEMORY_DIR / INDEX_FILENAME
 
@@ -66,7 +71,9 @@ def _absolute_path(path: Path) -> Path:
 
 
 def resolve_index_path(index_path: Path | None = None) -> Path:
-    return _absolute_path(index_path or DB_PATH)
+    if index_path is not None:
+        return _absolute_path(index_path)
+    return configured_memory_dir() / INDEX_FILENAME
 
 
 def resolve_source_path(
@@ -77,7 +84,7 @@ def resolve_source_path(
         return _absolute_path(source_path)
     if index_path is not None:
         return resolve_index_path(index_path).with_name(SOURCE_FILENAME)
-    return _absolute_path(SOURCE_JSONL)
+    return configured_memory_dir() / SOURCE_FILENAME
 
 
 def _read_checkpoints(source_path: Path) -> list[Checkpoint]:

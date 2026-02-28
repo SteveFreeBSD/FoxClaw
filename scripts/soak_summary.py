@@ -150,7 +150,7 @@ def _int_value(value: str | None) -> int:
 
 
 def _memory_index_metadata() -> dict[str, Any]:
-    inspection = memory_index_lib.inspect_index(memory_index_lib.DB_PATH)
+    inspection = memory_index_lib.inspect_index(memory_index_lib.resolve_index_path())
     payload: dict[str, Any] = {
         "memory_index_status": "ok" if inspection.can_query else "fail",
         "memory_index_path": str(inspection.path),

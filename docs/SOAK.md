@@ -47,28 +47,35 @@ scripts/soak_runner.sh \
 Recommended overnight soak:
 
 ```bash
+read -rsp "FoxClaw soak sudo password: " SOAK_SUDO_PASSWORD
+echo
+export SOAK_SUDO_PASSWORD
 systemd-run --user \
   --unit foxclaw-soak-overnight \
   --same-dir \
   --collect \
-  --setenv=SOAK_SUDO_PASSWORD='<sudo-password>' \
   scripts/soak_runner.sh \
     --duration-hours 10 \
     --stage-timeout-seconds 1800 \
     --siem-wazuh-runs 1 \
     --label overnight-phase1 \
     --output-root /var/tmp/foxclaw-soak
+unset SOAK_SUDO_PASSWORD
 ```
 
 Quick commands:
 
 ```bash
-make soak-smoke SOAK_SUDO_PASSWORD='<sudo-password>'
-make soak-smoke-adversary SOAK_SUDO_PASSWORD='<sudo-password>'
-make soak-smoke-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
-make soak-daytime SOAK_SUDO_PASSWORD='<sudo-password>'
-make soak-daytime-fuzz1000 SOAK_SUDO_PASSWORD='<sudo-password>'
-make soak-daytime-detached SOAK_SUDO_PASSWORD='<sudo-password>'
+read -rsp "FoxClaw soak sudo password: " SOAK_SUDO_PASSWORD
+echo
+export SOAK_SUDO_PASSWORD
+make soak-smoke
+make soak-smoke-adversary
+make soak-smoke-fuzz1000
+make soak-daytime
+make soak-daytime-fuzz1000
+make soak-daytime-detached
+unset SOAK_SUDO_PASSWORD
 make soak-status
 make soak-stop
 ```
@@ -108,15 +115,18 @@ Verify these outputs exist before starting the soak harness:
 Recommended (survives terminal logout):
 
 ```bash
+read -rsp "FoxClaw soak sudo password: " SOAK_SUDO_PASSWORD
+echo
+export SOAK_SUDO_PASSWORD
 systemd-run --user \
   --unit foxclaw-soak-overnight \
   --same-dir \
   --collect \
-  --setenv=SOAK_SUDO_PASSWORD='<sudo-password>' \
   scripts/soak_runner.sh \
     --duration-hours 10 \
     --label overnight-phase1 \
     --output-root /var/tmp/foxclaw-soak
+unset SOAK_SUDO_PASSWORD
 ```
 
 Stop early if needed:

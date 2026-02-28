@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_script_module(path: Path, module_name: str):
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_soak_summary_builds_machine_readable_rollup(tmp_path: Path) -> None:
@@ -175,3 +188,52 @@ def test_soak_summary_marks_missing_memory_index_without_failing(tmp_path: Path)
         tmp_path / "missing-session-memory" / "index.sqlite"
     )
     assert "last_checkpoint_id" not in payload
+
+
+def test_soak_summary_honors_runtime_memory_dir_override_in_process(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    module = _load_script_module(
+        ROOT / "scripts" / "soak_summary.py",
+        "test_soak_summary_runtime_override",
+    )
+    memory_dir = tmp_path / "session-memory"
+    memory_dir.mkdir()
+    (memory_dir / "SESSION_MEMORY.jsonl").write_text(
+        json.dumps(
+            {
+                "timestamp_utc": "2026-02-28T00:00:00+00:00",
+                "branch": "main",
+                "commit": "deadbeefcafebabe",
+                "focus": "runtime override",
+                "next_actions": "query in process",
+                "risks": "none",
+                "decisions": "dynamic path lookup",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["FOXCLAW_SESSION_MEMORY_DIR"] = str(memory_dir)
+    build_index = subprocess.run(
+        [
+            sys.executable,
+            "scripts/memory_index.py",
+            "build",
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert build_index.returncode == 0, build_index.stdout + build_index.stderr
+
+    monkeypatch.setenv("FOXCLAW_SESSION_MEMORY_DIR", str(memory_dir))
+    payload = module._memory_index_metadata()
+    assert payload["memory_index_status"] == "ok"
+    assert payload["memory_index_path"] == str(memory_dir / "index.sqlite")
+    assert payload["last_checkpoint_id"] == 1
