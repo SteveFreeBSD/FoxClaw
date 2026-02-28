@@ -3,9 +3,9 @@
 ## Executive Summary
 
 ### Health Snapshot
-- Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` reports `298 passed, 7 skipped`.
-- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-81 now cover native Wazuh proof, vendor-neutral NDJSON export, native ECS export, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
-- Merge-readiness gates were rerun on the merged `main` tip on 2026-02-28: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on the WS-80 tip.
+- Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` passed on the validated Python baseline.
+- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-82 now cover native Wazuh proof, vendor-neutral NDJSON export, native ECS export, Elastic Security acceptance proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- Merge-readiness gates were rerun on the merged `main` tip on 2026-02-28: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on the validated Python baseline.
 - Core scan architecture is structured and reviewable: collection, rule evaluation, suppressions, and reporting are separated in `run_scan()` (`foxclaw/scan.py:37-187`).
 - Deterministic output contracts are explicit in JSON/SARIF/snapshot/diff renderers (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/snapshot_diff.py:45-92`).
 - Trust boundaries are present and fail closed in critical paths: ruleset trust verification (`foxclaw/rules/trust.py:81-162`), profile path safety (`foxclaw/collect/safe_paths.py:38-68`), and UNC/share staging controls (`foxclaw/cli.py:226-243`, `foxclaw/cli.py:536-542`, `foxclaw/acquire/windows_share.py:520-526`).
@@ -13,7 +13,7 @@
 
 ### Readiness Call
 - **CTO review ready for the current Python baseline and push/merge prep.**
-- Rust remains intentionally blocked until the WS-75 through WS-81 evidence packet is explicitly accepted as the handoff baseline.
+- Rust remains intentionally blocked until the WS-75 through WS-82 evidence packet is explicitly accepted as the handoff baseline.
 - Remaining risk is primarily long-horizon maintainability (shared CLI orchestration and mount-detection hardening), not objective runtime correctness of the current Python release path.
 
 ## Review Order
@@ -29,6 +29,7 @@
    - `docs/WS79_EVIDENCE_2026-02-27.md`
    - `docs/WS80_EVIDENCE_2026-02-28.md`
    - `docs/WS81_EVIDENCE_2026-02-28.md`
+   - `docs/WS82_EVIDENCE_2026-02-28.md`
 3. Contract and runtime reference:
    - `docs/CLI_CONTRACT.md`
    - `docs/SOAK.md`
@@ -39,6 +40,7 @@
 - Python `main` now carries first-party Wazuh smoke coverage and a bounded soak-harness SIEM lane.
 - The SIEM contract is now vendor-neutral NDJSON, with `foxclaw.finding` and `foxclaw.scan.summary` as the stable event types.
 - Python `main` now also emits native Elastic Common Schema NDJSON with first-class CLI integration instead of requiring downstream transform glue.
+- Python `main` now has a first-party Elastic Security acceptance proof on a pinned local stack, including required-field validation and rule-preview execution evidence.
 - Soak runs now emit machine-readable `soak-summary.json`, including artifact-first stage summaries and Wazuh image tracking.
 - Local forensic recall is now resilient on fresh checkouts and stale `checkpoints_fts` schema, with optional repair and safe fallback behavior.
 - The matrix soak lane now executes through a real Docker wrapper under `timeout`, and the post-fix reduced gate proves ESR/Beta/Nightly build/version/scan stages all pass.

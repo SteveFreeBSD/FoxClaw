@@ -1,5 +1,8 @@
 # Refactor Plan (Minimal Behavior Drift)
 
+Historical internal planning note retained for engineering context.
+Do not use this file for current execution ordering; use `docs/WORKSLICES.md` and the canonical docs linked from `docs/INDEX.md`.
+
 ## Spaghetti Hotspots (Current)
 
 1. **Duplicated scan orchestration in CLI (`scan` vs `live`)**

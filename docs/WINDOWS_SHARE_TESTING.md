@@ -27,12 +27,10 @@ MSIX path variant:
 
 - `%LOCALAPPDATA%\Packages\Mozilla.Firefox\LocalCache\Roaming\Mozilla\Firefox\Profiles\<profile-id>`
 
-Current profile lineage (canonical):
+Seed profile convention (recommended):
 
-- historical seed name: `ejm2bj4s.foxclaw-test`
-- renamed seed name: `foxclaw-seed.default`
-- `foxclaw-seed.default` seeded 50 generated sibling profiles in the current
-  profile directory.
+- use a dedicated Firefox seed profile for Windows adversary-profile generation.
+- keep generated sibling profiles under the active Firefox profile directory.
 
 ## Acquisition options
 
@@ -75,8 +73,8 @@ Outputs:
 
 - per-profile simulation manifest: `<profile>/foxclaw-sim-metadata.json`
 - batch summary: `<ProfilesRoot>/windows-auth-gen-summary.json`
-- with `-Count 50`, this creates 50 generated profiles seeded from
-  `foxclaw-seed.default` (renamed from `ejm2bj4s.foxclaw-test`).
+- with `-Count 50`, this creates 50 generated profiles seeded from the
+  configured `-SeedName` profile.
 
 Then scan from Linux against mounted SMB share root with batch staging:
 

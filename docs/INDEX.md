@@ -46,7 +46,7 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
 - Gap and risk framing: `docs/AUDIT_2026-02-24.md`
 - Patch plan and acceptance gates: `docs/PREMERGE_READINESS.md`
 - Delivery gate contract: `docs/DELIVERY_GATES.md`
-- Current Python production/SIEM evidence:
+- Current Python production/SIEM/ECS evidence:
   - `docs/WS75_EVIDENCE_2026-02-27.md`
   - `docs/WS76_EVIDENCE_2026-02-27.md`
   - `docs/WS77_EVIDENCE_2026-02-27.md`
@@ -54,7 +54,7 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
   - `docs/WS79_EVIDENCE_2026-02-27.md`
   - `docs/WS80_EVIDENCE_2026-02-28.md`
   - `docs/WS81_EVIDENCE_2026-02-28.md`
-- Apply-ready patch artifacts: `../DIFFS/patch-a-live-share-parity.diff`, `../DIFFS/patch-b-supply-chain-immutability.diff`
+  - `docs/WS82_EVIDENCE_2026-02-28.md`
 
 ## Rule
 

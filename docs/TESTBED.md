@@ -85,9 +85,8 @@ Operational model:
 - fail closed when active lock markers are present unless explicitly overridden,
 - remove write bits from staged copy by default,
 - emit JSON/SARIF/snapshot artifacts and stage manifest metadata.
-- current seed profile lineage for Windows-share generation:
-  `ejm2bj4s.foxclaw-test` renamed to `foxclaw-seed.default`, which seeded 50
-  sibling profiles in the current profile directory.
+- Windows-share profile generation should use a dedicated seed profile and emit
+  deterministic sibling profiles under the active profile directory.
 
 For orchestration wrappers that need explicit `--snapshot-id` or
 `--treat-high-findings-as-success`, use `foxclaw acquire windows-share-scan`.
