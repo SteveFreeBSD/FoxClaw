@@ -9,7 +9,7 @@ This plan converts the current review and research into sequenced, testable exec
 - No scan-runtime network access regression is allowed.
 - Every changed behavior must be covered by deterministic assertions.
 
-## Current Direction (2026-02-27)
+## Current Direction (2026-02-28)
 
 - Latest deep soak baseline is documented in:
   - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md`

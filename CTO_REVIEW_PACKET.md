@@ -1,18 +1,19 @@
-# CTO Review Packet (2026-02-27)
+# CTO Review Packet (2026-02-28)
 
 ## Executive Summary
 
 ### Health Snapshot
-- Local regression baseline is clean as of 2026-02-27: `.venv/bin/pytest -q` reports `286 passed, 7 skipped`.
-- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-79 now cover native Wazuh proof, vendor-neutral NDJSON export, soak-gate reliability, and memory-recall forensics.
+- Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` reports `289 passed, 7 skipped`.
+- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-80 now cover native Wazuh proof, vendor-neutral NDJSON export, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- Merge-readiness gates were rerun on the merged `main` tip on 2026-02-28: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on the WS-80 tip.
 - Core scan architecture is structured and reviewable: collection, rule evaluation, suppressions, and reporting are separated in `run_scan()` (`foxclaw/scan.py:37-187`).
 - Deterministic output contracts are explicit in JSON/SARIF/snapshot/diff renderers (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/snapshot_diff.py:45-92`).
 - Trust boundaries are present and fail closed in critical paths: ruleset trust verification (`foxclaw/rules/trust.py:81-162`), profile path safety (`foxclaw/collect/safe_paths.py:38-68`), and UNC/share staging controls (`foxclaw/cli.py:226-243`, `foxclaw/cli.py:536-542`, `foxclaw/acquire/windows_share.py:520-526`).
-- `main` is currently ahead of `origin/main` by `26` commits; review should treat this as a coherent Python-baseline packet rather than independent feature drift.
+- A post-fix reduced soak at `/var/tmp/foxclaw-soak/20260228T103227Z-ws80-gate` finished `PASS` with `steps_total=16` and `steps_failed=0`, including `siem_wazuh` and all ESR/Beta/Nightly matrix stages.
 
 ### Readiness Call
 - **CTO review ready for the current Python baseline and push/merge prep.**
-- Rust remains intentionally blocked until the WS-75 through WS-79 evidence packet is explicitly accepted as the handoff baseline.
+- Rust remains intentionally blocked until the WS-75 through WS-80 evidence packet is explicitly accepted as the handoff baseline.
 - Remaining risk is primarily long-horizon maintainability (shared CLI orchestration and mount-detection hardening), not objective runtime correctness of the current Python release path.
 
 ## Review Order
@@ -26,17 +27,19 @@
    - `docs/WS77_EVIDENCE_2026-02-27.md`
    - `docs/WS78_EVIDENCE_2026-02-27.md`
    - `docs/WS79_EVIDENCE_2026-02-27.md`
+   - `docs/WS80_EVIDENCE_2026-02-28.md`
 3. Contract and runtime reference:
    - `docs/CLI_CONTRACT.md`
    - `docs/SOAK.md`
    - `README.md`
 
-## What Changed Since The February 26 Packet
+## What Changed Since The February 27 Packet
 
 - Python `main` now carries first-party Wazuh smoke coverage and a bounded soak-harness SIEM lane.
 - The SIEM contract is now vendor-neutral NDJSON, with `foxclaw.finding` and `foxclaw.scan.summary` as the stable event types.
 - Soak runs now emit machine-readable `soak-summary.json`, including artifact-first stage summaries and Wazuh image tracking.
 - Local forensic recall is now resilient on fresh checkouts and stale `checkpoints_fts` schema, with optional repair and safe fallback behavior.
+- The matrix soak lane now executes through a real Docker wrapper under `timeout`, and the post-fix reduced gate proves ESR/Beta/Nightly build/version/scan stages all pass.
 
 ## Architecture Map
 
@@ -136,7 +139,7 @@
 ### Coverage Gaps
 - No automated docs-contract consistency gate (docs can drift unless manually reviewed).
 - Share-source mount classification tests should expand beyond current UNC/cifs/local cases (`foxclaw/acquire/windows_share.py:118-126`).
-- WS-75 and WS-78 now provide real production-soak evidence, but long-horizon soak remains an evidence runbook rather than a recurring CI gate (`docs/WS75_EVIDENCE_2026-02-27.md`, `docs/WS78_EVIDENCE_2026-02-27.md`, `docs/SOAK.md`).
+- WS-75, WS-78, and WS-80 now provide real production-soak evidence, but long-horizon soak remains an evidence runbook rather than a recurring CI gate (`docs/WS75_EVIDENCE_2026-02-27.md`, `docs/WS78_EVIDENCE_2026-02-27.md`, `docs/WS80_EVIDENCE_2026-02-28.md`, `docs/SOAK.md`).
 
 ### Flakiness Risk Zones
 - Time-based fields without deterministic override (`foxclaw/models.py:327`, `foxclaw/intel/store.py:76-79`, `foxclaw/learning/history.py:321-324`).

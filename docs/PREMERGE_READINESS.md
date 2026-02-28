@@ -26,11 +26,13 @@ make dep-audit
 
 4. Packaging dry-run and install smoke test:
 
+Use the repo virtualenv for packaging tools so the runbook stays portable on hosts where the system Python is externally managed.
+
 ```bash
-python -m pip install --upgrade build twine
+.venv/bin/python -m pip install --upgrade build twine
 rm -rf build dist
-python -m build
-python -m twine check dist/*
+.venv/bin/python -m build
+.venv/bin/python -m twine check dist/*
 ```
 
 Install the built wheel into a clean venv and verify CLI import/entrypoint:
@@ -59,11 +61,11 @@ Do not merge when any of the following is true:
 - docs are out of sync with CLI/workflow/schema surfaces.
 - release tag/version plan is unresolved.
 
-## Current Execution Queue (2026-02-27)
+## Current Execution Queue (2026-02-28)
 
 Ordered next implementation targets:
 
-1. **WS-75 / WS-76 / WS-77 / WS-78 / WS-79 evidence review**: Python production hardening, SIEM baseline, soak-gate reliability, and forensic recall hardening are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
+1. **WS-75 / WS-76 / WS-77 / WS-78 / WS-79 / WS-80 evidence review**: Python production hardening, SIEM baseline, soak-gate reliability, forensic recall hardening, and matrix-lane soak execution hardening are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
 2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM evidence is accepted.
 
 Current evidence basis:
