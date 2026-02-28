@@ -1,5 +1,8 @@
 # Roadmap Normalization (2026-02-26)
 
+Historical internal planning note retained for audit history.
+Do not use this file as the current roadmap or queue; use `docs/ROADMAP.md`, `docs/WORKSLICES.md`, and `docs/PREMERGE_READINESS.md`.
+
 ## Baseline Reality
 - Canonical strategy is `docs/ROADMAP.md` (`docs/ROADMAP.md:87-117`, `docs/ROADMAP.md:139-143`).
 - Canonical execution status is `docs/WORKSLICES.md` (`docs/WORKSLICES.md:74-93`, `docs/WORKSLICES.md:836-845`).

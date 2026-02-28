@@ -2,9 +2,9 @@
 
 ## Current Readiness
 
-- Python `main` is the current source-of-truth baseline; Rust execution remains intentionally blocked until this evidence packet is explicitly accepted.
+- Python is the current source-of-truth baseline; Rust execution remains intentionally blocked until this evidence packet is explicitly accepted.
 - Local regression baseline on February 28, 2026:
-  - `.venv/bin/pytest -q` -> `298 passed, 7 skipped`
+  - `.venv/bin/pytest -q` passed on the validated Python baseline.
 - Merge-readiness gates rerun clean on February 28, 2026:
   - `./scripts/certify.sh`
   - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
@@ -13,10 +13,11 @@
   - clean-venv install smoke
   - `make sbom`
   - `make sbom-verify`
-- WS-75 through WS-81 are complete on `main`, covering:
+- WS-75 through WS-82 are complete in the current Python baseline, covering:
   - native Wazuh smoke validation
   - vendor-neutral NDJSON SIEM export (`foxclaw.finding`, `foxclaw.scan.summary`)
   - native Elastic Common Schema NDJSON export
+  - Elastic Security ECS acceptance proof against a pinned local stack
   - bounded soak-gate reliability with `soak-summary.json`
   - resilient local memory recall indexing and query fallback for post-run forensics
   - matrix-lane soak execution hardening with a passing reduced post-fix gate
@@ -40,11 +41,12 @@
 - [docs/WS79_EVIDENCE_2026-02-27.md](docs/WS79_EVIDENCE_2026-02-27.md)
 - [docs/WS80_EVIDENCE_2026-02-28.md](docs/WS80_EVIDENCE_2026-02-28.md)
 - [docs/WS81_EVIDENCE_2026-02-28.md](docs/WS81_EVIDENCE_2026-02-28.md)
+- [docs/WS82_EVIDENCE_2026-02-28.md](docs/WS82_EVIDENCE_2026-02-28.md)
 
 ## Recommended CTO Review Order
 
 1. Reconfirm the Python-first hold and merge ordering in [docs/WORKSLICES.md](docs/WORKSLICES.md) and [docs/PREMERGE_READINESS.md](docs/PREMERGE_READINESS.md).
-2. Review the production/SIEM implementation sequence in WS-75 through WS-81.
+2. Review the production/SIEM/ECS implementation sequence in WS-75 through WS-82.
 3. Use [CTO_REVIEW_PACKET.md](CTO_REVIEW_PACKET.md) for the condensed architecture, risks, and merge commentary.
 
 ## Remaining Risks

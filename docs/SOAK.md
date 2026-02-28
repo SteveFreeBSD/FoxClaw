@@ -100,10 +100,8 @@ fi
 If your presoak wrapper must treat `HIGH` findings as success (`0`), use
 `foxclaw acquire windows-share-scan --treat-high-findings-as-success`.
 
-Current Windows-share profile lineage:
-- `ejm2bj4s.foxclaw-test` was renamed to `foxclaw-seed.default`.
-- `foxclaw-seed.default` was used to seed 50 sibling profiles in the current
-  `/mnt/firefox-profiles` directory.
+Current Windows-share presoak input:
+- use a dedicated seed-derived profile set under `/mnt/firefox-profiles`.
 
 Verify these outputs exist before starting the soak harness:
 

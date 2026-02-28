@@ -1,5 +1,5 @@
-# Canonical Windows-share generator seed lineage:
-#   ejm2bj4s.foxclaw-test -> foxclaw-seed.default
+# Canonical Windows-share generator seed profile:
+#   default SeedName = foxclaw-seed.default
 param(
   [int]$Count = 10,
   [string]$ProfilesRoot = "$env:APPDATA\Mozilla\Firefox\Profiles",
