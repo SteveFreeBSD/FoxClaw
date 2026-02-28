@@ -23,6 +23,7 @@ FOXCLAW_ECS_SCHEMA_VERSION = "1.0.0"
 _BASE_REQUIRED_FIELDS: tuple[str, ...] = (
     "@timestamp",
     "agent",
+    "data_stream",
     "ecs",
     "event",
     "foxclaw",
@@ -221,6 +222,11 @@ def _build_base_event(
             "name": "foxclaw",
             "type": "foxclaw",
             "version": __version__,
+        },
+        "data_stream": {
+            "dataset": "foxclaw.scan",
+            "namespace": "default",
+            "type": "logs",
         },
         "ecs": {
             "version": ECS_VERSION,

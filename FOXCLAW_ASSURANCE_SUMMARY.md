@@ -2,7 +2,7 @@
 
 ## Current Readiness
 
-- Python `main` is the current source-of-truth baseline; Rust execution remains intentionally blocked until this evidence packet is explicitly accepted.
+- Python is the current source-of-truth baseline; Rust execution remains intentionally blocked until this evidence packet is explicitly accepted.
 - Local regression baseline on February 28, 2026:
   - `.venv/bin/pytest -q` passed on the validated Python baseline.
 - Merge-readiness gates rerun clean on February 28, 2026:
@@ -13,7 +13,7 @@
   - clean-venv install smoke
   - `make sbom`
   - `make sbom-verify`
-- WS-75 through WS-82 are complete on `main`, covering:
+- WS-75 through WS-82 are complete in the current Python baseline, covering:
   - native Wazuh smoke validation
   - vendor-neutral NDJSON SIEM export (`foxclaw.finding`, `foxclaw.scan.summary`)
   - native Elastic Common Schema NDJSON export

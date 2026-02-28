@@ -45,8 +45,8 @@ Delivery and merge gates: [docs/DELIVERY_GATES.md](docs/DELIVERY_GATES.md), [doc
 
 ## Current Baseline
 
-- Python `main` is the current source-of-truth baseline.
-- WS-75 through WS-82 are complete on `main`, covering production hardening, SIEM proof, native ECS export, Elastic Security acceptance proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- Python is the current source-of-truth baseline.
+- WS-75 through WS-82 are complete in the current baseline, covering production hardening, SIEM proof, native ECS export, Elastic Security acceptance proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
 - The latest reduced production gate passed on February 28, 2026 with `siem_wazuh` plus Firefox ESR/Beta/Nightly matrix build, version, and scan stages.
 - Rust bootstrap remains intentionally blocked until that Python evidence packet, including the WS-82 Elastic Security proof, is explicitly accepted.
 

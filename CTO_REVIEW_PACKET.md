@@ -4,8 +4,8 @@
 
 ### Health Snapshot
 - Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` passed on the validated Python baseline.
-- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-82 now cover native Wazuh proof, vendor-neutral NDJSON export, native ECS export, Elastic Security acceptance proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
-- Merge-readiness gates were rerun on the merged `main` tip on 2026-02-28: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on the validated Python baseline.
+- The current Python production-hardening sequence is complete in the validated baseline: WS-75 through WS-82 now cover native Wazuh proof, vendor-neutral NDJSON export, native ECS export, Elastic Security acceptance proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- Merge-readiness gates were rerun on February 28, 2026 against the validated Python baseline: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on that baseline.
 - Core scan architecture is structured and reviewable: collection, rule evaluation, suppressions, and reporting are separated in `run_scan()` (`foxclaw/scan.py:37-187`).
 - Deterministic output contracts are explicit in JSON/SARIF/snapshot/diff renderers (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/snapshot_diff.py:45-92`).
 - Trust boundaries are present and fail closed in critical paths: ruleset trust verification (`foxclaw/rules/trust.py:81-162`), profile path safety (`foxclaw/collect/safe_paths.py:38-68`), and UNC/share staging controls (`foxclaw/cli.py:226-243`, `foxclaw/cli.py:536-542`, `foxclaw/acquire/windows_share.py:520-526`).

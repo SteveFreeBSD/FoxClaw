@@ -110,6 +110,11 @@ def test_iter_ecs_events_emits_one_finding_and_one_summary(monkeypatch) -> None:
     ]
     finding_event, summary_event = events
     assert finding_event["@timestamp"] == "2026-02-28T18:00:00Z"
+    assert finding_event["data_stream"] == {
+        "dataset": "foxclaw.scan",
+        "namespace": "default",
+        "type": "logs",
+    }
     assert finding_event["ecs"]["version"] == "9.2.0"
     assert finding_event["event"]["kind"] == "alert"
     assert finding_event["event"]["category"] == ["configuration", "host"]
@@ -145,7 +150,7 @@ def test_scan_cli_ecs_stdout_and_file_output(tmp_path: Path, monkeypatch) -> Non
     profile_dir.mkdir()
     ecs_path = tmp_path / "out" / "scan.ecs.ndjson"
 
-    monkeypatch.setattr(cli_module, "run_scan", lambda *args, **kwargs: bundle)
+    monkeypatch.setattr(cli_module, "run_scan", lambda *_args, **_kwargs: bundle)
     monkeypatch.setattr("foxclaw.report.ecs._build_host_metadata", _fixed_host_metadata)
 
     runner = CliRunner()
@@ -182,7 +187,7 @@ def test_scan_cli_ecs_write_error_returns_operational_error(tmp_path: Path, monk
     occupied_parent = tmp_path / "occupied"
     occupied_parent.write_text("not a directory", encoding="utf-8")
 
-    monkeypatch.setattr(cli_module, "run_scan", lambda *args, **kwargs: bundle)
+    monkeypatch.setattr(cli_module, "run_scan", lambda *_args, **_kwargs: bundle)
     monkeypatch.setattr("foxclaw.report.ecs._build_host_metadata", _fixed_host_metadata)
 
     runner = CliRunner()
