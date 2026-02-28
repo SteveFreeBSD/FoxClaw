@@ -65,8 +65,8 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-75 / WS-76 / WS-77 / WS-78 / WS-79 / WS-80 evidence review**: Python production hardening, SIEM baseline, soak-gate reliability, forensic recall hardening, and matrix-lane soak execution hardening are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
-2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM evidence is accepted.
+1. **WS-75 / WS-76 / WS-77 / WS-78 / WS-79 / WS-80 / WS-81 evidence review**: Python production hardening, SIEM baseline, soak-gate reliability, forensic recall hardening, matrix-lane soak execution hardening, and native ECS export are now implemented on `main`; do not start Rust until that evidence is explicitly accepted as the source-of-truth baseline.
+2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM evidence, including WS-81, is accepted.
 
 Current evidence basis:
 
@@ -87,4 +87,5 @@ Current evidence basis:
 - `docs/WS78_EVIDENCE_2026-02-27.md` confirms bounded Wazuh-lane waits, `soak-summary.json`, and two passing reduced gate runs on `main`.
 - `docs/WS79_EVIDENCE_2026-02-27.md` confirms stale-memory-index recovery, `LIKE` fallback/repair behavior, and `soak-summary.json` forensic memory metadata.
 - `docs/WS80_EVIDENCE_2026-02-28.md` confirms the live-soak matrix wrapper failure was fixed and that a post-fix reduced gate now passes with `siem_wazuh` plus ESR/Beta/Nightly matrix build/version/scan stages on `main`.
+- `docs/WS81_EVIDENCE_2026-02-28.md` confirms native ECS output in the Python scan path, deterministic CLI/test coverage, and first-class share-staging passthrough for ECS artifacts.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

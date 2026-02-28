@@ -24,6 +24,7 @@ FoxClaw provides deterministic browser profile posture inspection for assurance-
 - Declarative ruleset evaluation with trust-manifest verification support.
 - Offline intelligence correlation with pinned snapshot identifiers.
 - Vendor-neutral NDJSON SIEM export with `foxclaw.finding` and `foxclaw.scan.summary` event types.
+- Native Elastic Common Schema NDJSON output for modern SIEM/XDR ingestion.
 - Native Wazuh proof lane pinned to `wazuh/wazuh-manager:4.14.3`.
 - Machine-readable soak summaries and local memory-recall forensics for post-run review.
 - Stage-first handling for share-hosted profile sources.
@@ -34,6 +35,8 @@ FoxClaw provides deterministic browser profile posture inspection for assurance-
 ## Outputs
 
 - JSON scan output (`--json`, `--output`)
+- ECS NDJSON output (`--ecs`, `--ecs-out`)
+- Vendor-neutral NDJSON output (`--ndjson`, `--ndjson-out`)
 - SARIF 2.1.0 output (`--sarif`, `--sarif-out`)
 - Snapshot output (`--snapshot-out`)
 - Evidence bundle output (`artifacts/evidence/<git-sha>/`)
@@ -43,7 +46,7 @@ Delivery and merge gates: [docs/DELIVERY_GATES.md](docs/DELIVERY_GATES.md), [doc
 ## Current Baseline
 
 - Python `main` is the current source-of-truth baseline.
-- WS-75 through WS-80 are complete on `main`, covering production hardening, SIEM proof, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- WS-75 through WS-81 are complete on `main`, covering production hardening, SIEM proof, native ECS export, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
 - The latest reduced production gate passed on February 28, 2026 with `siem_wazuh` plus Firefox ESR/Beta/Nightly matrix build, version, and scan stages.
 - Rust bootstrap remains intentionally blocked until that Python evidence packet is explicitly accepted.
 

@@ -3,8 +3,8 @@
 ## Executive Summary
 
 ### Health Snapshot
-- Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` reports `289 passed, 7 skipped`.
-- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-80 now cover native Wazuh proof, vendor-neutral NDJSON export, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
+- Local regression baseline is clean as of 2026-02-28: `.venv/bin/pytest -q` reports `298 passed, 7 skipped`.
+- The current Python production-hardening sequence is complete on `main`: WS-75 through WS-81 now cover native Wazuh proof, vendor-neutral NDJSON export, native ECS export, soak-gate reliability, memory-recall forensics, and matrix-lane soak execution hardening.
 - Merge-readiness gates were rerun on the merged `main` tip on 2026-02-28: `./scripts/certify.sh` and `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile` both passed, and the dependency audit, packaging, install-smoke, and SBOM gates also passed on the WS-80 tip.
 - Core scan architecture is structured and reviewable: collection, rule evaluation, suppressions, and reporting are separated in `run_scan()` (`foxclaw/scan.py:37-187`).
 - Deterministic output contracts are explicit in JSON/SARIF/snapshot/diff renderers (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/snapshot_diff.py:45-92`).
@@ -13,7 +13,7 @@
 
 ### Readiness Call
 - **CTO review ready for the current Python baseline and push/merge prep.**
-- Rust remains intentionally blocked until the WS-75 through WS-80 evidence packet is explicitly accepted as the handoff baseline.
+- Rust remains intentionally blocked until the WS-75 through WS-81 evidence packet is explicitly accepted as the handoff baseline.
 - Remaining risk is primarily long-horizon maintainability (shared CLI orchestration and mount-detection hardening), not objective runtime correctness of the current Python release path.
 
 ## Review Order
@@ -28,6 +28,7 @@
    - `docs/WS78_EVIDENCE_2026-02-27.md`
    - `docs/WS79_EVIDENCE_2026-02-27.md`
    - `docs/WS80_EVIDENCE_2026-02-28.md`
+   - `docs/WS81_EVIDENCE_2026-02-28.md`
 3. Contract and runtime reference:
    - `docs/CLI_CONTRACT.md`
    - `docs/SOAK.md`
@@ -37,6 +38,7 @@
 
 - Python `main` now carries first-party Wazuh smoke coverage and a bounded soak-harness SIEM lane.
 - The SIEM contract is now vendor-neutral NDJSON, with `foxclaw.finding` and `foxclaw.scan.summary` as the stable event types.
+- Python `main` now also emits native Elastic Common Schema NDJSON with first-class CLI integration instead of requiring downstream transform glue.
 - Soak runs now emit machine-readable `soak-summary.json`, including artifact-first stage summaries and Wazuh image tracking.
 - Local forensic recall is now resilient on fresh checkouts and stale `checkpoints_fts` schema, with optional repair and safe fallback behavior.
 - The matrix soak lane now executes through a real Docker wrapper under `timeout`, and the post-fix reduced gate proves ESR/Beta/Nightly build/version/scan stages all pass.
@@ -49,7 +51,7 @@
 - Collectors and safe path/read-only handling (`foxclaw/collect/safe_paths.py:22-81`, `foxclaw/collect/artifacts.py:16-40`).
 - Ruleset loading/evaluation/suppression and trust verification (`foxclaw/scan.py:141-149`, `foxclaw/rules/trust.py:81-206`).
 - Intelligence sync (explicit network path) and offline correlation (`foxclaw/intel/sync.py:34-87`, `foxclaw/intel/correlation.py:96-145`).
-- Deterministic reporters for JSON/SARIF/snapshot/fleet (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/fleet.py:68-81`).
+- Deterministic reporters for JSON/vendor-neutral NDJSON/ECS NDJSON/SARIF/snapshot/fleet (`foxclaw/report/jsonout.py:10-13`, `foxclaw/report/siem.py:50-99`, `foxclaw/report/ecs.py:33-78`, `foxclaw/report/sarif.py:25-40`, `foxclaw/report/snapshot.py:49-81`, `foxclaw/report/fleet.py:68-81`).
 - Append-only local learning/history store (`foxclaw/learning/history.py:24-63`, `foxclaw/learning/history.py:151-212`).
 
 ### Data Flow and Trust Boundaries
@@ -140,6 +142,7 @@
 - No automated docs-contract consistency gate (docs can drift unless manually reviewed).
 - Share-source mount classification tests should expand beyond current UNC/cifs/local cases (`foxclaw/acquire/windows_share.py:118-126`).
 - WS-75, WS-78, and WS-80 now provide real production-soak evidence, but long-horizon soak remains an evidence runbook rather than a recurring CI gate (`docs/WS75_EVIDENCE_2026-02-27.md`, `docs/WS78_EVIDENCE_2026-02-27.md`, `docs/WS80_EVIDENCE_2026-02-28.md`, `docs/SOAK.md`).
+- ECS output is intentionally hybrid: standard ECS core fields plus a `foxclaw` extension namespace for profile identity and summary data that ECS does not natively represent (`docs/WS81_EVIDENCE_2026-02-28.md`).
 
 ### Flakiness Risk Zones
 - Time-based fields without deterministic override (`foxclaw/models.py:327`, `foxclaw/intel/store.py:76-79`, `foxclaw/learning/history.py:321-324`).

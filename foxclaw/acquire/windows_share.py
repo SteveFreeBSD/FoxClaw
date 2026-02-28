@@ -58,6 +58,7 @@ class WindowsShareStagePaths:
     output_dir: Path
     json_out: Path
     ndjson_out: Path | None
+    ecs_out: Path | None
     sarif_out: Path
     scan_snapshot_out: Path
     manifest_out: Path
@@ -209,6 +210,11 @@ def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
         help="Optional scan SARIF output path (default: <output-dir>/foxclaw.sarif).",
     )
     parser.add_argument(
+        "--ecs-out",
+        default="",
+        help="Optional ECS NDJSON output path.",
+    )
+    parser.add_argument(
         "--scan-snapshot-out",
         default="",
         help="Optional scan snapshot output path (default: <output-dir>/foxclaw.snapshot.json).",
@@ -239,6 +245,7 @@ def resolve_windows_share_stage_paths(
     output_dir: Path | None = None,
     json_out: Path | None = None,
     ndjson_out: Path | None = None,
+    ecs_out: Path | None = None,
     sarif_out: Path | None = None,
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
@@ -263,6 +270,7 @@ def resolve_windows_share_stage_paths(
         json_out.expanduser().resolve() if json_out else resolved_output_dir / "foxclaw.json"
     )
     resolved_ndjson_out = ndjson_out.expanduser().resolve() if ndjson_out else None
+    resolved_ecs_out = ecs_out.expanduser().resolve() if ecs_out else None
     resolved_sarif_out = (
         sarif_out.expanduser().resolve() if sarif_out else resolved_output_dir / "foxclaw.sarif"
     )
@@ -285,6 +293,7 @@ def resolve_windows_share_stage_paths(
         output_dir=resolved_output_dir,
         json_out=resolved_json_out,
         ndjson_out=resolved_ndjson_out,
+        ecs_out=resolved_ecs_out,
         sarif_out=resolved_sarif_out,
         scan_snapshot_out=resolved_scan_snapshot_out,
         manifest_out=resolved_manifest_out,
@@ -455,6 +464,8 @@ def _build_scan_command(
         str(scan_snapshot_out),
         "--deterministic",
     ]
+    if args.ecs_out:
+        cmd.extend(["--ecs-out", str(args.ecs_out)])
 
     for policy_path in args.policy_path:
         cmd.extend(["--policy-path", str(policy_path)])
@@ -486,6 +497,7 @@ def stage_windows_share_profile(
     output_dir: Path | None = None,
     json_out: Path | None = None,
     ndjson_out: Path | None = None,
+    ecs_out: Path | None = None,
     sarif_out: Path | None = None,
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
@@ -499,6 +511,7 @@ def stage_windows_share_profile(
         output_dir=output_dir,
         json_out=json_out,
         ndjson_out=ndjson_out,
+        ecs_out=ecs_out,
         sarif_out=sarif_out,
         scan_snapshot_out=scan_snapshot_out,
         manifest_out=manifest_out,
@@ -546,6 +559,8 @@ def stage_windows_share_profile(
     }
     if paths.ndjson_out is not None:
         artifacts["ndjson"] = str(paths.ndjson_out)
+    if paths.ecs_out is not None:
+        artifacts["ecs"] = str(paths.ecs_out)
 
     manifest_payload: dict[str, object] = {
         "schema_version": "1.0.0",
@@ -604,6 +619,7 @@ def run_windows_share_scan(
             snapshot_id=args.snapshot_id or None,
             output_dir=Path(args.output_dir) if args.output_dir else None,
             json_out=Path(args.json_out) if args.json_out else None,
+            ecs_out=Path(args.ecs_out) if args.ecs_out else None,
             sarif_out=Path(args.sarif_out) if args.sarif_out else None,
             scan_snapshot_out=Path(args.scan_snapshot_out) if args.scan_snapshot_out else None,
             manifest_out=Path(args.manifest_out) if args.manifest_out else None,

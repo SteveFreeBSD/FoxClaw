@@ -16,12 +16,12 @@ This plan converts the current review and research into sequenced, testable exec
 - Latest comprehensive repo audit is documented in:
   - `docs/AUDIT_2026-02-24.md`
 - Immediate execution focus:
-  - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening and SIEM evidence.
+  - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening, SIEM, and ECS export evidence.
 - Rationale:
-  - WS-75, WS-76, WS-77, WS-78, WS-79, and WS-80 are now complete on `main`.
-  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, and resilient local memory-recall forensics.
+  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, and WS-81 are now complete on `main`.
+  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, resilient local memory-recall forensics, and first-class Elastic Common Schema export.
   - A live overnight soak surfaced a matrix-lane wrapper defect, and the follow-up hardening now routes Firefox ESR/Beta/Nightly Docker stages through a real executable so `timeout` no longer fails on shell-function invocation.
-  - Rust bootstrap remains deferred until that Python evidence is explicitly accepted as the baseline for branch handoff.
+  - Rust bootstrap remains deferred until that completed Python evidence packet, including ECS output, is explicitly accepted as the baseline for branch handoff.
 
 ## Slice Queue
 
@@ -57,6 +57,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-28 | complete | WS-17 | Profile realism deferred hardening (Firefox launch sanity gate + cross-OS baselines). |
 | WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
 | WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
+| WS-81 | complete | WS-77, WS-80 | Native ECS export: add first-class Elastic Common Schema NDJSON output to the Python scan path, with deterministic mappings, CLI parity with existing output modes, and production-facing docs/tests before Rust resumes. |
 | WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
@@ -559,6 +560,22 @@ This plan converts the current review and research into sequenced, testable exec
   - Re-validated gates after launch-gate test hardening on 2026-02-22:
     - `make verify-full`
     - `scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 --integration-runs 1 --snapshot-runs 1 --synth-count 4 --synth-mode bootstrap --synth-seed 424242 --synth-mutation-budget 0 --synth-fidelity-min-score 70 --require-launch-gate --launch-gate-min-score 50 --fuzz-count 4 --fuzz-mode chaos --fuzz-seed 525252 --fuzz-mutation-budget 3 --fuzz-fidelity-min-score 50 --matrix-runs 0 --label mini-post-hardening`
+- Acceptance: met.
+
+### WS-81 - Native ECS Export
+
+- Status: complete.
+- Goal: add first-class Elastic Common Schema NDJSON output to the Python scan path so FoxClaw can emit native modern SIEM/XDR events without relying on downstream translation.
+- Delivered:
+  - added `foxclaw/report/ecs.py` with deterministic ECS NDJSON rendering for `foxclaw.finding` and `foxclaw.scan.summary` scan events, including ECS core fields and a `foxclaw` extension namespace preserving FoxClaw-specific context.
+  - added `foxclaw scan --ecs` and `--ecs-out` with the same stdout/file integration behavior as JSON, SARIF, and vendor-neutral NDJSON output.
+  - wired ECS passthrough into share-hosted scan staging and `acquire windows-share-scan --ecs-out`, including stage-manifest artifact recording.
+  - added deterministic regression coverage in `tests/test_ecs.py` and updated CLI mutual-exclusion coverage in `tests/test_siem.py`.
+  - documented the contract/evidence in `docs/CLI_CONTRACT.md`, `docs/PREMERGE_READINESS.md`, and `docs/WS81_EVIDENCE_2026-02-28.md`.
+- Validation evidence:
+  - `ruff check foxclaw/report/ecs.py foxclaw/cli.py foxclaw/acquire/windows_share.py tests/test_ecs.py tests/test_siem.py`
+  - `.venv/bin/pytest -q tests/test_ecs.py tests/test_siem.py`
+  - `.venv/bin/pytest -q`
 - Acceptance: met.
 
 ### WS-31 - Initialize Rust Backend

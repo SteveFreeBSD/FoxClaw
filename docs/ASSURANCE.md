@@ -16,3 +16,4 @@ Assurance posture and evidence references:
 - `docs/WS78_EVIDENCE_2026-02-27.md`
 - `docs/WS79_EVIDENCE_2026-02-27.md`
 - `docs/WS80_EVIDENCE_2026-02-28.md`
+- `docs/WS81_EVIDENCE_2026-02-28.md`
