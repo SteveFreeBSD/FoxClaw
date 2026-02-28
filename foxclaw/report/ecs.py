@@ -7,7 +7,7 @@ import json
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, cast
 
 from foxclaw import __version__
 from foxclaw.models import SEVERITY_ORDER, EvidenceBundle, Finding, FleetHostMetadata, RiskPriority
@@ -120,8 +120,7 @@ def _build_finding_event(
         host=host,
         profile=profile,
     )
-    event_payload = event["event"]
-    assert isinstance(event_payload, dict)
+    event_payload = _require_object_dict(event.get("event"), field="event")
     event_payload["code"] = finding.id
     event_payload["severity"] = _severity_score(finding.severity)
     event["log"] = {"level": _log_level(finding.severity)}
@@ -135,9 +134,8 @@ def _build_finding_event(
     }
     if finding.risk_priority is not None:
         event_payload["risk_score_norm"] = _risk_score(finding.risk_priority)
-    foxclaw_payload = event["foxclaw"]
-    assert isinstance(foxclaw_payload, dict)
-    foxclaw_payload["finding"] = {
+    foxclaw_payload = _require_object_dict(event.get("foxclaw"), field="foxclaw")
+    finding_payload: dict[str, object] = {
         "category": finding.category,
         "confidence": finding.confidence,
         "evidence": list(finding.evidence),
@@ -147,9 +145,10 @@ def _build_finding_event(
         "title": finding.title,
     }
     if finding.risk_priority is not None:
-        foxclaw_payload["finding"]["risk_priority"] = finding.risk_priority
+        finding_payload["risk_priority"] = finding.risk_priority
     if finding.risk_factors:
-        foxclaw_payload["finding"]["risk_factors"] = list(finding.risk_factors)
+        finding_payload["risk_factors"] = list(finding.risk_factors)
+    foxclaw_payload["finding"] = finding_payload
     return event
 
 
@@ -185,14 +184,12 @@ def _build_summary_event(
         host=host,
         profile=profile,
     )
-    event_payload = event["event"]
-    assert isinstance(event_payload, dict)
+    event_payload = _require_object_dict(event.get("event"), field="event")
     event_payload["code"] = "FOXCLAW_SCAN_SUMMARY"
     event_payload["outcome"] = "success"
     event_payload["severity"] = _severity_score("INFO")
     event["log"] = {"level": _log_level("INFO")}
-    foxclaw_payload = event["foxclaw"]
-    assert isinstance(foxclaw_payload, dict)
+    foxclaw_payload = _require_object_dict(event.get("foxclaw"), field="foxclaw")
     foxclaw_payload["summary"] = {
         "findings_high_count": bundle.summary.findings_high_count,
         "findings_info_count": bundle.summary.findings_info_count,
@@ -379,6 +376,12 @@ def _event_id_from_event(event: dict[str, object]) -> str:
         if isinstance(event_id, str) and event_id:
             return event_id
     return "<unknown>"
+
+
+def _require_object_dict(value: object, *, field: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"Invalid ECS event: {field} must be an object.")
+    return cast(dict[str, object], value)
 
 
 def _validate_event(event: dict[str, object]) -> None:
