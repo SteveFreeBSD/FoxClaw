@@ -7,6 +7,14 @@ This folder builds synthetic Firefox profiles on Windows for SMB/share scanning.
 - `generate_profiles.ps1`: clones a seed profile and runs mutation per profile.
 - `mutate_profile.mjs`: performs deterministic profile mutation via Node.js + `better-sqlite3` and writes simulation metadata.
 
+## Local Node Dependency
+
+Install the pinned mutator dependency from the repository root before running the generator:
+
+```bash
+npm ci --prefix scripts/windows_auth_gen
+```
+
 ## Seed Lineage
 
 - prior seed name: `ejm2bj4s.foxclaw-test`

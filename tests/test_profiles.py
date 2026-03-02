@@ -69,6 +69,41 @@ Path=Profiles/bbb.default
     assert selected.lock_detected is True
 
 
+def test_profile_selection_prefers_parentlock_profile(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    base_dir = home / ".mozilla" / "firefox"
+    _write_profiles_ini(
+        base_dir,
+        """[Profile0]
+Name=release
+IsRelative=1
+Path=Profiles/aaa.default-release
+Default=1
+
+[Profile1]
+Name=work
+IsRelative=1
+Path=Profiles/bbb.default
+""",
+    )
+
+    _create_profile(base_dir, "Profiles/aaa.default-release", places_size=4096, mtime=100)
+    _create_profile(
+        base_dir,
+        "Profiles/bbb.default",
+        places_size=128,
+        lock_name=".parentlock",
+        mtime=10,
+    )
+
+    report = discover_profiles(home=home, xdg_config_home=tmp_path / "missing-xdg")
+
+    assert report.selected_profile_id == "Profile1"
+    selected = next(profile for profile in report.profiles if profile.selected)
+    assert selected.lock_detected is True
+    assert ".parentlock" in selected.lock_files
+
+
 def test_profile_selection_uses_default_release_suffix_when_other_signals_equal(
     tmp_path: Path,
 ) -> None:

@@ -231,6 +231,20 @@ class TestScanHistoryStore:
         assert artifact["rule_fleet_prevalence"][0]["fleet_prevalence"] == 1.0
         store.close()
 
+    def test_learning_artifact_uses_latest_scan_timestamp_when_not_overridden(
+        self, tmp_path: Path
+    ) -> None:
+        """Artifact timestamp is deterministic for a stable history DB."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        store.ingest(_make_evidence(generated_at=datetime(2026, 1, 1, tzinfo=UTC)))
+        store.ingest(_make_evidence(generated_at=datetime(2026, 2, 1, tzinfo=UTC)))
+
+        artifact = store.generate_learning_artifact()
+        assert artifact["generated_at_utc"] == datetime(2026, 2, 1, tzinfo=UTC).isoformat()
+        store.close()
+
     def test_learning_artifact_serializable(self, tmp_path: Path) -> None:
         """Learning artifact is JSON-serializable."""
         db = tmp_path / "history.sqlite"
@@ -249,12 +263,46 @@ class TestScanHistoryStore:
         store = ScanHistoryStore(db)
 
         artifact = store.generate_learning_artifact()
+        assert artifact["generated_at_utc"] == "1970-01-01T00:00:00+00:00"
         assert artifact["history_summary"]["total_scans"] == 0
         assert artifact["history_summary"]["total_findings"] == 0
         assert artifact["rule_frequencies"] == []
         assert artifact["rule_trend_novelty"] == []
         assert artifact["rule_fleet_prevalence"] == []
         assert artifact["fleet_rule_correlations"] == []
+        store.close()
+
+    def test_learning_artifact_orders_ties_deterministically(self, tmp_path: Path) -> None:
+        """Equal-count rule/profile rows use stable secondary ordering."""
+        db = tmp_path / "history.sqlite"
+        store = ScanHistoryStore(db)
+
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/b.default",
+                profile_name="b.default",
+                findings=[_make_finding("FC-BETA", "HIGH")],
+                generated_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=UTC),
+            )
+        )
+        store.ingest(
+            _make_evidence(
+                profile_path="/profiles/a.default",
+                profile_name="a.default",
+                findings=[_make_finding("FC-ALPHA", "HIGH")],
+                generated_at=datetime(2026, 2, 24, 12, 5, 0, tzinfo=UTC),
+            )
+        )
+
+        artifact = store.generate_learning_artifact()
+        assert [item["rule_id"] for item in artifact["rule_frequencies"]] == [
+            "FC-ALPHA",
+            "FC-BETA",
+        ]
+        assert [item["profile_path"] for item in artifact["profile_coverage"]] == [
+            "/profiles/a.default",
+            "/profiles/b.default",
+        ]
         store.close()
 
     def test_rule_trend_novelty_first_seen(self, tmp_path: Path) -> None:

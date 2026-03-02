@@ -20,8 +20,8 @@ def test_windows_share_source_detection_for_smb_mount(monkeypatch, tmp_path: Pat
 
     monkeypatch.setattr(
         windows_share,
-        "_mount_fs_type_for_path",
-        lambda _path: "cifs",
+        "_mount_fs_types_for_path",
+        lambda _path: ("cifs",),
     )
     assert windows_share.is_windows_share_profile_source(profile_path)
 
@@ -34,7 +34,28 @@ def test_windows_share_source_detection_for_local_path(monkeypatch, tmp_path: Pa
 
     monkeypatch.setattr(
         windows_share,
-        "_mount_fs_type_for_path",
-        lambda _path: "ext4",
+        "_mount_fs_types_for_path",
+        lambda _path: ("ext4",),
     )
     assert windows_share.is_windows_share_profile_source(profile_path) is False
+
+
+def test_windows_share_source_detection_for_layered_autofs_mount(
+    monkeypatch, tmp_path: Path
+) -> None:
+    profile_path = tmp_path / "mounted-share" / "profile.default-release"
+    if os.name == "nt":
+        assert windows_share.is_windows_share_profile_source(profile_path) is False
+        return
+
+    monkeypatch.setattr(
+        windows_share,
+        "_load_proc_mounts",
+        lambda: (
+            (tmp_path / "mounted-share", "autofs"),
+            (tmp_path / "mounted-share", "cifs"),
+        ),
+    )
+
+    assert windows_share._mount_fs_type_for_path(profile_path) == "autofs"
+    assert windows_share.is_windows_share_profile_source(profile_path)

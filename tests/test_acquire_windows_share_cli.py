@@ -7,7 +7,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from foxclaw.acquire.windows_share import _copy_tree
+from foxclaw.acquire.windows_share import _copy_tree, resolve_windows_share_stage_paths
 from foxclaw.cli import app
 from typer.testing import CliRunner
 
@@ -321,6 +321,29 @@ def test_acquire_windows_share_scan_detects_real_high_finding(tmp_path: Path) ->
     payload = json.loads((output_dir / "foxclaw.json").read_text(encoding="utf-8"))
     assert payload["summary"]["findings_high_count"] >= 1
     assert "SHARE-HIGH-001" in payload["high_findings"]
+
+
+def test_resolve_windows_share_stage_paths_avoids_existing_default_snapshot_ids(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source_profile = _write_source_profile(tmp_path)
+    staging_root = tmp_path / "staging-root"
+    staging_root.mkdir(parents=True, exist_ok=True)
+    (staging_root / "20260301T010203000000Z").mkdir()
+    (staging_root / "20260301T010203000000Z-1").mkdir()
+
+    monkeypatch.setattr(
+        "foxclaw.acquire.windows_share._default_snapshot_id",
+        lambda: "20260301T010203000000Z",
+    )
+
+    paths = resolve_windows_share_stage_paths(
+        source_profile=source_profile,
+        staging_root=staging_root,
+    )
+
+    assert paths.staged_profile == staging_root / "20260301T010203000000Z-2" / "profile"
 
 
 def test_acquire_windows_share_scan_can_target_mounted_share_path(tmp_path: Path) -> None:
