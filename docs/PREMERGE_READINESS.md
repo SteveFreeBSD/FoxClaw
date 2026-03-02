@@ -65,15 +65,15 @@ Do not merge when any of the following is true:
 
 Ordered next implementation targets:
 
-1. **WS-66 / WS-75 / WS-76 / WS-77 / WS-78 / WS-79 / WS-80 / WS-81 / WS-82 / WS-83 evidence review**: Python pre-merge hardening, production hardening, SIEM baseline, soak-gate reliability, forensic recall hardening, matrix-lane soak execution hardening, native ECS export, corrected soak stop semantics, and the first-class mounted-share comprehensive soak workflow are now implemented on `main`; do not start Rust until that full evidence packet is explicitly accepted as the source-of-truth baseline.
-2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM/soak evidence, including WS-81, WS-82, and WS-83, is accepted.
+1. **WS-66 / WS-75 / WS-76 / WS-77 / WS-78 / WS-79 / WS-80 / WS-81 / WS-82 / WS-83 / WS-84 evidence review**: Python pre-merge hardening, production hardening, SIEM baseline, soak-gate reliability, forensic recall hardening, matrix-lane soak execution hardening, native ECS export, Elastic Security ECS acceptance proof, corrected soak stop semantics, and the first-class mounted-share comprehensive soak workflow are now implemented on `main`; do not start Rust until that full evidence packet is explicitly accepted as the source-of-truth baseline.
+2. **WS-31 + WS-32**: Start Rust workspace bootstrap + contract canonicalization on the dedicated branch `rust/ws31-bootstrap` only after the completed Python production/SIEM/soak evidence, including WS-81, WS-82, WS-83, and WS-84, is accepted.
 
 Current evidence basis:
 
 - `docs/SOAK_REVIEW_2026-02-24_ULTIMATE_8H.md` confirms stability and highlights
   runtime bottleneck concentration in fuzz workloads.
 - `docs/AUDIT_2026-02-24.md` defines mandatory closeout work before next comprehensive audit.
-- `docs/WS66_EVIDENCE_2026-02-27.md` confirms Python gate cleanliness (`certify`, packaging, dependency audit, SBOM), the passing short soak, the passing post-WS-82 comprehensive soak (`80` cycles, `1920/1920` passing steps), and the mounted-share presoak/batch sanity evidence that now gates long runs.
+- `docs/WS66_EVIDENCE_2026-02-27.md` confirms Python gate cleanliness (`certify`, packaging, dependency audit, SBOM), the passing short soak, the passing post-WS-83 comprehensive soak (`80` cycles, `1920/1920` passing steps), and the mounted-share presoak/batch sanity evidence that now gates long runs.
 - `docs/WS67_SCOPE_PLAN_2026-02-27.md` defines the three bounded merge scopes and their validation floors.
 - `docs/WS68_EVIDENCE_2026-02-27.md` confirms Scope A focused regressions and full pytest baseline are green.
 - `docs/WS69_EVIDENCE_2026-02-27.md` confirms Scope B runtime/release hardening gates and focused regressions are green.
@@ -88,6 +88,7 @@ Current evidence basis:
 - `docs/WS79_EVIDENCE_2026-02-27.md` confirms stale-memory-index recovery, `LIKE` fallback/repair behavior, and `soak-summary.json` forensic memory metadata.
 - `docs/WS80_EVIDENCE_2026-02-28.md` confirms the live-soak matrix wrapper failure was fixed and that a post-fix reduced gate now passes with `siem_wazuh` plus ESR/Beta/Nightly matrix build/version/scan stages on `main`.
 - `docs/WS81_EVIDENCE_2026-02-28.md` confirms native ECS output in the Python scan path, deterministic CLI/test coverage, and first-class share-staging passthrough for ECS artifacts.
-- `docs/WORKSLICES.md` records WS-82 and WS-83 as complete, including the `INTERRUPTED` stop-status change and the first-class mounted-share comprehensive soak wrapper.
+- `docs/WS82_EVIDENCE_2026-02-28.md` confirms a pinned local Elastic Security stack ingests FoxClaw ECS output cleanly, exposes the Security-required ECS fields, and executes a detection rule preview without field errors.
+- `docs/WORKSLICES.md` records WS-83 and WS-84 as complete, including the `INTERRUPTED` stop-status change and the first-class mounted-share comprehensive soak wrapper.
 - `docs/SOAK.md`, `docs/WINDOWS_SHARE_STABILITY.md`, and `docs/WINDOWS_SHARE_TESTING.md` document the now-canonical mounted-share comprehensive soak workflow, including presoak validation, explicit corpus policy, and detached launch guidance.
 - Latest matrix-soak investigation confirmed prior overnight failures were container bootstrap infrastructure drift, not core Python scan logic; pre-merge hardening must keep those lanes deterministic before Rust branching resumes.

@@ -65,7 +65,7 @@ Validation floor:
 
 Purpose:
 
-- land WS-82 and WS-83 as one operational workflow block: corrected soak stop semantics, deterministic batch policy, and the first-class mounted-share comprehensive soak wrapper.
+- land WS-83 and WS-84 as one operational workflow block: corrected soak stop semantics, deterministic batch policy, and the first-class mounted-share comprehensive soak wrapper.
 
 Files:
 
@@ -117,7 +117,7 @@ Validation floor:
 
 - `foxclaw/cli.py` spans Scope A and Scope B; split by hunk instead of collapsing the runtime fixes and the soak wrapper CLI surface into one oversized commit.
 - `tests/test_acquire_windows_share_cli.py` spans Scope A and Scope B for the same reason; keep the snapshot-id regression with Scope A and the batch include/exclude forwarding assertion with Scope B.
-- `docs/WORKSLICES.md` and `docs/WS66_EVIDENCE_2026-02-27.md` mention WS-82 and WS-83, but they belong in Scope C because they are evidence/queue records, not runtime implementation.
+- `docs/WORKSLICES.md` and `docs/WS66_EVIDENCE_2026-02-27.md` mention WS-83 and WS-84, but they belong in Scope C because they are evidence/queue records, not runtime implementation.
 
 ## Merge Order
 
@@ -129,7 +129,7 @@ Validation floor:
 Rationale:
 
 - Scope A contains the real Python runtime/determinism/generator behavior changes that were uncovered by the comprehensive review and pre-soak hardening.
-- Scope B contains the operator-facing soak workflow improvements that were validated by the post-WS-82 mounted-share comprehensive soak.
+- Scope B contains the operator-facing soak workflow improvements that were validated by the post-WS-83 mounted-share comprehensive soak.
 - Scope C should land last so the evidence packet and queue state describe the actual isolated merge sequence that was chosen.
 
 ## Explicit Non-Goals

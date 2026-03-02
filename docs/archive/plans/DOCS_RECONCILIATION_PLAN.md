@@ -1,5 +1,8 @@
 # Docs Reconciliation Plan (2026-02-26)
 
+Historical internal planning note retained for audit history.
+Do not use this file as a source of truth; use `docs/INDEX.md`, `docs/CLI_CONTRACT.md`, `docs/WORKSLICES.md`, and `docs/ROADMAP.md`.
+
 ## Objective
 Make documentation auditable and deterministic: one canonical source per contract, no conflicting roadmap branches, and no stale runbook commands.
 

@@ -49,11 +49,6 @@ python -m foxclaw acquire windows-share-scan \
   --treat-high-findings-as-success
 ```
 
-Current Windows-share profile lineage:
-- `ejm2bj4s.foxclaw-test` renamed to `foxclaw-seed.default`.
-- `foxclaw-seed.default` seeded the 50 generated sibling profiles currently in
-  `/mnt/firefox-profiles`.
-
 Generate fixture outputs and keep exit-code semantics intact (`2` means findings, not crash):
 
 ```bash

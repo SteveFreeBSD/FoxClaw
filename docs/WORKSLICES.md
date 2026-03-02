@@ -18,10 +18,10 @@ This plan converts the current review and research into sequenced, testable exec
 - Immediate execution focus:
   - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening, SIEM, and ECS export evidence.
 - Rationale:
-  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, and WS-81 are now complete on `main`.
-  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, resilient local memory-recall forensics, and first-class Elastic Common Schema export.
+  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, WS-81, WS-82, WS-83, and WS-84 are now complete in the validated Python baseline.
+  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, resilient local memory-recall forensics, first-class Elastic Common Schema export, and a passing Elastic Security acceptance proof.
   - A live overnight soak surfaced a matrix-lane wrapper defect, and the follow-up hardening now routes Firefox ESR/Beta/Nightly Docker stages through a real executable so `timeout` no longer fails on shell-function invocation.
-  - Rust bootstrap remains deferred until that completed Python evidence packet, including ECS output, is explicitly accepted as the baseline for branch handoff.
+  - Rust bootstrap remains deferred until that completed Python evidence packet, including ECS output and Elastic Security proof, is explicitly accepted as the baseline for branch handoff.
 
 ## Slice Queue
 
@@ -58,8 +58,9 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-29 | complete | WS-26 | Refresh planning docs with post-WS26 queue (`PREMERGE_READINESS.md` + `WORKSLICES.md`). |
 | WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
 | WS-81 | complete | WS-77, WS-80 | Native ECS export: add first-class Elastic Common Schema NDJSON output to the Python scan path, with deterministic mappings, CLI parity with existing output modes, and production-facing docs/tests before Rust resumes. |
-| WS-82 | complete | WS-78, WS-80 | Soak stop-status semantics: record operator-requested stops as `INTERRUPTED` evidence instead of synthetic stage failures while preserving partial-run artifacts and summaries. |
-| WS-83 | complete | WS-46, WS-78, WS-82 | First-class Windows-share comprehensive soak entrypoint: codify presoak validation, corpus policy, and detached long-soak orchestration into one operator-safe workflow. |
+| WS-82 | complete | WS-81 | Elastic Security ECS acceptance proof: validate native FoxClaw ECS output against a pinned local Elasticsearch + Kibana stack, confirm Security-required fields and rule-preview execution, and document the operator runbook before Rust resumes. |
+| WS-83 | complete | WS-78, WS-80 | Soak stop-status semantics: record operator-requested stops as `INTERRUPTED` evidence instead of synthetic stage failures while preserving partial-run artifacts and summaries. |
+| WS-84 | complete | WS-46, WS-78, WS-83 | First-class Windows-share comprehensive soak entrypoint: codify presoak validation, corpus policy, and detached long-soak orchestration into one operator-safe workflow. |
 | WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
@@ -580,6 +581,23 @@ This plan converts the current review and research into sequenced, testable exec
   - `.venv/bin/pytest -q`
 - Acceptance: met.
 
+### WS-82 - Elastic Security ECS Acceptance Proof
+
+- Status: complete.
+- Goal: prove that FoxClaw's native ECS output lands cleanly in Elastic Security with minimal glue and surface any integration failures before Rust resumes.
+- Delivered:
+  - added `scripts/siem_elastic_smoke.py` as a first-party FoxClaw -> ECS NDJSON -> Elasticsearch/Kibana smoke runner using pinned Elastic images and deterministic API checks.
+  - extended native ECS output in `foxclaw/report/ecs.py` with `data_stream.type`, `data_stream.dataset`, and `data_stream.namespace` so FoxClaw events index cleanly into Elastic `logs-*` data streams without remapping.
+  - added deterministic regression coverage in `tests/test_siem_elastic_smoke_script.py` for happy-path ingest, missing-image failure, readiness retries, transient connection resets, missing Security-required fields, and rule-preview API errors.
+  - recorded the passing live proof in `docs/WS82_EVIDENCE_2026-02-28.md`, including the exact stack version, artifact paths, and Kibana UI inspection steps.
+- Validation evidence:
+  - `ruff check foxclaw/report/ecs.py scripts/siem_elastic_smoke.py tests/test_ecs.py tests/test_siem_elastic_smoke_script.py`
+  - `.venv/bin/vulture foxclaw scripts tests/test_ecs.py tests/test_siem_elastic_smoke_script.py --min-confidence 80`
+  - `.venv/bin/pytest -q tests/test_ecs.py tests/test_siem_elastic_smoke_script.py`
+  - `.venv/bin/pytest -q`
+  - `.venv/bin/python scripts/siem_elastic_smoke.py --output-dir /var/tmp/foxclaw-elastic-smoke-<timestamp>`
+- Acceptance: met.
+
 ### WS-31 - Initialize Rust Backend
 
 - Status: pending.
@@ -989,15 +1007,15 @@ This plan converts the current review and research into sequenced, testable exec
     - run: `/var/tmp/foxclaw-soak/20260301T090911Z-comprehensive-precommit`
     - partial summary: `cycles_completed=37`, `steps_total=899`, `steps_failed=1`, `overall_status=FAIL`, `stop_reason=signal`
     - root cause: the only failure was `cycle=38 stage=snapshot iter=3 ec=143` immediately after `Stop signal received; ending soak after current step.`
-    - follow-on queued: `WS-82` to preserve partial evidence while reporting operator-requested stops as `INTERRUPTED` instead of synthetic failures.
-  - post-WS-82 comprehensive soak rerun on 2026-03-01/02 completed cleanly:
+    - follow-on queued: `WS-83` to preserve partial evidence while reporting operator-requested stops as `INTERRUPTED` instead of synthetic failures.
+  - post-WS-83 comprehensive soak rerun on 2026-03-01/02 completed cleanly:
     - run: `/var/tmp/foxclaw-soak/20260301T140921Z-comprehensive-precommit-ws82`
     - summary: `cycles_completed=80`, `steps_total=1920`, `steps_failed=0`, `steps_interrupted=0`, `overall_status=PASS`
     - mounted-share presoak remained clean before launch:
       - `scripts/windows_share_preflight.sh /mnt/firefox-profiles` -> `fstype=autofs cifs`, `profiles_count=53`
       - bounded `windows-share-batch` sanity summary: `attempted=5`, `clean_count=5`, `operational_failure_count=0`
       - generated mounted-profile runtimes ranged from `127.977` to `176.159` seconds without operational failures
-    - follow-on queued: `WS-83` to turn the now-stable presoak + long-soak sequence into one first-class Windows-share comprehensive soak workflow.
+    - follow-on queued: `WS-84` to turn the now-stable presoak + long-soak sequence into one first-class Windows-share comprehensive soak workflow.
   - archived evidence note: `docs/WS66_EVIDENCE_2026-02-27.md`.
   - merge recommendation:
     - Python is gate-clean and remains the canonical source of truth.
@@ -1192,7 +1210,7 @@ This plan converts the current review and research into sequenced, testable exec
   - captured the post-fix reduced soak evidence in:
     - `docs/WS80_EVIDENCE_2026-02-28.md`
 
-### WS-82 - Soak Stop-Status Semantics
+### WS-83 - Soak Stop-Status Semantics
 
 - Status: complete.
 - Goal: keep operator-controlled soak review trustworthy by preserving partial-run evidence without classifying an intentional stop as a product or harness failure.
@@ -1207,7 +1225,7 @@ This plan converts the current review and research into sequenced, testable exec
   - `tests/test_soak_summary.py`
   - `docs/SOAK.md`
 
-### WS-83 - Windows-Share Comprehensive Soak Entrypoint
+### WS-84 - Windows-Share Comprehensive Soak Entrypoint
 
 - Status: complete.
 - Goal: remove operator guesswork from the mounted Windows-share soak path now that the underlying staging, matrix, SIEM, and stop-status behaviors are stable.

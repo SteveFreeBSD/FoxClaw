@@ -46,7 +46,7 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
 - Gap and risk framing: `docs/AUDIT_2026-02-24.md`
 - Patch plan and acceptance gates: `docs/PREMERGE_READINESS.md`
 - Delivery gate contract: `docs/DELIVERY_GATES.md`
-- Current Python production/SIEM/soak evidence:
+- Current Python production/SIEM/ECS/soak evidence:
   - `docs/WS66_EVIDENCE_2026-02-27.md`
   - `docs/WS75_EVIDENCE_2026-02-27.md`
   - `docs/WS76_EVIDENCE_2026-02-27.md`
@@ -55,7 +55,8 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
   - `docs/WS79_EVIDENCE_2026-02-27.md`
   - `docs/WS80_EVIDENCE_2026-02-28.md`
   - `docs/WS81_EVIDENCE_2026-02-28.md`
-  - `docs/WORKSLICES.md` (WS-82 and WS-83 completion details)
+  - `docs/WS82_EVIDENCE_2026-02-28.md`
+  - `docs/WORKSLICES.md` (WS-83 and WS-84 completion details)
 - Current mounted-share soak workflow:
   - `docs/SOAK.md`
   - `docs/WINDOWS_SHARE_STABILITY.md`
