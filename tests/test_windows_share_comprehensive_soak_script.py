@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -75,6 +76,7 @@ def test_windows_share_comprehensive_soak_writes_manifest_and_launches_run(
     fake_batch = tmp_path / "fake_batch.py"
     fake_launcher = tmp_path / "fake_launcher.py"
     fake_soak_runner = tmp_path / "fake_soak_runner.sh"
+    launcher_args = tmp_path / "launcher-args.json"
 
     _write_executable(
         fake_preflight,
@@ -156,8 +158,10 @@ raise SystemExit(0)
     )
     _write_executable(
         fake_launcher,
-        """#!/usr/bin/env python3
+        f"""#!/usr/bin/env python3
 from __future__ import annotations
+import json
+import os
 import pathlib
 import re
 import sys
@@ -170,11 +174,15 @@ args = sys.argv[1:]
 unit_name = args[args.index('--unit') + 1]
 label = args[args.index('--label') + 1]
 output_root = pathlib.Path(args[args.index('--output-root') + 1])
-run_dir = output_root / f"20260302T000000Z-{sanitize(label)}"
+pathlib.Path({str(launcher_args)!r}).write_text(
+    json.dumps({{"argv": args, "soak_sudo_password": os.environ.get("SOAK_SUDO_PASSWORD")}}, indent=2),
+    encoding='utf-8',
+)
+run_dir = output_root / f"20260302T000000Z-{{sanitize(label)}}"
 run_dir.mkdir(parents=True, exist_ok=True)
 (run_dir / 'manifest.txt').write_text('run_id=20260302T000000Z\\n', encoding='utf-8')
 (run_dir / 'run.log').write_text('[fake] launched\\n', encoding='utf-8')
-print(f'Running as unit: {unit_name}.service; invocation ID: fake-invocation')
+print(f'Running as unit: {{unit_name}}.service; invocation ID: fake-invocation')
 """,
     )
     _write_executable(fake_soak_runner, "#!/usr/bin/env bash\nexit 0\n")
@@ -184,6 +192,9 @@ print(f'Running as unit: {unit_name}.service; invocation ID: fake-invocation')
     presoak_root = tmp_path / "presoak-root"
     output_root = tmp_path / "soak-output-root"
     manifest_out = tmp_path / "workflow-manifest.json"
+
+    env = os.environ.copy()
+    env["SOAK_SUDO_PASSWORD"] = "top-secret-for-test"
 
     result = subprocess.run(
         [
@@ -224,6 +235,7 @@ print(f'Running as unit: {unit_name}.service; invocation ID: fake-invocation')
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -250,6 +262,22 @@ print(f'Running as unit: {unit_name}.service; invocation ID: fake-invocation')
     assert manifest["steps"]["soak_launch"]["run_dir"].endswith(
         "20260302T000000Z-ws83-test"
     )
+    recorded_launch_argv = manifest["steps"]["soak_launch"]["argv"]
+    assert "top-secret-for-test" not in json.dumps(recorded_launch_argv)
+    assert all("--setenv=SOAK_SUDO_PASSWORD=" not in arg for arg in recorded_launch_argv)
+    assert "--property=EnvironmentFile=<redacted>" in recorded_launch_argv
+
+    launcher_payload = json.loads(launcher_args.read_text(encoding="utf-8"))
+    assert launcher_payload["soak_sudo_password"] is None
+    env_file_args = [
+        arg
+        for arg in launcher_payload["argv"]
+        if arg.startswith("--property=EnvironmentFile=")
+    ]
+    assert len(env_file_args) == 1
+    assert "top-secret-for-test" not in env_file_args[0]
+    env_file_path = Path(env_file_args[0].split("=", 2)[2])
+    assert not env_file_path.exists()
 
     batch_invocation = json.loads((share_out_root / "batch-invocation.json").read_text(encoding="utf-8"))
     include_names = [

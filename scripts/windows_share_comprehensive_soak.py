@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from collections import Counter
 from dataclasses import asdict, dataclass
@@ -244,6 +245,32 @@ def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _write_environment_file(values: dict[str, str]) -> Path:
+    fd, raw_path = tempfile.mkstemp(prefix="foxclaw-windows-share-soak-env-", text=True)
+    path = Path(raw_path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            for key in sorted(values):
+                handle.write(f"{key}={shlex.quote(values[key])}\n")
+        path.chmod(0o600)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+def _redact_sensitive_argv(argv: list[str]) -> list[str]:
+    redacted: list[str] = []
+    for arg in argv:
+        if arg.startswith("--setenv=SOAK_SUDO_PASSWORD="):
+            redacted.append("--setenv=SOAK_SUDO_PASSWORD=<redacted>")
+        elif arg.startswith("--property=EnvironmentFile="):
+            redacted.append("--property=EnvironmentFile=<redacted>")
+        else:
+            redacted.append(arg)
+    return redacted
+
+
 def _resolve_run_dir(
     *,
     output_root: Path,
@@ -448,8 +475,13 @@ def main(argv: list[str] | None = None) -> int:
         "--same-dir",
         "--collect",
     ]
-    if "SOAK_SUDO_PASSWORD" in os.environ:
-        launch_cmd.append(f"--setenv=SOAK_SUDO_PASSWORD={os.environ['SOAK_SUDO_PASSWORD']}")
+    launch_env = os.environ.copy()
+    environment_file: Path | None = None
+    if "SOAK_SUDO_PASSWORD" in launch_env:
+        environment_file = _write_environment_file(
+            {"SOAK_SUDO_PASSWORD": launch_env.pop("SOAK_SUDO_PASSWORD")}
+        )
+        launch_cmd.append(f"--property=EnvironmentFile={environment_file}")
     launch_cmd.extend(
         [
             str(soak_runner),
@@ -466,26 +498,30 @@ def main(argv: list[str] | None = None) -> int:
         ]
     )
     launch_cmd.extend(args.soak_extra_arg)
-    launch_result = _run_command(launch_cmd, env=os.environ.copy())
-    manifest["steps"]["soak_launch"] = {
-        "argv": launch_cmd,
-        "exit_code": launch_result.returncode,
-        "stdout": launch_result.stdout,
-        "stderr": launch_result.stderr,
-        "unit_name": unit_name,
-    }
-    if launch_result.returncode != 0:
-        _write_manifest(manifest_out, manifest)
-        raise SystemExit(launch_result.returncode)
+    try:
+        launch_result = _run_command(launch_cmd, env=launch_env)
+        manifest["steps"]["soak_launch"] = {
+            "argv": _redact_sensitive_argv(launch_cmd),
+            "exit_code": launch_result.returncode,
+            "stdout": launch_result.stdout,
+            "stderr": launch_result.stderr,
+            "unit_name": unit_name,
+        }
+        if launch_result.returncode != 0:
+            _write_manifest(manifest_out, manifest)
+            raise SystemExit(launch_result.returncode)
 
-    run_dir = _resolve_run_dir(
-        output_root=output_root,
-        label=args.label,
-        known_runs=known_runs,
-        timeout_seconds=args.launch_timeout_seconds,
-    )
-    manifest["steps"]["soak_launch"]["run_dir"] = run_dir
-    _write_manifest(manifest_out, manifest)
+        run_dir = _resolve_run_dir(
+            output_root=output_root,
+            label=args.label,
+            known_runs=known_runs,
+            timeout_seconds=args.launch_timeout_seconds,
+        )
+        manifest["steps"]["soak_launch"]["run_dir"] = run_dir
+        _write_manifest(manifest_out, manifest)
+    finally:
+        if environment_file is not None:
+            environment_file.unlink(missing_ok=True)
 
     print(f"[windows-share-comprehensive] manifest={manifest_out}")
     print(f"[windows-share-comprehensive] presoak_profile={presoak_profile}")
