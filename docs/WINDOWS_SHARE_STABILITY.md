@@ -27,6 +27,6 @@ Recreate or refresh the `/mnt/firefox-profiles` fixtures on Windows by following
 Use the generator output with `foxclaw scan` (include `--stage-manifest-out`) to ensure `foxclaw.json.credentials` matches the generator’s `expected_scan_signals.credentials`. Treat any drift in `saved_logins_count`, `vulnerable_passwords_count`, `dismissed_breach_alerts_count`, or `insecure_http_login_count` as a signal to rerun the generator and update your soak pool.
 
 Notes:
-- Preflight accepts layered mount types (`autofs` + `cifs`) and requires `cifs` to be present.
+- Preflight accepts layered mount types (for example `autofs` stacked on an SMB mount) and requires that at least one supported SMB filesystem type is present: `cifs`, `smb3`, `smbfs`, or `fuse.smbnetfs`.
 - Timeout failures are operational errors and are reported per-profile in `windows-share-batch-summary.json`.
 - The comprehensive wrapper keeps mixed corpora explicit via `--corpus-mode mixed|generated-only` and records seed/stub classification in its workflow manifest.
