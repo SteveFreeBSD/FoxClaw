@@ -194,7 +194,7 @@ print(f'Running as unit: {{unit_name}}.service; invocation ID: fake-invocation')
     manifest_out = tmp_path / "workflow-manifest.json"
 
     env = os.environ.copy()
-    env["SOAK_SUDO_PASSWORD"] = "top-secret-for-test"
+    env["SOAK_SUDO_PASSWORD"] = "top-secret-for-test"  # pragma: allowlist secret
 
     result = subprocess.run(
         [
