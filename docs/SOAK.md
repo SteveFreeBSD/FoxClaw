@@ -100,6 +100,25 @@ fi
 If your presoak wrapper must treat `HIGH` findings as success (`0`), use
 `foxclaw acquire windows-share-scan --treat-high-findings-as-success`.
 
+Preferred Windows-share comprehensive workflow:
+
+```bash
+python scripts/windows_share_comprehensive_soak.py \
+  --source-root /mnt/firefox-profiles \
+  --lock-policy allow-active \
+  --label windows-share-comprehensive
+```
+
+Behavior:
+
+- runs `scripts/windows_share_preflight.sh`
+- performs one direct staged presoak scan and verifies artifacts
+- runs a bounded `foxclaw acquire windows-share-batch` sanity gate with explicit include policy
+- launches the detached long soak via `systemd-run --user`
+- writes one workflow manifest under `--output-root` that records the presoak result, batch summary, systemd unit name, and long-soak run directory
+
+Use `--corpus-mode generated-only` when you want the sanity gate to exclude seed/stub/other mounted profiles. The default `mixed` mode keeps all visible profiles in scope and only marks stub/seed profiles as excluded from performance baselines.
+
 Current Windows-share profile lineage:
 - `ejm2bj4s.foxclaw-test` was renamed to `foxclaw-seed.default`.
 - `foxclaw-seed.default` was used to seed 50 sibling profiles in the current
@@ -197,10 +216,11 @@ Key files:
 
 - `manifest.txt`: branch/commit/config/host metadata.
 - `run.log`: human-readable execution timeline.
-- `soak-summary.json`: machine-readable rollup with stage counts, Wazuh image, NDJSON event totals, and top `rule_id` values.
+- `soak-summary.json`: machine-readable rollup with stage counts, Wazuh image, NDJSON event totals, top `rule_id` values, and interrupted-step metadata for operator-stopped runs.
 - `results.tsv`: machine-readable step records:
   - `cycle`, `stage`, `iteration`, `exit_code`, `status`, `duration_sec`, timestamps, `log_path`, `artifact_path`
-- `summary.txt`: run outcome and aggregate counts.
+  - `status` is `PASS`, `FAIL`, or `INTERRUPTED`
+- `summary.txt`: run outcome and aggregate counts, including `steps_interrupted` and `interrupted_artifact_paths` when an operator stops the soak mid-run.
 - `logs/*.log`: per-step raw logs.
 - `snapshots/cycle-*/`: deterministic snapshot outputs and `sha256.txt`.
 - `synth/cycle-*/fidelity-summary.json`: synth profile realism gate output.
@@ -301,10 +321,18 @@ tail -f /var/tmp/foxclaw-soak/<run-id>/run.log
 Watch failing steps:
 
 ```bash
-awk -F'\t' 'NR==1 || $5 == "FAIL"' /var/tmp/foxclaw-soak/<run-id>/results.tsv
+awk -F'\t' 'NR==1 || $5 == "FAIL" || $5 == "INTERRUPTED"' /var/tmp/foxclaw-soak/<run-id>/results.tsv
 ```
 
 ## Troubleshooting
+
+If you stop a soak intentionally with `systemctl --user stop ...`, the harness now preserves partial evidence and writes:
+
+- `summary.txt` with `overall_status=INTERRUPTED`
+- `results.tsv` rows marked `INTERRUPTED` for the in-flight step that was cut short
+- `soak-summary.json` with `steps_interrupted` and `interrupted_artifact_paths`
+
+That state is not a passing gate, but it is also not treated as a product or harness failure by itself.
 
 Inspect these files first, in this order:
 

@@ -986,6 +986,16 @@ def acquire_windows_share_batch(
         min=1,
         help="Optional limit on number of profile directories processed.",
     ),
+    include_profile_name: list[str] | None = typer.Option(
+        None,
+        "--include-profile-name",
+        help="Optional repeatable profile directory name to include.",
+    ),
+    exclude_profile_name: list[str] | None = typer.Option(
+        None,
+        "--exclude-profile-name",
+        help="Optional repeatable profile directory name to exclude.",
+    ),
     allow_active_profile: bool = typer.Option(
         False,
         "--allow-active-profile",
@@ -1064,6 +1074,8 @@ def acquire_windows_share_batch(
             staging_root=staging_root,
             out_root=out_root,
             max_profiles=max_profiles,
+            include_profile_names=include_profile_name,
+            exclude_profile_names=exclude_profile_name,
             allow_active_profile=allow_active_profile,
             snapshot_id_prefix=snapshot_id_prefix,
             foxclaw_cmd=foxclaw_cmd,

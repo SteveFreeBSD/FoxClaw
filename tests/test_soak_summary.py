@@ -130,6 +130,7 @@ def test_soak_summary_builds_machine_readable_rollup(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
     payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "1.1.0"
     assert payload["git_sha"] == "deadbeefcafebabe"
     assert payload["total_cycles"] == 2
     assert payload["artifact_root_path"] == str(run_dir)
@@ -139,14 +140,16 @@ def test_soak_summary_builds_machine_readable_rollup(tmp_path: Path) -> None:
         "foxclaw.scan.summary": 1,
     }
     assert payload["stage_counts"] == {
-        "integration": {"fail": 0, "pass": 1},
-        "siem_wazuh": {"fail": 1, "pass": 1},
+        "integration": {"fail": 0, "interrupted": 0, "pass": 1},
+        "siem_wazuh": {"fail": 1, "interrupted": 0, "pass": 1},
     }
     assert payload["top_rule_ids"] == [
         {"count": 2, "rule_id": "TB-POL-001"},
         {"count": 1, "rule_id": "TB-POL-002"},
     ]
     assert payload["failed_artifact_paths"] == ["/tmp/run/siem-wazuh/cycle-2-run-1"]
+    assert payload["interrupted_artifact_paths"] == []
+    assert payload["steps_interrupted"] == 0
     assert payload["memory_index_status"] == "ok"
     assert payload["memory_index_path"] == str(memory_dir / "index.sqlite")
     assert payload["last_checkpoint_id"] == 1
@@ -188,6 +191,69 @@ def test_soak_summary_marks_missing_memory_index_without_failing(tmp_path: Path)
         tmp_path / "missing-session-memory" / "index.sqlite"
     )
     assert "last_checkpoint_id" not in payload
+
+
+def test_soak_summary_rolls_up_interrupted_steps(tmp_path: Path) -> None:
+    run_dir = tmp_path / "soak-run"
+    run_dir.mkdir()
+    (run_dir / "manifest.txt").write_text("commit=deadbeefcafebabe\n", encoding="utf-8")
+    (run_dir / "summary.txt").write_text(
+        "\n".join(
+            [
+                "cycles_completed=0",
+                "steps_total=1",
+                "steps_passed=0",
+                "steps_failed=0",
+                "steps_interrupted=1",
+                "overall_status=INTERRUPTED",
+                "interrupted_artifact_paths=/tmp/run/snapshots/cycle-1/snapshot-1.json",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "results.tsv").write_text(
+        "\n".join(
+            [
+                "cycle\tstage\titeration\texit_code\tstatus\tduration_sec\tstarted_at\tended_at\tlog_path\tartifact_path",
+                "1\tsnapshot\t1\t143\tINTERRUPTED\t4\t2026-03-01T13:40:00Z\t2026-03-01T13:40:04Z\t/tmp/snapshot.log\t/tmp/run/snapshots/cycle-1/snapshot-1.json",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    output_path = run_dir / "soak-summary.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/soak_summary.py",
+            "--run-dir",
+            str(run_dir),
+            "--output",
+            str(output_path),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "1.1.0"
+    assert payload["overall_status"] == "INTERRUPTED"
+    assert payload["steps_total"] == 1
+    assert payload["steps_passed"] == 0
+    assert payload["steps_failed"] == 0
+    assert payload["steps_interrupted"] == 1
+    assert payload["stage_counts"] == {
+        "snapshot": {"fail": 0, "interrupted": 1, "pass": 0},
+    }
+    assert payload["failed_artifact_paths"] == []
+    assert payload["interrupted_artifact_paths"] == [
+        "/tmp/run/snapshots/cycle-1/snapshot-1.json"
+    ]
 
 
 def test_soak_summary_honors_runtime_memory_dir_override_in_process(

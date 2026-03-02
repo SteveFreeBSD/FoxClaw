@@ -57,14 +57,21 @@ def build_soak_summary(run_dir: Path) -> dict[str, Any]:
     summary = _read_key_value_file(run_dir / "summary.txt")
     rows = _read_results(run_dir / "results.tsv")
 
-    stage_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"pass": 0, "fail": 0})
+    stage_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"pass": 0, "fail": 0, "interrupted": 0}
+    )
     failed_artifact_paths: list[str] = []
+    interrupted_artifact_paths: list[str] = []
     for row in rows:
         stage = row.get("stage", "-")
         status = row.get("status", "FAIL")
         artifact_path = row.get("artifact_path", "-")
         if status == "PASS":
             stage_counts[stage]["pass"] += 1
+        elif status == "INTERRUPTED":
+            stage_counts[stage]["interrupted"] += 1
+            if artifact_path and artifact_path != "-":
+                interrupted_artifact_paths.append(artifact_path)
         else:
             stage_counts[stage]["fail"] += 1
             if artifact_path and artifact_path != "-":
@@ -102,7 +109,7 @@ def build_soak_summary(run_dir: Path) -> dict[str, Any]:
         for stage in sorted(stage_counts)
     }
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "git_sha": manifest.get("commit", "unknown"),
         "artifact_root_path": str(run_dir),
         "overall_status": summary.get("overall_status", "unknown"),
@@ -110,6 +117,7 @@ def build_soak_summary(run_dir: Path) -> dict[str, Any]:
         "steps_total": _int_value(summary.get("steps_total")),
         "steps_passed": _int_value(summary.get("steps_passed")),
         "steps_failed": _int_value(summary.get("steps_failed")),
+        "steps_interrupted": _int_value(summary.get("steps_interrupted")),
         "stage_counts": ordered_stage_counts,
         "wazuh_image": sorted(wazuh_images)[0] if wazuh_images else None,
         "ndjson_event_counts": {
@@ -118,6 +126,7 @@ def build_soak_summary(run_dir: Path) -> dict[str, Any]:
         },
         "top_rule_ids": top_rule_ids,
         "failed_artifact_paths": sorted(dict.fromkeys(failed_artifact_paths)),
+        "interrupted_artifact_paths": sorted(dict.fromkeys(interrupted_artifact_paths)),
     }
     payload.update(_memory_index_metadata())
     return payload

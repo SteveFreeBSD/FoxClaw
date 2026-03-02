@@ -7,6 +7,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+import foxclaw.cli as cli_module
 from foxclaw.acquire.windows_share import _copy_tree, resolve_windows_share_stage_paths
 from foxclaw.cli import app
 from typer.testing import CliRunner
@@ -484,3 +485,43 @@ def test_acquire_windows_share_scan_rejects_unc_source_on_non_windows() -> None:
     assert "UNC source profile paths are not directly accessible on this platform" in (
         result.stdout + result.stderr
     )
+
+
+def test_acquire_windows_share_batch_forwards_profile_name_policies(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_windows_share_batch(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli_module, "run_windows_share_batch", fake_run_windows_share_batch)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "acquire",
+            "windows-share-batch",
+            "--source-root",
+            str(tmp_path / "source-root"),
+            "--staging-root",
+            str(tmp_path / "staging-root"),
+            "--out-root",
+            str(tmp_path / "out-root"),
+            "--include-profile-name",
+            "foxclaw-gen-001.default",
+            "--include-profile-name",
+            "foxclaw-gen-002.default",
+            "--exclude-profile-name",
+            "b67gz6f3.default",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout + result.stderr
+    assert captured["include_profile_names"] == [
+        "foxclaw-gen-001.default",
+        "foxclaw-gen-002.default",
+    ]
+    assert captured["exclude_profile_names"] == ["b67gz6f3.default"]
