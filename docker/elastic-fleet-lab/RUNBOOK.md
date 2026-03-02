@@ -19,21 +19,16 @@ This directory contains a reproducible, Docker Compose-based lab environment for
 To start the Elasticsearch, Kibana, and Fleet Server containers:
 
 ```bash
-docker compose up -d
+./run_elastic_lab.sh up
 ```
 
 ### Checking Health
 
 You can verify the services are running and accessible:
 
-*   **Elasticsearch**:
-    ```bash
-    curl -u elastic:${ELASTIC_PASSWORD} http://127.0.0.1:9200
-    ```
-*   **Kibana Status**:
-    ```bash
-    curl -I -u elastic:${ELASTIC_PASSWORD} http://127.0.0.1:5601/api/status
-    ```
+```bash
+./run_elastic_lab.sh status
+```
 
 ## Fleet Configuration
 
