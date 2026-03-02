@@ -56,13 +56,13 @@ if ($nodeMajor -lt 16) {
 }
 
 try {
-  node -e "require('better-sqlite3')" 2>$null
+  node -e "const mod=require.resolve('better-sqlite3',{paths:[process.argv[1]]}); require(mod)" $PSScriptRoot 2>$null
 }
 catch {
-  throw "better-sqlite3 is not installed. Run 'npm install' in the foxclaw-gen directory first."
+  throw "better-sqlite3 is not installed for scripts/windows_auth_gen. Run 'npm ci --prefix scripts/windows_auth_gen' from the repository root before running this script."
 }
 if ($LASTEXITCODE -ne 0) {
-  throw "better-sqlite3 is not installed. Run 'npm install' in the foxclaw-gen directory first."
+  throw "better-sqlite3 is not installed for scripts/windows_auth_gen. Run 'npm ci --prefix scripts/windows_auth_gen' from the repository root before running this script."
 }
 
 $SeedDir = Join-Path $ProfilesRoot $SeedName

@@ -63,7 +63,6 @@ if [[ ! -d "${WORKSPACE_DIR}" ]]; then
   echo "error: workspace directory does not exist: ${WORKSPACE_DIR}" >&2
   exit 2
 fi
-WORKSPACE_REAL="$(realpath -m "${WORKSPACE_DIR}")"
 
 if [[ "${ENTRY_SCRIPT_ARG}" = /* ]]; then
   ENTRY_SCRIPT_WORKSPACE="${ENTRY_SCRIPT_ARG}"

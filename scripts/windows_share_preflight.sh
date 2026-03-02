@@ -21,8 +21,9 @@ fi
 
 fs_types_raw="$(findmnt -n -T "${SOURCE_ROOT}" -o FSTYPE 2>/dev/null || true)"
 fs_types="$(echo "${fs_types_raw}" | tr '\n' ' ' | xargs)"
-if ! echo "${fs_types_raw}" | grep -qx "cifs"; then
-  echo "error: source root is not a CIFS mount: ${SOURCE_ROOT} (fstype=${fs_types:-unknown})" >&2
+supported_fs_pattern='^(cifs|smb3|smbfs|fuse\.smbnetfs)$'
+if ! echo "${fs_types_raw}" | grep -Eq "${supported_fs_pattern}"; then
+  echo "error: source root is not a supported SMB mount: ${SOURCE_ROOT} (fstype=${fs_types:-unknown})" >&2
   exit 1
 fi
 

@@ -153,6 +153,56 @@ def test_run_windows_share_batch_parallel_execution(tmp_path: Path) -> None:
     assert summary["operational_failure_count"] == 1
 
 
+def test_run_windows_share_batch_sorts_failures_by_error_for_parallel_runs(
+    tmp_path: Path,
+) -> None:
+    import time
+
+    source_root = tmp_path / "source-root-failure-order"
+    source_root.mkdir(parents=True, exist_ok=True)
+    for profile_name in ("profile-c", "profile-a", "profile-b"):
+        profile_dir = source_root / profile_name
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        (profile_dir / "prefs.js").write_text(
+            'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+        )
+
+    out_root = tmp_path / "batch-out-failure-order"
+    staging_root = tmp_path / "staging-root-failure-order"
+
+    def stub_runner(argv: list[str]) -> tuple[int, str, str]:
+        profile_name = Path(_arg_value(argv, "--source-profile")).name
+        profile_out = Path(_arg_value(argv, "--output-dir"))
+        profile_out.mkdir(parents=True, exist_ok=True)
+        (profile_out / "stage-manifest.json").write_text(
+            json.dumps({"staged_profile": str(staging_root / f"{profile_name}-stage")}),
+            encoding="utf-8",
+        )
+        if profile_name == "profile-c":
+            time.sleep(0.02)
+            return (1, "", "error: staged scan failed\n")
+        if profile_name == "profile-a":
+            time.sleep(0.08)
+            return (1, "", "error: staged scan failed\n")
+        return (0, "", "")
+
+    exit_code = run_windows_share_batch(
+        source_root=source_root,
+        staging_root=staging_root,
+        out_root=out_root,
+        runner=stub_runner,
+        workers=3,
+    )
+
+    assert exit_code == 1
+    summary = json.loads(
+        (out_root / "windows-share-batch-summary.json").read_text(encoding="utf-8")
+    )
+    assert summary["failures_by_error"] == {
+        "error: staged scan failed": ["profile-a", "profile-c"]
+    }
+
+
 def test_run_single_windows_share_scan_timeout_maps_to_operational_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -294,5 +344,67 @@ def test_run_windows_share_batch_fails_on_empty_source_root(tmp_path: Path) -> N
             source_root=source_root,
             staging_root=tmp_path / "staging-root-empty",
             out_root=tmp_path / "batch-out-empty",
+            runner=lambda argv: (0, "", ""),
+        )
+
+
+def test_run_windows_share_batch_applies_include_exclude_profile_policies(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source-root-filtered"
+    source_root.mkdir(parents=True, exist_ok=True)
+    for profile_name in ("profile-a", "profile-b", "profile-c"):
+        profile_dir = source_root / profile_name
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        (profile_dir / "prefs.js").write_text(
+            'user_pref("browser.startup.homepage", "about:home");\n', encoding="utf-8"
+        )
+
+    seen_profiles: list[str] = []
+
+    def stub_runner(argv: list[str]) -> tuple[int, str, str]:
+        profile_name = Path(_arg_value(argv, "--source-profile")).name
+        profile_out = Path(_arg_value(argv, "--output-dir"))
+        seen_profiles.append(profile_name)
+        profile_out.mkdir(parents=True, exist_ok=True)
+        (profile_out / "stage-manifest.json").write_text(
+            json.dumps({"staged_profile": str(profile_out / "stage" / "profile")}),
+            encoding="utf-8",
+        )
+        return (0, "", "")
+
+    exit_code = run_windows_share_batch(
+        source_root=source_root,
+        staging_root=tmp_path / "staging-root-filtered",
+        out_root=tmp_path / "batch-out-filtered",
+        include_profile_names=["profile-c", "profile-a"],
+        exclude_profile_names=["profile-b"],
+        runner=stub_runner,
+    )
+
+    assert exit_code == 0
+    assert seen_profiles == ["profile-a", "profile-c"]
+    summary = json.loads(
+        (tmp_path / "batch-out-filtered" / "windows-share-batch-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert summary["total_profiles_seen"] == 3
+    assert summary["attempted"] == 2
+    assert [entry["profile"] for entry in summary["per_profile"]] == ["profile-a", "profile-c"]
+
+
+def test_run_windows_share_batch_rejects_overlapping_profile_policies(tmp_path: Path) -> None:
+    source_root = tmp_path / "source-root-overlap"
+    source_root.mkdir(parents=True, exist_ok=True)
+    (source_root / "profile-a").mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(ValueError, match="both included and excluded"):
+        run_windows_share_batch(
+            source_root=source_root,
+            staging_root=tmp_path / "staging-root-overlap",
+            out_root=tmp_path / "batch-out-overlap",
+            include_profile_names=["profile-a"],
+            exclude_profile_names=["profile-a"],
             runner=lambda argv: (0, "", ""),
         )

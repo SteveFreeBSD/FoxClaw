@@ -14,6 +14,7 @@ LINK_RE = re.compile(r"\[[^\]]*]\(([^)]+)\)")
 PATH_REF_RE = re.compile(
     r"`((?:docs|scripts|assets|DIFFS|\.github)/[A-Za-z0-9_./-]+|requirements-dev\.lock)`"
 )
+_IGNORED_MARKDOWN_DIRS = frozenset({".git", ".venv", "node_modules"})
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ class Issue:
 def _iter_markdown_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*.md"):
-        if ".git" in path.parts or ".venv" in path.parts:
+        if _IGNORED_MARKDOWN_DIRS.intersection(path.parts):
             continue
         files.append(path)
     return sorted(files)
@@ -128,7 +129,7 @@ def main() -> int:
     parser.add_argument("--strict", action="store_true")
     parser.add_argument(
         "--report-out",
-        default="docs/traceability/docs-contract-report.json",
+        default="artifacts/traceability/docs-contract-report.json",
         help="Path to JSON report output.",
     )
     args = parser.parse_args()

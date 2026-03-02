@@ -71,6 +71,8 @@ CREATE INDEX IF NOT EXISTS idx_finding_history_rule
     ON finding_history(rule_id);
 """
 
+_EMPTY_ARTIFACT_TIMESTAMP = datetime(1970, 1, 1, tzinfo=UTC).isoformat()
+
 
 def _compute_scan_id(evidence: EvidenceBundle) -> str:
     """Deterministic scan ID from profile path + generated_at timestamp."""
@@ -375,7 +377,7 @@ class ScanHistoryStore:
                       COUNT(*) as total_hits
                FROM finding_history
                GROUP BY rule_id
-               ORDER BY scan_hits DESC"""
+               ORDER BY scan_hits DESC, total_hits DESC, rule_id ASC"""
         ).fetchall()
 
         rule_frequencies = [
@@ -400,7 +402,7 @@ class ScanHistoryStore:
                       MAX(scanned_at_utc) as last_scan
                FROM scan_history
                GROUP BY profile_path
-               ORDER BY scans DESC"""
+               ORDER BY scans DESC, profile_path ASC"""
         ).fetchall()
         profile_coverage = [
             {
@@ -416,7 +418,7 @@ class ScanHistoryStore:
 
         return {
             "schema_version": SCHEMA_VERSION,
-            "generated_at_utc": evidence_generated_at_utc or datetime.now(UTC).isoformat(),
+            "generated_at_utc": evidence_generated_at_utc or self._artifact_timestamp(),
             "history_summary": {
                 "total_scans": scan_count,
                 "total_findings": finding_count,
@@ -497,6 +499,17 @@ class ScanHistoryStore:
             )
 
         return output
+
+    def _artifact_timestamp(self) -> str:
+        row = self._conn.execute(
+            """SELECT scanned_at_utc
+               FROM scan_history
+               ORDER BY scanned_at_utc DESC, scan_id DESC
+               LIMIT 1"""
+        ).fetchone()
+        if row is None or not isinstance(row[0], str) or not row[0]:
+            return _EMPTY_ARTIFACT_TIMESTAMP
+        return row[0]
 
     def close(self) -> None:
         """Close the database connection."""

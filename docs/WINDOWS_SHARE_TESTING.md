@@ -181,6 +181,54 @@ foxclaw acquire windows-share-batch \
   --max 25
 ```
 
+Batch filtering policy is now explicit when needed:
+
+```bash
+foxclaw acquire windows-share-batch \
+  --source-root /mnt/forensics/FirefoxProfiles \
+  --staging-root /var/tmp/foxclaw-stage \
+  --out-root /var/tmp/foxclaw-share-batch \
+  --include-profile-name foxclaw-gen-001.default \
+  --include-profile-name foxclaw-gen-002.default \
+  --exclude-profile-name b67gz6f3.default
+```
+
+## First-class Windows-share comprehensive soak
+
+Preferred operator workflow:
+
+```bash
+python scripts/windows_share_comprehensive_soak.py \
+  --source-root /mnt/firefox-profiles \
+  --lock-policy allow-active \
+  --label windows-share-comprehensive
+```
+
+What it does:
+
+- runs `scripts/windows_share_preflight.sh` against the mounted share
+- selects a deterministic presoak profile (prefers the first generated profile in sorted order)
+- runs one direct staged `foxclaw scan` proof and verifies the expected artifacts
+- runs a bounded `foxclaw acquire windows-share-batch` sanity pass with explicit include policy
+- launches the detached long soak and writes one workflow manifest with:
+  - corpus classification (`generated`, `seed`, `degenerate_stub`, `other`)
+  - lock policy
+  - presoak artifact root
+  - share-batch summary path
+  - launched systemd unit name
+  - long-soak run directory
+
+Corpus policy:
+
+- default `--corpus-mode mixed` keeps all visible mounted profiles in scope
+- `--corpus-mode generated-only` restricts the batch sanity gate to `foxclaw-gen-*.default`
+- stub and seed profiles remain visible in the manifest and are marked as excluded from performance baselines
+
+Lock policy:
+
+- default `--lock-policy fail-closed`
+- use `--lock-policy allow-active` only when the mounted corpus came from a crash-consistent snapshot and lock markers are expected
+
 ## Mini soak for this lane
 
 Run a quick validation loop for share-lane integrations:

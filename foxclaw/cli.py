@@ -123,6 +123,7 @@ def scan(
         help=(
             "Deprecated compatibility flag; share-hosted profiles are staged locally before scan."
         ),
+        hidden=True,
     ),
     staging_root: Path | None = typer.Option(
         None,
@@ -238,25 +239,47 @@ def scan(
             "[red]Operational error: --json, --sarif, --ndjson, and --ecs are mutually exclusive.[/red]"
         )
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+    if learning_artifact_out is not None and history_db is None:
+        console.print(
+            "[red]Operational error: --learning-artifact-out requires --history-db.[/red]"
+        )
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    def _stage_selected_profile(
+        source_profile_path: Path,
+        *,
+        profile_id: str = "manual",
+        profile_name: str | None = None,
+        selection_reason: str | None = None,
+    ) -> tuple[Any, FirefoxProfile]:
+        stage_payload = stage_windows_share_profile(
+            source_profile=source_profile_path,
+            staging_root=staging_root,
+            json_out=output,
+            ndjson_out=ndjson_out,
+            ecs_out=ecs_out,
+            sarif_out=sarif_out,
+            scan_snapshot_out=snapshot_out,
+            manifest_out=stage_manifest_out,
+            allow_active_profile=allow_active_profile,
+            keep_stage_writable=keep_stage_writable,
+        )
+        staged_profile = _build_profile_override(
+            stage_payload.paths.staged_profile,
+            profile_id=profile_id,
+            profile_name=profile_name,
+            selection_reason=selection_reason,
+        )
+        return stage_payload, staged_profile
 
     stage_result = None
     selected_profile: FirefoxProfile | None = None
     if profile is not None:
         if is_windows_share_profile_source(profile):
             try:
-                stage_result = stage_windows_share_profile(
-                    source_profile=profile,
-                    staging_root=staging_root,
-                    json_out=output,
-                    ndjson_out=ndjson_out,
-                    ecs_out=ecs_out,
-                    sarif_out=sarif_out,
-                    scan_snapshot_out=snapshot_out,
-                    manifest_out=stage_manifest_out,
-                    allow_active_profile=allow_active_profile,
-                    keep_stage_writable=keep_stage_writable,
+                stage_result, selected_profile = _stage_selected_profile(
+                    profile
                 )
-                selected_profile = _build_profile_override(stage_result.paths.staged_profile)
             except (OSError, RuntimeError, ValueError) as exc:
                 console.print(f"[red]Operational error: {exc}[/red]")
                 raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
@@ -272,6 +295,17 @@ def scan(
                 for search_dir in report.searched_dirs:
                     console.print(f"  - {search_dir}")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+        if is_windows_share_profile_source(selected_profile.path):
+            try:
+                stage_result, selected_profile = _stage_selected_profile(
+                    selected_profile.path,
+                    profile_id=selected_profile.profile_id,
+                    profile_name=selected_profile.name,
+                    selection_reason=selected_profile.selection_reason,
+                )
+            except (OSError, RuntimeError, ValueError) as exc:
+                console.print(f"[red]Operational error: {exc}[/red]")
+                raise typer.Exit(code=EXIT_OPERATIONAL_ERROR) from exc
 
     resolved_ruleset_path = resolve_ruleset_path(ruleset)
     stage_scan_command = _build_stage_scan_manifest_command(
@@ -650,14 +684,6 @@ def live(
         console.print("[red]Operational error: --json and --sarif are mutually exclusive.[/red]")
         raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
-    if profile is not None and _is_unc_path(profile) and not allow_unc_profile:
-        console.print(
-            "[red]Operational error: UNC profile paths are disabled by default. "
-            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
-            "--allow-unc-profile for lab-only workflows.[/red]"
-        )
-        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
-
     console.print("[blue]Step 1/2: Synchronizing intelligence sources...[/blue]")
     try:
         sync_result = sync_sources(
@@ -689,6 +715,14 @@ def live(
         if selected_profile is None:
             console.print("[red]Operational error: no Firefox profile selected.[/red]")
             raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
+
+    if _is_unc_path(selected_profile.path) and not allow_unc_profile:
+        console.print(
+            "[red]Operational error: UNC profile paths are disabled by default. "
+            "Stage locally with `foxclaw acquire windows-share-scan` or pass "
+            "--allow-unc-profile for lab-only workflows.[/red]"
+        )
+        raise typer.Exit(code=EXIT_OPERATIONAL_ERROR)
 
     if require_quiet_profile:
         active_reason = detect_active_profile_reason(selected_profile.path)
@@ -952,6 +986,16 @@ def acquire_windows_share_batch(
         min=1,
         help="Optional limit on number of profile directories processed.",
     ),
+    include_profile_name: list[str] | None = typer.Option(
+        None,
+        "--include-profile-name",
+        help="Optional repeatable profile directory name to include.",
+    ),
+    exclude_profile_name: list[str] | None = typer.Option(
+        None,
+        "--exclude-profile-name",
+        help="Optional repeatable profile directory name to exclude.",
+    ),
     allow_active_profile: bool = typer.Option(
         False,
         "--allow-active-profile",
@@ -1030,6 +1074,8 @@ def acquire_windows_share_batch(
             staging_root=staging_root,
             out_root=out_root,
             max_profiles=max_profiles,
+            include_profile_names=include_profile_name,
+            exclude_profile_names=exclude_profile_name,
             allow_active_profile=allow_active_profile,
             snapshot_id_prefix=snapshot_id_prefix,
             foxclaw_cmd=foxclaw_cmd,
@@ -1597,19 +1643,25 @@ def _resolve_fleet_profiles(profile_paths: list[Path] | None) -> list[FirefoxPro
     return deduped_profiles
 
 
-def _build_profile_override(profile_path: Path, *, profile_id: str = "manual") -> FirefoxProfile:
+def _build_profile_override(
+    profile_path: Path,
+    *,
+    profile_id: str = "manual",
+    profile_name: str | None = None,
+    selection_reason: str | None = None,
+) -> FirefoxProfile:
     resolved = profile_path.expanduser().resolve()
     lock_files = [name for name in PROFILE_LOCK_FILES if (resolved / name).exists()]
     return FirefoxProfile(
         profile_id=profile_id,
-        name=resolved.name or "manual-profile",
+        name=profile_name or resolved.name or "manual-profile",
         path=resolved,
         is_relative=False,
         default_flag=False,
         lock_detected=bool(lock_files),
         lock_files=lock_files,
         selected=True,
-        selection_reason="Selected explicitly via --profile.",
+        selection_reason=selection_reason or "Selected explicitly via --profile.",
     )
 
 

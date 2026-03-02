@@ -18,7 +18,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Immediate execution focus:
   - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening, SIEM, and ECS export evidence.
 - Rationale:
-  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, WS-81, and WS-82 are now complete in the validated Python baseline.
+  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, WS-81, WS-82, WS-83, and WS-84 are now complete in the validated Python baseline.
   - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, resilient local memory-recall forensics, first-class Elastic Common Schema export, and a passing Elastic Security acceptance proof.
   - A live overnight soak surfaced a matrix-lane wrapper defect, and the follow-up hardening now routes Firefox ESR/Beta/Nightly Docker stages through a real executable so `timeout` no longer fails on shell-function invocation.
   - Rust bootstrap remains deferred until that completed Python evidence packet, including ECS output and Elastic Security proof, is explicitly accepted as the baseline for branch handoff.
@@ -59,6 +59,8 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-30 | complete | WS-28 | Schema lockdown (validate JSON/SARIF schemas for 1:1 Rust parity tests). |
 | WS-81 | complete | WS-77, WS-80 | Native ECS export: add first-class Elastic Common Schema NDJSON output to the Python scan path, with deterministic mappings, CLI parity with existing output modes, and production-facing docs/tests before Rust resumes. |
 | WS-82 | complete | WS-81 | Elastic Security ECS acceptance proof: validate native FoxClaw ECS output against a pinned local Elasticsearch + Kibana stack, confirm Security-required fields and rule-preview execution, and document the operator runbook before Rust resumes. |
+| WS-83 | complete | WS-78, WS-80 | Soak stop-status semantics: record operator-requested stops as `INTERRUPTED` evidence instead of synthetic stage failures while preserving partial-run artifacts and summaries. |
+| WS-84 | complete | WS-46, WS-78, WS-83 | First-class Windows-share comprehensive soak entrypoint: codify presoak validation, corpus policy, and detached long-soak orchestration into one operator-safe workflow. |
 | WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
@@ -944,6 +946,11 @@ This plan converts the current review and research into sequenced, testable exec
   - windows-share mini soak completed:
     - `python -m foxclaw acquire windows-share-batch --source-root /tmp/foxclaw-ws64-source --staging-root /tmp/foxclaw-ws64-stage --out-root /tmp/foxclaw-ws64-out --max 3 --workers 1 --treat-high-findings-as-success`
     - summary: `attempted=3`, `operational_failure_count=0`.
+  - audit-restoration revalidation on 2026-03-01 kept the gate green after WS-46/54/59/60/61/63 fixes:
+    - `.venv/bin/pytest -q` (`314 passed`, `8 skipped`)
+    - `./scripts/certify.sh`
+    - `./scripts/certify.sh --with-live-profile --profile tests/fixtures/firefox_profile`
+    - `.venv/bin/python -m foxclaw acquire windows-share-batch --source-root <tmp>/source --staging-root <tmp>/stage --out-root <tmp>/out --max 3 --workers 1 --treat-high-findings-as-success` with summary `attempted=3`, `operational_failure_count=0`
   - archived evidence note: `docs/WS64_EVIDENCE_2026-02-26.md`.
 
 ### WS-65 - Source-of-Truth Reconciliation
@@ -984,6 +991,31 @@ This plan converts the current review and research into sequenced, testable exec
     - run: `/var/tmp/foxclaw-soak/20260227T135950Z-ws66-premerge`
     - summary: `steps_total=16`, `steps_failed=0`, `overall_status=PASS`
     - ESR, beta, and nightly matrix scan stages all passed after bootstrap hardening.
+  - audit-restoration revalidation on 2026-03-01 kept the full WS-66 gate set green after the WS-46/54/59/60/61/63 fixes:
+    - `make dep-audit`
+    - packaging dry-run + wheel install smoke
+    - `make sbom`
+    - `make sbom-verify`
+    - run: `/var/tmp/foxclaw-soak/20260301T074110Z-ws66-premerge`
+    - summary: `steps_total=16`, `steps_failed=0`, `overall_status=PASS`
+  - pre-large-soak hardening rerun on 2026-03-01 closed two residual gate gaps before the next long soak:
+    - `scripts/docs_contract_check.py` now ignores vendored `node_modules/` markdown during repository docs validation.
+    - `foxclaw/acquire/windows_share.py` now allocates microsecond-resolution default snapshot ids and skips already-present stage directories when auto-selecting a snapshot id.
+    - focused proof: `.venv/bin/pytest -q tests/test_docs_contract_check_script.py tests/test_acquire_windows_share_cli.py`
+    - rerun proof: `python scripts/docs_contract_check.py` and `./scripts/certify.sh`
+  - stopped comprehensive soak review on 2026-03-01 showed the product lanes remained clean through 37 full cycles, but the harness currently records an operator-requested stop as a stage failure:
+    - run: `/var/tmp/foxclaw-soak/20260301T090911Z-comprehensive-precommit`
+    - partial summary: `cycles_completed=37`, `steps_total=899`, `steps_failed=1`, `overall_status=FAIL`, `stop_reason=signal`
+    - root cause: the only failure was `cycle=38 stage=snapshot iter=3 ec=143` immediately after `Stop signal received; ending soak after current step.`
+    - follow-on queued: `WS-83` to preserve partial evidence while reporting operator-requested stops as `INTERRUPTED` instead of synthetic failures.
+  - post-WS-83 comprehensive soak rerun on 2026-03-01/02 completed cleanly:
+    - run: `/var/tmp/foxclaw-soak/20260301T140921Z-comprehensive-precommit-ws82`
+    - summary: `cycles_completed=80`, `steps_total=1920`, `steps_failed=0`, `steps_interrupted=0`, `overall_status=PASS`
+    - mounted-share presoak remained clean before launch:
+      - `scripts/windows_share_preflight.sh /mnt/firefox-profiles` -> `fstype=autofs cifs`, `profiles_count=53`
+      - bounded `windows-share-batch` sanity summary: `attempted=5`, `clean_count=5`, `operational_failure_count=0`
+      - generated mounted-profile runtimes ranged from `127.977` to `176.159` seconds without operational failures
+    - follow-on queued: `WS-84` to turn the now-stable presoak + long-soak sequence into one first-class Windows-share comprehensive soak workflow.
   - archived evidence note: `docs/WS66_EVIDENCE_2026-02-27.md`.
   - merge recommendation:
     - Python is gate-clean and remains the canonical source of truth.
@@ -1092,7 +1124,7 @@ This plan converts the current review and research into sequenced, testable exec
 - Delivered:
   - moved session-memory journal/doc defaults from tracked `docs/` files to ignored `artifacts/session_memory/`.
   - updated active workflow instructions so they no longer claim session memory is stored in tracked docs.
-  - removed `docs/SESSION_MEMORY.jsonl` and `docs/SESSION_MEMORY.md` from git-tracked repo state.
+  - removed the legacy tracked session-memory journal/doc from the old `docs/` location.
   - added regression coverage proving local-only default paths and override behavior for memory scripts.
   - archived evidence note: `docs/WS73_EVIDENCE_2026-02-27.md`.
 
@@ -1177,6 +1209,40 @@ This plan converts the current review and research into sequenced, testable exec
   - added deterministic regression coverage for the wrapper script and for soak-runner matrix command wiring in `tests/test_container_matrix_bootstrap.py`.
   - captured the post-fix reduced soak evidence in:
     - `docs/WS80_EVIDENCE_2026-02-28.md`
+
+### WS-83 - Soak Stop-Status Semantics
+
+- Status: complete.
+- Goal: keep operator-controlled soak review trustworthy by preserving partial-run evidence without classifying an intentional stop as a product or harness failure.
+- Delivered:
+  - taught `scripts/soak_runner.sh` to classify signal-terminated in-flight stages as `INTERRUPTED` when an operator stop is in progress, while keeping organic non-zero exits as `FAIL`.
+  - added `steps_interrupted` plus `interrupted_artifact_paths` to `summary.txt`, and made operator-stopped runs emit `overall_status=INTERRUPTED` instead of synthetic `FAIL`.
+  - updated `scripts/soak_summary.py` to roll interrupted rows into deterministic `stage_counts`, `steps_interrupted`, and `interrupted_artifact_paths` in `soak-summary.json` (`schema_version` `1.1.0`).
+  - stopped snapshot and matrix subloops from cascading extra fake failures after a stop signal lands mid-step.
+  - documented the operator-stop contract in `docs/SOAK.md`.
+- Tests/docs changed:
+  - `tests/test_soak_runner_script.py`
+  - `tests/test_soak_summary.py`
+  - `docs/SOAK.md`
+
+### WS-84 - Windows-Share Comprehensive Soak Entrypoint
+
+- Status: complete.
+- Goal: remove operator guesswork from the mounted Windows-share soak path now that the underlying staging, matrix, SIEM, and stop-status behaviors are stable.
+- Delivered:
+  - added `scripts/windows_share_comprehensive_soak.py` as the first-class mounted-share soak wrapper that runs preflight, direct staged presoak proof, bounded `windows-share-batch`, and detached long-soak launch in one command.
+  - added explicit batch include/exclude profile-name policy to `foxclaw acquire windows-share-batch` so mixed-corpus handling is executable instead of operator folklore.
+  - made corpus policy explicit in the wrapper via `--corpus-mode mixed|generated-only`, with seed/stub classification preserved in the workflow manifest and performance-baseline exclusions called out directly.
+  - made lock policy explicit in the wrapper via `--lock-policy fail-closed|allow-active` and preserved the presoak artifact root, share-batch summary path, systemd unit name, and soak run directory in one manifest.
+  - updated the Windows-share and soak runbooks to point operators at the wrapper instead of a hand-assembled sequence of commands.
+- Tests/docs changed:
+  - `tests/test_acquire_windows_share_batch.py`
+  - `tests/test_acquire_windows_share_cli.py`
+  - `tests/test_windows_share_comprehensive_soak_script.py`
+  - `docs/CLI_CONTRACT.md`
+  - `docs/SOAK.md`
+  - `docs/WINDOWS_SHARE_STABILITY.md`
+  - `docs/WINDOWS_SHARE_TESTING.md`
 
 ## Workslice Update Protocol
 

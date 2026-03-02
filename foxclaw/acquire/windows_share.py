@@ -77,11 +77,24 @@ def _utc_now_iso() -> str:
 
 
 def _default_snapshot_id() -> str:
-    return datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def _default_staging_root() -> Path:
     return Path(tempfile.gettempdir()) / "foxclaw-windows-share"
+
+
+def _resolve_snapshot_id(*, staging_root: Path, snapshot_id: str | None) -> str:
+    if snapshot_id:
+        return snapshot_id
+
+    base_snapshot_id = _default_snapshot_id()
+    candidate_snapshot_id = base_snapshot_id
+    suffix = 1
+    while (staging_root / candidate_snapshot_id).exists():
+        candidate_snapshot_id = f"{base_snapshot_id}-{suffix}"
+        suffix += 1
+    return candidate_snapshot_id
 
 
 def _decode_mount_token(token: str) -> str:
@@ -108,13 +121,19 @@ def _load_proc_mounts() -> tuple[tuple[Path, str], ...]:
     return tuple(mounts)
 
 
-def _mount_fs_type_for_path(path: Path) -> str | None:
+def _mount_fs_types_for_path(path: Path) -> tuple[str, ...]:
     candidate = path.expanduser().resolve(strict=False).as_posix()
+    matching_fs_types: list[str] = []
     for mount_point, fs_type in _load_proc_mounts():
         mount_prefix = mount_point.as_posix().rstrip("/") or "/"
         if candidate == mount_prefix or candidate.startswith(f"{mount_prefix}/"):
-            return fs_type
-    return None
+            matching_fs_types.append(fs_type)
+    return tuple(matching_fs_types)
+
+
+def _mount_fs_type_for_path(path: Path) -> str | None:
+    fs_types = _mount_fs_types_for_path(path)
+    return fs_types[0] if fs_types else None
 
 
 def is_windows_share_profile_source(profile_path: Path) -> bool:
@@ -123,8 +142,8 @@ def is_windows_share_profile_source(profile_path: Path) -> bool:
         return True
     if os.name == "nt":
         return False
-    fs_type = _mount_fs_type_for_path(profile_path)
-    return fs_type in _SMB_FILESYSTEM_TYPES
+    fs_types = _mount_fs_types_for_path(profile_path)
+    return any(fs_type in _SMB_FILESYSTEM_TYPES for fs_type in fs_types)
 
 
 def parse_windows_share_scan_args(argv: list[str]) -> argparse.Namespace:
@@ -250,7 +269,6 @@ def resolve_windows_share_stage_paths(
     scan_snapshot_out: Path | None = None,
     manifest_out: Path | None = None,
 ) -> WindowsShareStagePaths:
-    resolved_snapshot_id = snapshot_id or _default_snapshot_id()
     source_profile_input = str(source_profile)
     source_is_unc_path = source_profile_input.startswith("\\\\")
     source_profile_candidate = Path(source_profile).expanduser()
@@ -260,6 +278,10 @@ def resolve_windows_share_stage_paths(
         resolved_source_profile = source_profile_candidate.resolve()
 
     resolved_staging_root = (staging_root or _default_staging_root()).expanduser().resolve()
+    resolved_snapshot_id = _resolve_snapshot_id(
+        staging_root=resolved_staging_root,
+        snapshot_id=snapshot_id,
+    )
     stage_root = resolved_staging_root / resolved_snapshot_id
     staged_profile = stage_root / "profile"
 

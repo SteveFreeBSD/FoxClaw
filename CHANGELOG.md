@@ -30,5 +30,6 @@ All notable changes to this project are documented in this file.
 - Deterministic certify evidence bundle emission implemented and specified.
 
 ### References
+- `docs/CLI_CONTRACT.md`
 - `docs/PREMERGE_READINESS.md`
 - `docs/DELIVERY_GATES.md`

@@ -166,6 +166,8 @@ def run_windows_share_batch(
     staging_root: Path,
     out_root: Path,
     max_profiles: int | None = None,
+    include_profile_names: list[str] | None = None,
+    exclude_profile_names: list[str] | None = None,
     allow_active_profile: bool = False,
     snapshot_id_prefix: str | None = None,
     foxclaw_cmd: str | None = None,
@@ -201,6 +203,23 @@ def run_windows_share_batch(
     if profile_timeout_seconds < 1:
         raise ValueError("--profile-timeout-seconds must be greater than zero")
 
+    include_names = {
+        name.strip()
+        for name in (include_profile_names or [])
+        if name.strip()
+    }
+    exclude_names = {
+        name.strip()
+        for name in (exclude_profile_names or [])
+        if name.strip()
+    }
+    overlap = sorted(include_names & exclude_names)
+    if overlap:
+        raise ValueError(
+            "profile names cannot be both included and excluded: "
+            + ", ".join(overlap)
+        )
+
     out_root.mkdir(parents=True, exist_ok=True)
 
     child_dirs = sorted(
@@ -216,6 +235,20 @@ def run_windows_share_batch(
         raise ValueError(
             f"no profile directories found under source root (mount missing or empty): {source_root}"
         )
+    if include_names:
+        child_dirs = [path for path in child_dirs if path.name in include_names]
+        if not child_dirs:
+            raise ValueError(
+                "no profile directories matched --include-profile-name policy under "
+                f"{source_root}"
+            )
+    if exclude_names:
+        child_dirs = [path for path in child_dirs if path.name not in exclude_names]
+        if not child_dirs:
+            raise ValueError(
+                "all profile directories were excluded by --exclude-profile-name policy under "
+                f"{source_root}"
+            )
     selected_profiles = child_dirs[:max_profiles] if max_profiles is not None else child_dirs
 
     clean_count = 0
@@ -319,6 +352,10 @@ def run_windows_share_batch(
 
     # Sort per_profile alphabetically for consistent summary output
     per_profile.sort(key=lambda x: str(x["profile"]))
+    failures_by_error = {
+        error: sorted(profile_names)
+        for error, profile_names in sorted(failures_by_error.items())
+    }
 
     runtime_seconds_total = round(perf_counter() - started, 3)
     summary_payload: dict[str, object] = {

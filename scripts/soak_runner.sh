@@ -52,7 +52,26 @@ EOF
 }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+
+resolve_python_bin() {
+  local venv_python="${ROOT_DIR}/.venv/bin/python"
+  if [[ -x "${venv_python}" ]]; then
+    printf '%s\n' "${venv_python}"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  echo "error: python interpreter not found; looked for ${venv_python}, python3, and python" >&2
+  return 1
+}
+
+PYTHON_BIN="$(resolve_python_bin)"
 
 DURATION_HOURS=10
 OUTPUT_ROOT="/var/tmp/foxclaw-soak"
@@ -109,7 +128,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
-  echo "error: virtualenv python not found at ${PYTHON_BIN}" >&2
+  echo "error: resolved python interpreter is not executable at ${PYTHON_BIN}" >&2
   exit 1
 fi
 
@@ -229,6 +248,7 @@ EOF
 
 step_total=0
 step_fail=0
+step_interrupted=0
 stop_requested=0
 stop_reason="deadline"
 
@@ -252,6 +272,25 @@ is_expected_exit_code() {
   esac
 }
 
+is_operator_interrupt_exit_code() {
+  local exit_code="$1"
+  [[ "${exit_code}" -eq 130 || "${exit_code}" -eq 143 ]]
+}
+
+classify_step_status() {
+  local stage="$1"
+  local exit_code="$2"
+  if is_expected_exit_code "${stage}" "${exit_code}"; then
+    printf 'PASS'
+    return 0
+  fi
+  if [[ "${stop_requested}" -eq 1 ]] && is_operator_interrupt_exit_code "${exit_code}"; then
+    printf 'INTERRUPTED'
+    return 0
+  fi
+  printf 'FAIL'
+}
+
 record_step() {
   local cycle="$1"
   local stage="$2"
@@ -266,6 +305,37 @@ record_step() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "${cycle}" "${stage}" "${iter}" "${exit_code}" "${status}" "${duration}" "${started}" "${ended}" "${log_path}" "${artifact_path}" \
     >>"${RESULTS_TSV}"
+}
+
+finalize_step_result() {
+  local cycle="$1"
+  local stage="$2"
+  local iter="$3"
+  local exit_code="$4"
+  local duration="$5"
+  local started_ts="$6"
+  local ended_ts="$7"
+  local log_file="$8"
+  local artifact_path="$9"
+  local status
+
+  status="$(classify_step_status "${stage}" "${exit_code}")"
+  step_total="$((step_total + 1))"
+  case "${status}" in
+    PASS)
+      log "PASS cycle=${cycle} stage=${stage} iter=${iter} ec=${exit_code} sec=${duration} log=${log_file} artifact=${artifact_path}"
+      ;;
+    INTERRUPTED)
+      step_interrupted="$((step_interrupted + 1))"
+      log "INTERRUPTED cycle=${cycle} stage=${stage} iter=${iter} ec=${exit_code} sec=${duration} log=${log_file} artifact=${artifact_path}"
+      ;;
+    *)
+      step_fail="$((step_fail + 1))"
+      log "FAIL cycle=${cycle} stage=${stage} iter=${iter} ec=${exit_code} sec=${duration} log=${log_file} artifact=${artifact_path}"
+      ;;
+  esac
+  record_step "${cycle}" "${stage}" "${iter}" "${exit_code}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${artifact_path}"
+  [[ "${status}" != "FAIL" ]]
 }
 
 run_command_with_timeout() {
@@ -297,17 +367,7 @@ run_step_cmd() {
   ended_epoch="$(date -u +%s)"
   ended_ts="$(iso_now)"
   duration="$((ended_epoch - started_epoch))"
-  step_total="$((step_total + 1))"
-  if is_expected_exit_code "${stage}" "${ec}"; then
-    status="PASS"
-    log "PASS cycle=${cycle} stage=${stage} iter=${iter} ec=${ec} sec=${duration} log=${log_file} artifact=${artifact_path}"
-  else
-    status="FAIL"
-    step_fail="$((step_fail + 1))"
-    log "FAIL cycle=${cycle} stage=${stage} iter=${iter} ec=${ec} sec=${duration} log=${log_file} artifact=${artifact_path}"
-  fi
-  record_step "${cycle}" "${stage}" "${iter}" "${ec}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${artifact_path}"
-  [[ "${status}" = "PASS" ]]
+  finalize_step_result "${cycle}" "${stage}" "${iter}" "${ec}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${artifact_path}"
 }
 
 USE_SUDO_DOCKER=0
@@ -334,7 +394,7 @@ run_snapshot_determinism_cycle() {
   mkdir -p "${snapshot_dir}"
 
   local fail_local=0
-  local i scan_exit log_file snapshot_file status
+  local i scan_exit log_file snapshot_file
   for ((i=1; i<=SNAPSHOT_RUNS; i++)); do
     log_file="${LOG_DIR}/cycle-${cycle}-snapshot-${i}.log"
     snapshot_file="${snapshot_dir}/snapshot-${i}.json"
@@ -352,18 +412,17 @@ run_snapshot_determinism_cycle() {
     ended_epoch="$(date -u +%s)"
     ended_ts="$(iso_now)"
     duration="$((ended_epoch - started_epoch))"
-    step_total="$((step_total + 1))"
-    if is_expected_exit_code "snapshot" "${scan_exit}"; then
-      status="PASS"
-      log "PASS cycle=${cycle} stage=snapshot iter=${i} ec=${scan_exit} sec=${duration} log=${log_file} artifact=${snapshot_file}"
-    else
-      status="FAIL"
-      step_fail="$((step_fail + 1))"
+    if ! finalize_step_result "${cycle}" "snapshot" "${i}" "${scan_exit}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${snapshot_file}"; then
       fail_local=1
-      log "FAIL cycle=${cycle} stage=snapshot iter=${i} ec=${scan_exit} sec=${duration} log=${log_file} artifact=${snapshot_file}"
     fi
-    record_step "${cycle}" "snapshot" "${i}" "${scan_exit}" "${status}" "${duration}" "${started_ts}" "${ended_ts}" "${log_file}" "${snapshot_file}"
+    if [[ "${stop_requested}" -eq 1 ]]; then
+      break
+    fi
   done
+
+  if [[ "${stop_requested}" -eq 1 ]]; then
+    return "${fail_local}"
+  fi
 
   local sha_file="${snapshot_dir}/sha256.txt"
   sha256sum "${snapshot_dir}"/snapshot-*.json >"${sha_file}"
@@ -407,9 +466,15 @@ run_matrix_cycle() {
       -f "${ROOT_DIR}/docker/testbed/Dockerfile" \
       -t "foxclaw-firefox-testbed:${channel}" \
       "${ROOT_DIR}" || fail_local=1
+    if [[ "${stop_requested}" -eq 1 ]]; then
+      break
+    fi
 
     run_step_cmd "${cycle}" "matrix_version_${channel}" "${matrix_iter}" "${version_log}" "-" \
       "${DOCKER_EXEC}" run --rm "foxclaw-firefox-testbed:${channel}" firefox --version || fail_local=1
+    if [[ "${stop_requested}" -eq 1 ]]; then
+      break
+    fi
 
     run_step_cmd "${cycle}" "matrix_scan_${channel}" "${matrix_iter}" "${scan_log}" "-" \
       "${DOCKER_EXEC}" run --rm \
@@ -419,6 +484,9 @@ run_matrix_cycle() {
         -w /workspace \
         "foxclaw-firefox-testbed:${channel}" \
         bash -lc "scripts/container_workspace_exec.sh scripts/firefox_container_scan.sh --output-dir /tmp/firefox-container-artifacts-${channel}" || fail_local=1
+    if [[ "${stop_requested}" -eq 1 ]]; then
+      break
+    fi
   done
 
   return "${fail_local}"
@@ -433,7 +501,6 @@ cycle=1
 overall_fail=0
 while true; do
   if [[ "${stop_requested}" -eq 1 ]]; then
-    overall_fail=1
     log "Stopping soak due to received signal."
     break
   fi
@@ -456,7 +523,6 @@ while true; do
     run_step_cmd "${cycle}" "integration" "${i}" "${LOG_DIR}/cycle-${cycle}-integration-${i}.log" "-" \
       make -C "${ROOT_DIR}" test-integration || overall_fail=1
     if [[ "${stop_requested}" -eq 1 ]]; then
-      overall_fail=1
       break
     fi
   done
@@ -468,14 +534,12 @@ while true; do
     overall_fail=1
   fi
   if [[ "${stop_requested}" -eq 1 ]]; then
-    overall_fail=1
     break
   fi
 
   run_step_cmd "${cycle}" "trust_scan" "1" "${LOG_DIR}/cycle-${cycle}-trust-scan.log" "-" \
     "${ROOT_DIR}/scripts/trust_scan_smoke.sh" "${PYTHON_BIN}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
-    overall_fail=1
     break
   fi
 
@@ -491,7 +555,6 @@ while true; do
     --fidelity-min-score "${SYNTH_FIDELITY_MIN_SCORE}" \
     "${launch_gate_args[@]}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
-    overall_fail=1
     break
   fi
 
@@ -507,7 +570,6 @@ while true; do
     --fidelity-min-score "${FUZZ_FIDELITY_MIN_SCORE}" \
     "${launch_gate_args[@]}" || overall_fail=1
   if [[ "${stop_requested}" -eq 1 ]]; then
-    overall_fail=1
     break
   fi
 
@@ -525,7 +587,6 @@ while true; do
       --ruleset "${ROOT_DIR}/foxclaw/rulesets/strict.yml" \
       --quiet || overall_fail=1
     if [[ "${stop_requested}" -eq 1 ]]; then
-      overall_fail=1
       break
     fi
   done
@@ -541,7 +602,6 @@ while true; do
       --output-dir "${siem_cycle_dir}" \
       --python-bin "${PYTHON_BIN}" || overall_fail=1
     if [[ "${stop_requested}" -eq 1 ]]; then
-      overall_fail=1
       break
     fi
   done
@@ -554,7 +614,6 @@ while true; do
       overall_fail=1
     fi
     if [[ "${stop_requested}" -eq 1 ]]; then
-      overall_fail=1
       break
     fi
   done
@@ -570,10 +629,21 @@ END_TS="$(iso_now)"
 END_EPOCH="$(date -u +%s)"
 TOTAL_SEC="$((END_EPOCH - START_EPOCH))"
 CYCLE_COUNT="$((cycle - 1))"
-STEP_PASS="$((step_total - step_fail))"
+STEP_PASS="$((step_total - step_fail - step_interrupted))"
 FAILED_ARTIFACTS="$(awk -F'\t' 'NR > 1 && $5 == "FAIL" && $10 != "-" {print $10}' "${RESULTS_TSV}" | paste -sd, -)"
 if [[ -z "${FAILED_ARTIFACTS}" ]]; then
   FAILED_ARTIFACTS="-"
+fi
+INTERRUPTED_ARTIFACTS="$(awk -F'\t' 'NR > 1 && $5 == "INTERRUPTED" && $10 != "-" {print $10}' "${RESULTS_TSV}" | paste -sd, -)"
+if [[ -z "${INTERRUPTED_ARTIFACTS}" ]]; then
+  INTERRUPTED_ARTIFACTS="-"
+fi
+if [[ "${overall_fail}" -eq 1 ]]; then
+  OVERALL_STATUS="FAIL"
+elif [[ "${stop_requested}" -eq 1 ]]; then
+  OVERALL_STATUS="INTERRUPTED"
+else
+  OVERALL_STATUS="PASS"
 fi
 
 {
@@ -586,10 +656,12 @@ fi
   echo "steps_total=${step_total}"
   echo "steps_passed=${STEP_PASS}"
   echo "steps_failed=${step_fail}"
+  echo "steps_interrupted=${step_interrupted}"
   echo "stop_reason=${stop_reason}"
-  echo "overall_status=$([[ ${overall_fail} -eq 0 ]] && echo PASS || echo FAIL)"
+  echo "overall_status=${OVERALL_STATUS}"
   echo "artifacts_root=${RUN_DIR}"
   echo "failed_artifact_paths=${FAILED_ARTIFACTS}"
+  echo "interrupted_artifact_paths=${INTERRUPTED_ARTIFACTS}"
   echo "manifest=${MANIFEST_TXT}"
   echo "results=${RESULTS_TSV}"
   echo "run_log=${RUN_LOG}"
@@ -601,8 +673,13 @@ fi
   --run-dir "${RUN_DIR}" \
   --output "${SOAK_SUMMARY_JSON}" >>"${RUN_LOG}" 2>&1
 
-if [[ "${overall_fail}" -eq 0 ]]; then
+if [[ "${OVERALL_STATUS}" = "PASS" ]]; then
   log "Soak completed successfully. Summary: ${SUMMARY_TXT}"
+  exit 0
+fi
+
+if [[ "${OVERALL_STATUS}" = "INTERRUPTED" ]]; then
+  log "Soak interrupted by operator. Summary: ${SUMMARY_TXT}"
   exit 0
 fi
 

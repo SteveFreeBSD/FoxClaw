@@ -8,11 +8,43 @@ let FAST_MODE = false;
 let JSONL_STREAM = null;
 let JSONL_PROFILE = "";
 let JSONL_SCENARIO = "";
+let RUN_BASE_TIME_MS = Date.UTC(2026, 0, 1, 0, 0, 0);
+let ACTION_SEQUENCE = 0;
+
+function initializeRunContext(seedInput) {
+    RUN_BASE_TIME_MS = deterministicBaseTimeMs(seedInput);
+    ACTION_SEQUENCE = 0;
+}
+
+function deterministicBaseTimeMs(seedInput) {
+    const baseline = Date.UTC(2026, 0, 1, 12, 0, 0);
+    const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+    return baseline + (hashToSeedInt(`time:${seedInput}`) % oneYearMs);
+}
+
+function baseNowMs() {
+    return RUN_BASE_TIME_MS;
+}
+
+function isoFromMs(timestampMs) {
+    return new Date(timestampMs).toISOString();
+}
+
+function nextActionTimestamp() {
+    const timestamp = RUN_BASE_TIME_MS + ACTION_SEQUENCE * 1000;
+    ACTION_SEQUENCE += 1;
+    return isoFromMs(timestamp);
+}
 
 function emitJsonl(entry) {
     if (!JSONL_STREAM) return;
     JSONL_STREAM.write(
-        JSON.stringify({ ts: new Date().toISOString(), profile: JSONL_PROFILE, scenario: JSONL_SCENARIO, ...entry }) + "\n"
+        JSON.stringify({
+            ts: typeof entry.at_utc === "string" ? entry.at_utc : isoFromMs(baseNowMs()),
+            profile: JSONL_PROFILE,
+            scenario: JSONL_SCENARIO,
+            ...entry,
+        }) + "\n"
     );
 }
 
@@ -46,8 +78,13 @@ const HISTORY_URL_POOL = [
 ];
 function computeConfigHash() {
     const configData = JSON.stringify({
-        // Minimal set to detect major drift; can extend later
-        // allowedDomains: [...ALLOWED_DOMAINS].sort() // Removed as ALLOWED_DOMAINS is no longer used
+        historyUrls: HISTORY_URL_POOL.map((entry) => entry.url),
+        searchTerms: SEARCH_TERMS,
+        downloadNames: DOWNLOAD_NAMES,
+        weakPasswords: WEAK_PASSWORDS,
+        scenarioPickList: SCENARIO_PICK_LIST,
+        scenarioNames: Object.keys(SCENARIOS).sort(),
+        cveExpectedRules: CVE_EXPECTED_STRICT_RULES,
     });
     return crypto.createHash("sha256").update(configData).digest("hex").slice(0, 16);
 }
@@ -74,6 +111,36 @@ function makeRng(seedInput) {
     };
 }
 
+function seededBytes(rng, length) {
+    const bytes = Buffer.alloc(length);
+    for (let index = 0; index < length; index++) {
+        bytes[index] = Math.floor(rng() * 256);
+    }
+    return bytes;
+}
+
+function seededHex(rng, length) {
+    return seededBytes(rng, length).toString("hex");
+}
+
+function seededBase64(rng, length) {
+    return seededBytes(rng, length).toString("base64");
+}
+
+function seededUuid(rng) {
+    const bytes = seededBytes(rng, 16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.toString("hex");
+    return [
+        hex.slice(0, 8),
+        hex.slice(8, 12),
+        hex.slice(12, 16),
+        hex.slice(16, 20),
+        hex.slice(20, 32),
+    ].join("-");
+}
+
 function randInt(rng, minInclusive, maxInclusive) {
     const span = maxInclusive - minInclusive + 1;
     return minInclusive + Math.floor(rng() * span);
@@ -98,7 +165,7 @@ function safeMkdir(dirPath) {
 
 function appendAction(actionLog, payload) {
     const entry = {
-        at_utc: new Date().toISOString(),
+        at_utc: nextActionTimestamp(),
         ...payload,
     };
     actionLog.push(entry);
@@ -573,7 +640,7 @@ function parseArgs(argv) {
 
     const profileDir = argv[0];
     let scenario = "mixed";
-    let seed = Date.now().toString();
+    let seed = "424242";
     let profileName = path.basename(profileDir);
     let manifestOut = "";
 
@@ -653,6 +720,7 @@ function seedBrowsingHistory(profileDir, scenarioName, rng, actionLog) {
 
     const db = new Database(dbPath);
     db.pragma("journal_mode = WAL");
+    ensureHistoryTables(db);
 
     const maxPlaceId = db.prepare("SELECT COALESCE(MAX(id), 0) as m FROM moz_places").get().m;
     const maxVisitId = db.prepare("SELECT COALESCE(MAX(id), 0) as m FROM moz_historyvisits").get().m;
@@ -687,7 +755,7 @@ function seedBrowsingHistory(profileDir, scenarioName, rng, actionLog) {
             const frecency = randInt(rng, 100, 10000);
             // Backdate: spread visits across 7-90 days ago (microseconds)
             const daysAgo = randInt(rng, 7, 90);
-            const lastVisit = (Date.now() - daysAgo * 86400000) * 1000;
+            const lastVisit = (baseNowMs() - daysAgo * 86400000) * 1000;
             let revHost = ".";
             try {
                 const hostname = new URL(entry.url).hostname;
@@ -701,7 +769,9 @@ function seedBrowsingHistory(profileDir, scenarioName, rng, actionLog) {
             for (let v = 0; v < numVisits; v++) {
                 // Each visit on a different day within the range
                 const visitDaysAgo = randInt(rng, daysAgo, daysAgo + 30);
-                const visitDate = (Date.now() - visitDaysAgo * 86400000 + randInt(rng, 0, 86400000)) * 1000;
+                const visitDate = (
+                    baseNowMs() - visitDaysAgo * 86400000 + randInt(rng, 0, 86400000)
+                ) * 1000;
                 // Visit types: 1=link, 2=typed, 3=bookmark, 5=embed, 6=redirect_permanent
                 const visitTypes = [1, 1, 1, 2, 3, 5, 6];
                 const visitType = visitTypes[randInt(rng, 0, visitTypes.length - 1)];
@@ -727,12 +797,13 @@ function seedCookiesDatabase(profileDir, scenarioName, rng, actionLog) {
 
     const db = new Database(dbPath);
     db.pragma("journal_mode = WAL");
+    ensureCookiesTable(db);
 
     const count = scenarioName === "credential_reuse" || scenarioName === "adware_like"
         ? randInt(rng, 5, 10)
         : randInt(rng, 2, 6);
     const picked = pickSome(INSECURE_COOKIE_TEMPLATES, Math.min(count, INSECURE_COOKIE_TEMPLATES.length), rng);
-    const marker = `${Date.now()}-${randInt(rng, 1000, 9999)}`;
+    const marker = `${baseNowMs()}-${randInt(rng, 1000, 9999)}`;
 
     const insert = db.prepare(`
         INSERT OR REPLACE INTO moz_cookies (originAttributes, name, value, host, path, expiry, lastAccessed, creationTime, isSecure, isHttpOnly, inBrowserElement, sameSite, schemeMap)
@@ -745,8 +816,8 @@ function seedCookiesDatabase(profileDir, scenarioName, rng, actionLog) {
     const insertAll = db.transaction(() => {
         for (let i = 0; i < picked.length; i++) {
             const tmpl = picked[i];
-            const now = Date.now() * 1000;
-            const expiry = Math.floor(Date.now() / 1000) + randInt(rng, 86400, 315360000);
+            const now = baseNowMs() * 1000;
+            const expiry = Math.floor(baseNowMs() / 1000) + randInt(rng, 86400, 315360000);
             const sameSiteVal = tmpl.sameSite === "None" ? 0 : tmpl.sameSite === "Lax" ? 1 : 2;
 
             insert.run(
@@ -808,7 +879,7 @@ function seedFormHistoryDatabase(profileDir, scenarioName, rng, actionLog) {
 
     const insertAll = db.transaction(() => {
         for (const payload of sqliPicked) {
-            const now = Date.now() * 1000;
+            const now = baseNowMs() * 1000;
             insert.run(
                 fieldNames[randInt(rng, 0, fieldNames.length - 1)],
                 payload,
@@ -818,7 +889,7 @@ function seedFormHistoryDatabase(profileDir, scenarioName, rng, actionLog) {
             );
         }
         for (const payload of xssPicked) {
-            const now = Date.now() * 1000;
+            const now = baseNowMs() * 1000;
             insert.run(
                 fieldNames[randInt(rng, 0, fieldNames.length - 1)],
                 payload,
@@ -854,7 +925,7 @@ function writeScenarioArtifacts(profileDir, scenarioName, seed, riskySettings, a
                 schema_version: "1.0.0",
                 scenario: scenarioName,
                 seed: String(seed),
-                generated_at_utc: new Date().toISOString(),
+                generated_at_utc: isoFromMs(baseNowMs()),
             },
             null,
             2
@@ -944,7 +1015,7 @@ function seedExtensionArtifacts(profileDir, scenarioName, rng, actionLog) {
 
     for (let i = 0; i < templates.length; i++) {
         const tmpl = templates[i];
-        const id = `${tmpl.namePrefix.toLowerCase().replace(/\s+/g, "-")}-${crypto.randomBytes(3).toString("hex")}@foxclaw.test`;
+        const id = `${tmpl.namePrefix.toLowerCase().replace(/\s+/g, "-")}-${seededHex(rng, 3)}@foxclaw.test`;
         const addonDir = path.join(extDir, id);
         safeMkdir(addonDir);
 
@@ -991,14 +1062,16 @@ function seedExtensionArtifacts(profileDir, scenarioName, rng, actionLog) {
             id,
             active: true,
             signedState: isUnsigned ? 0 : 2,
-            signedDate: isUnsigned ? null : new Date(Date.now() - randInt(rng, 86400000, 31536000000)).toISOString(),
+            signedDate: isUnsigned
+                ? null
+                : isoFromMs(baseNowMs() - randInt(rng, 86400000, 31536000000)),
             location: isSideloaded ? 16 : 1,  // 16 = sideloaded via file system, 1 = normal install
             defaultLocale: { name: manifest.name },
             sourceURI: isSideloaded ? `file:///${addonDir}` : `https://addons.mozilla.org/firefox/downloads/latest/${id}`,
             permissions: tmpl.permissions,
             type: "extension",
-            installDate: new Date(Date.now() - randInt(rng, 86400000, 63072000000)).toISOString(),
-            updateDate: new Date(Date.now() - randInt(rng, 3600000, 86400000)).toISOString(),
+            installDate: isoFromMs(baseNowMs() - randInt(rng, 86400000, 63072000000)),
+            updateDate: isoFromMs(baseNowMs() - randInt(rng, 3600000, 86400000)),
         });
     }
 
@@ -1115,13 +1188,13 @@ function seedCredentialArtifacts(profileDir, scenarioName, rng, actionLog) {
     const passwordBlobMap = new Map(); // track blobs for reuse detection
 
     for (let i = 0; i < seededEntries; i++) {
-        const guid = `{${crypto.randomUUID()}}`;
+        const guid = `{${seededUuid(rng)}}`;
         const insecure =
             scenarioName === "credential_reuse" ? chance(rng, 0.70) : chance(rng, 0.35);
         const hostname = insecure
             ? `http://legacy-auth.example.test/${scenarioName}/${i + 1}`
             : `https://auth.example.test/${scenarioName}/${i + 1}`;
-        const now = Date.now() - randInt(rng, 10_000, 1_000_000);
+        const now = baseNowMs() - randInt(rng, 10_000, 1_000_000);
         const usedAt = now + randInt(rng, 1_000, 60_000);
 
         // Decide if this entry uses a weak/reused password
@@ -1129,7 +1202,7 @@ function seedCredentialArtifacts(profileDir, scenarioName, rng, actionLog) {
             scenarioName === "credential_reuse" ? chance(rng, 0.85) : chance(rng, 0.40);
         const chosenPassword = useWeakPassword
             ? weakPool[randInt(rng, 0, weakPool.length - 1)]
-            : `Str0ng!${crypto.randomBytes(4).toString("hex")}`; // pragma: allowlist secret
+            : `Str0ng!${seededHex(rng, 4)}`; // pragma: allowlist secret
         const passwordBlob = weakPasswordBlob(chosenPassword); // pragma: allowlist secret
 
         if (useWeakPassword) weakPasswordCount++;
@@ -1221,8 +1294,8 @@ function seedSqlInjectionArtifacts(profileDir, scenarioName, rng, actionLog) {
             value: payload,
             type: "sqli",
             times_used: randInt(rng, 1, 8),
-            first_used: new Date(Date.now() - randInt(rng, 86400000, 31536000000)).toISOString(),
-            last_used: new Date(Date.now() - randInt(rng, 3600000, 86400000)).toISOString(),
+            first_used: isoFromMs(baseNowMs() - randInt(rng, 86400000, 31536000000)),
+            last_used: isoFromMs(baseNowMs() - randInt(rng, 3600000, 86400000)),
         });
     }
     for (const payload of xssPicked) {
@@ -1231,8 +1304,8 @@ function seedSqlInjectionArtifacts(profileDir, scenarioName, rng, actionLog) {
             value: payload,
             type: "xss",
             times_used: randInt(rng, 1, 5),
-            first_used: new Date(Date.now() - randInt(rng, 86400000, 31536000000)).toISOString(),
-            last_used: new Date(Date.now() - randInt(rng, 3600000, 86400000)).toISOString(),
+            first_used: isoFromMs(baseNowMs() - randInt(rng, 86400000, 31536000000)),
+            last_used: isoFromMs(baseNowMs() - randInt(rng, 3600000, 86400000)),
         });
     }
 
@@ -1240,7 +1313,7 @@ function seedSqlInjectionArtifacts(profileDir, scenarioName, rng, actionLog) {
     fs.writeFileSync(outPath, JSON.stringify({
         schema_version: "1.0.0",
         scenario: scenarioName,
-        generated_at_utc: new Date().toISOString(),
+        generated_at_utc: isoFromMs(baseNowMs()),
         description: "Simulated form history entries containing injection payloads for scanner validation",
         entries,
     }, null, 2) + "\n", "utf-8");
@@ -1263,10 +1336,10 @@ function seedInsecureCookies(profileDir, scenarioName, rng, actionLog) {
         ? randInt(rng, 4, 8)
         : randInt(rng, 2, 5);
     const picked = pickSome(INSECURE_COOKIE_TEMPLATES, Math.min(count, INSECURE_COOKIE_TEMPLATES.length), rng);
-    const marker = `${Date.now()}-${randInt(rng, 1000, 9999)}`;
+    const marker = `${baseNowMs()}-${randInt(rng, 1000, 9999)}`;
 
     const cookies = picked.map((tmpl, idx) => {
-        const expiry = Date.now() + randInt(rng, 86400000, 315360000000); // up to 10 years
+        const expiry = baseNowMs() + randInt(rng, 86400000, 315360000000); // up to 10 years
         return {
             name: tmpl.name,
             value: tmpl.value.replace("{MARKER}", `${marker}-${idx}`),
@@ -1281,7 +1354,7 @@ function seedInsecureCookies(profileDir, scenarioName, rng, actionLog) {
                 !tmpl.httpOnly ? "missing_httponly_flag" : null,
                 tmpl.sameSite === "None" && !tmpl.secure ? "samesite_none_without_secure" : null,
                 tmpl.domain.startsWith(".") ? "broad_domain_scope" : null,
-                (expiry - Date.now()) > 157680000000 ? "excessive_expiry" : null,
+                (expiry - baseNowMs()) > 157680000000 ? "excessive_expiry" : null,
             ].filter(Boolean),
         };
     });
@@ -1290,7 +1363,7 @@ function seedInsecureCookies(profileDir, scenarioName, rng, actionLog) {
     fs.writeFileSync(outPath, JSON.stringify({
         schema_version: "1.0.0",
         scenario: scenarioName,
-        generated_at_utc: new Date().toISOString(),
+        generated_at_utc: isoFromMs(baseNowMs()),
         cookies,
     }, null, 2) + "\n", "utf-8");
 
@@ -1323,7 +1396,7 @@ function seedCertOverrides(profileDir, scenarioName, rng, actionLog) {
     ];
     for (const entry of picked) {
         const fakeOID = `OID.2.16.840.1.101.3.4.2.1`;
-        const fakeDbKey = crypto.randomBytes(20).toString("base64");
+        const fakeDbKey = seededBase64(rng, 20);
         lines.push(`${entry.host}:${entry.port}\t${fakeOID}\t${fakeDbKey}\t${entry.flags}`);
     }
 
@@ -1344,9 +1417,9 @@ function seedAutofillArtifacts(profileDir, scenarioName, rng, actionLog) {
     const picked = pickSome(AUTOFILL_PII_TEMPLATES, Math.min(count, AUTOFILL_PII_TEMPLATES.length), rng);
 
     const profiles = [{
-        guid: `{${crypto.randomUUID()}}`,
-        timeCreated: Date.now() - randInt(rng, 86400000, 31536000000),
-        timeLastModified: Date.now() - randInt(rng, 3600000, 86400000),
+        guid: `{${seededUuid(rng)}}`,
+        timeCreated: baseNowMs() - randInt(rng, 86400000, 31536000000),
+        timeLastModified: baseNowMs() - randInt(rng, 3600000, 86400000),
         timesUsed: randInt(rng, 1, 50),
         fields: {},
     }];
@@ -1361,7 +1434,7 @@ function seedAutofillArtifacts(profileDir, scenarioName, rng, actionLog) {
     fs.writeFileSync(autofillPath, JSON.stringify({
         schema_version: "1.0.0",
         scenario: scenarioName,
-        generated_at_utc: new Date().toISOString(),
+        generated_at_utc: isoFromMs(baseNowMs()),
         profiles,
     }, null, 2) + "\n", "utf-8");
 
@@ -1431,7 +1504,7 @@ function writeHandlersJson(profileDir, actionLog) {
 
 function writeTimesJson(profileDir, rng, actionLog) {
     const daysAgo = randInt(rng, 30, 365);
-    const created = Date.now() - daysAgo * 86400000;
+    const created = baseNowMs() - daysAgo * 86400000;
     const firstUse = created + randInt(rng, 60000, 3600000);
     const payload = { created, firstUse };
     fs.writeFileSync(path.join(profileDir, "times.json"), JSON.stringify(payload) + "\n", "utf-8");
@@ -1504,7 +1577,7 @@ function seedPermissionsDatabase(profileDir, rng, actionLog) {
     const picked = pickSome(perms, randInt(rng, 2, perms.length), rng);
     const insert = db.prepare("INSERT INTO moz_perms (origin, type, permission, expireType, expireTime, modificationTime) VALUES (?, ?, ?, 0, 0, ?)");
     const txn = db.transaction(() => {
-        for (const p of picked) insert.run(p.origin, p.type, p.perm, Date.now());
+        for (const p of picked) insert.run(p.origin, p.type, p.perm, baseNowMs());
     });
     txn();
     db.close();
@@ -1791,6 +1864,20 @@ function ensurePlacesTable(db) {
     `);
 }
 
+function ensureHistoryTables(db) {
+    ensurePlacesTable(db);
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS moz_historyvisits (
+            id INTEGER PRIMARY KEY,
+            from_visit INTEGER DEFAULT 0,
+            place_id INTEGER NOT NULL,
+            visit_date INTEGER,
+            visit_type INTEGER,
+            session INTEGER DEFAULT 0
+        )
+    `);
+}
+
 function applyCveHstsDowngrade(profileDir, actionLog) {
     const placesPath = path.join(profileDir, "places.sqlite");
     const db = new Database(placesPath);
@@ -1891,6 +1978,7 @@ async function main() {
     }
 
     FAST_MODE = fast;
+    initializeRunContext(seed);
     if (jsonlLog) {
         JSONL_PROFILE = profileName;
         JSONL_SCENARIO = scenarioArg;
@@ -1902,7 +1990,7 @@ async function main() {
     const scenarioName = selected.name;
     const scenarioConfig = selected.config;
     const actionLog = [];
-    const startedAt = Date.now();
+    const startedAt = baseNowMs();
 
     appendAction(actionLog, {
         stage: "start",
@@ -1922,9 +2010,9 @@ async function main() {
             profile_name: profileName,
             scenario: scenarioName,
             seed: String(seed),
-            started_at_utc: new Date(startedAt).toISOString(),
-            completed_at_utc: new Date().toISOString(),
-            runtime_seconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+            started_at_utc: isoFromMs(startedAt),
+            completed_at_utc: isoFromMs(startedAt),
+            runtime_seconds: 0,
             actions_total: actionLog.length,
             action_stage_counts: summarizeStages(actionLog),
             actions: actionLog,
@@ -1998,7 +2086,7 @@ async function main() {
     // PHASE 3: Write manifest with all signals
     // ══════════════════════════════════════════════════════════════════
 
-    const completedAt = Date.now();
+    const completedAt = baseNowMs();
     const manifestPayload = {
         schema_version: "4.0.0",
         profile_dir: path.resolve(profileDir),
@@ -2009,8 +2097,8 @@ async function main() {
         fast_mode: FAST_MODE,
         config_hash: computeConfigHash(),
         engine: "sqlite",
-        started_at_utc: new Date(startedAt).toISOString(),
-        completed_at_utc: new Date(completedAt).toISOString(),
+        started_at_utc: isoFromMs(startedAt),
+        completed_at_utc: isoFromMs(completedAt),
         runtime_seconds: Number(((completedAt - startedAt) / 1000).toFixed(3)),
         actions_total: actionLog.length,
         action_stage_counts: summarizeStages(actionLog),

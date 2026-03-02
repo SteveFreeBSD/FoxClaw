@@ -1,0 +1,11 @@
+{
+  "name": "foxclaw-windows-auth-gen",
+  "private": true,
+  "description": "Pinned Node dependencies for the FoxClaw Windows profile mutator.",
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "better-sqlite3": "11.10.0"
+  }
+}

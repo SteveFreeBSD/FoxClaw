@@ -70,6 +70,7 @@ def test_firefox_container_scan_has_valid_bash_syntax() -> None:
 
 def test_container_workspace_exec_avoids_runtime_pip_bootstrap() -> None:
     payload = Path("scripts/container_workspace_exec.sh").read_text(encoding="utf-8")
+    assert "WORKSPACE_REAL=" not in payload
     assert 'pip install -e ".[dev]"' not in payload
     assert "python -m venv" not in payload
     assert 'export PYTHONPATH="${TMP_SRC_DIR}${PYTHONPATH:+:${PYTHONPATH}}"' in payload

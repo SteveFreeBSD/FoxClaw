@@ -6,7 +6,9 @@ import sqlite3
 from pathlib import Path
 
 from foxclaw import cli as cli_module
+from foxclaw.acquire import windows_share as windows_share_module
 from foxclaw.cli import app
+from foxclaw.profiles import FirefoxProfile, ProfileDiscoveryReport
 from typer.testing import CliRunner
 
 
@@ -32,6 +34,53 @@ def test_scan_exit_code_1_for_operational_error() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["scan", "--json", "--sarif"])
     assert result.exit_code == 1
+
+
+def test_scan_help_hides_deprecated_allow_unc_profile_flag() -> None:
+    runner = CliRunner()
+    result = runner.invoke(app, ["scan", "--help"])
+
+    assert result.exit_code == 0
+    assert "--allow-unc-profile" not in result.stdout
+
+
+def test_scan_still_accepts_deprecated_allow_unc_profile_flag(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    _prepare_profile(profile_dir)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--allow-unc-profile",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code in {0, 2}
+
+
+def test_scan_learning_artifact_out_requires_history_db(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "profile"
+    _prepare_profile(profile_dir)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(profile_dir),
+            "--learning-artifact-out",
+            str(tmp_path / "learning.json"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "--learning-artifact-out requires --history-db" in result.stdout
 
 
 def test_scan_exit_code_0_when_no_high_findings(tmp_path: Path) -> None:
@@ -289,6 +338,168 @@ def test_scan_share_staging_allow_active_profile_records_lock_markers(
     assert "parent.lock" in manifest_payload["source_lock_markers"]
 
 
+def test_scan_auto_stages_layered_autofs_cifs_mounts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source_root = tmp_path / "mounted-share"
+    source_profile = source_root / "profile.default-release"
+    _prepare_profile(source_profile)
+
+    ruleset = tmp_path / "rules.yml"
+    ruleset.write_text(
+        "\n".join(
+            [
+                "name: stage-layered-share",
+                "version: 1.0.0",
+                "rules:",
+                "  - id: STAGE-INFO-004",
+                "    title: info check",
+                "    severity: INFO",
+                "    category: preferences",
+                "    check:",
+                "      pref_exists:",
+                "        key: missing.pref",
+                "    rationale: test",
+                "    recommendation: test",
+                "    confidence: low",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    output_json = tmp_path / "artifacts" / "foxclaw.json"
+    stage_manifest = tmp_path / "artifacts" / "stage-manifest.json"
+    staging_root = tmp_path / "staging-root"
+
+    monkeypatch.setattr(
+        windows_share_module,
+        "_load_proc_mounts",
+        lambda: (
+            (source_root, "autofs"),
+            (source_root, "cifs"),
+        ),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "is_windows_share_profile_source",
+        windows_share_module.is_windows_share_profile_source,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--profile",
+            str(source_profile),
+            "--ruleset",
+            str(ruleset),
+            "--staging-root",
+            str(staging_root),
+            "--stage-manifest-out",
+            str(stage_manifest),
+            "--output",
+            str(output_json),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert stage_manifest.exists()
+
+    manifest_payload = json.loads(stage_manifest.read_text(encoding="utf-8"))
+    scan_payload = json.loads(output_json.read_text(encoding="utf-8"))
+
+    assert manifest_payload["source_profile"] == str(source_profile.resolve())
+    assert Path(manifest_payload["staged_profile"]).exists()
+    assert str(staging_root) in manifest_payload["staged_profile"]
+    assert scan_payload["profile"]["path"] == manifest_payload["staged_profile"]
+
+
+def test_scan_auto_stages_discovered_share_profile_before_collection(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source_profile = tmp_path / "discovered-share-profile"
+    _prepare_profile(source_profile)
+
+    ruleset = tmp_path / "rules.yml"
+    ruleset.write_text(
+        "\n".join(
+            [
+                "name: discovered-stage-share",
+                "version: 1.0.0",
+                "rules:",
+                "  - id: STAGE-INFO-003",
+                "    title: info check",
+                "    severity: INFO",
+                "    category: preferences",
+                "    check:",
+                "      pref_exists:",
+                "        key: missing.pref",
+                "    rationale: test",
+                "    recommendation: test",
+                "    confidence: low",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered_profile = FirefoxProfile(
+        profile_id="Profile0",
+        name="share-profile",
+        path=source_profile,
+        is_relative=False,
+        default_flag=True,
+        lock_detected=False,
+        selected=True,
+        selection_reason="Selected by deterministic score.",
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "discover_profiles",
+        lambda: ProfileDiscoveryReport(
+            searched_dirs=[tmp_path],
+            profiles=[discovered_profile],
+            selected_profile_id="Profile0",
+            selection_reason=discovered_profile.selection_reason,
+        ),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "is_windows_share_profile_source",
+        lambda _path: True,
+    )
+
+    output_json = tmp_path / "artifacts" / "foxclaw.json"
+    stage_manifest = tmp_path / "artifacts" / "stage-manifest.json"
+    staging_root = tmp_path / "staging-root"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--ruleset",
+            str(ruleset),
+            "--staging-root",
+            str(staging_root),
+            "--stage-manifest-out",
+            str(stage_manifest),
+            "--output",
+            str(output_json),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    manifest_payload = json.loads(stage_manifest.read_text(encoding="utf-8"))
+    scan_payload = json.loads(output_json.read_text(encoding="utf-8"))
+
+    assert manifest_payload["source_profile"] == str(source_profile.resolve())
+    assert Path(manifest_payload["staged_profile"]).exists()
+    assert str(staging_root) in manifest_payload["staged_profile"]
+    assert scan_payload["profile"]["path"] == manifest_payload["staged_profile"]
+    assert scan_payload["profile"]["path"] != str(source_profile.resolve())
+
+
 def test_live_rejects_unc_profile_path_by_default() -> None:
     source_fixture = (
         Path(__file__).resolve().parent
@@ -305,6 +516,49 @@ def test_live_rejects_unc_profile_path_by_default() -> None:
             f"example={source_fixture}",
             "--profile",
             r"\\server\forensics\profile.default-release",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "UNC profile paths are disabled by default" in result.stdout
+
+
+def test_live_rejects_discovered_unc_profile_path_by_default(monkeypatch) -> None:
+    source_fixture = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "intel"
+        / "mozilla_firefox_advisories.v1.json"
+    )
+    discovered_profile = FirefoxProfile(
+        profile_id="Profile0",
+        name="unc-profile",
+        path=Path(r"\\server\forensics\profile.default-release"),
+        is_relative=False,
+        default_flag=True,
+        lock_detected=False,
+        selected=True,
+        selection_reason="Selected by deterministic score.",
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "discover_profiles",
+        lambda: ProfileDiscoveryReport(
+            searched_dirs=[],
+            profiles=[discovered_profile],
+            selected_profile_id="Profile0",
+            selection_reason=discovered_profile.selection_reason,
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "live",
+            "--source",
+            f"example={source_fixture}",
             "--json",
         ],
     )
