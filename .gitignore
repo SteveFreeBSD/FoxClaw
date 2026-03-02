@@ -49,3 +49,6 @@ demo-insecure-artifacts/
 artifacts/
 docs/SESSION_MEMORY.jsonl
 docs/SESSION_MEMORY.md
+
+# Elastic Fleet Lab
+docker/elastic-fleet-lab/.env
