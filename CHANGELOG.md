@@ -27,7 +27,6 @@ All notable changes to this project are documented in this file.
 - Deterministic certify evidence bundle emission implemented and specified.
 
 ### References
-- `DIFFS/patch-a-live-share-parity.diff`
-- `DIFFS/patch-b-supply-chain-immutability.diff`
+- `docs/CLI_CONTRACT.md`
 - `docs/PREMERGE_READINESS.md`
 - `docs/DELIVERY_GATES.md`
