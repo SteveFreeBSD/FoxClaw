@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import signal
+import shutil
+import sys
 import subprocess
 import time
 from pathlib import Path
@@ -25,11 +27,25 @@ def _read_key_value_file(path: Path) -> dict[str, str]:
     return payload
 
 
+def _prepare_minimal_soak_root(tmp_path: Path) -> Path:
+    soak_root = tmp_path / "repo"
+    scripts_dir = soak_root / "scripts"
+    scripts_dir.mkdir(parents=True)
+    for script_name in ("soak_runner.sh", "soak_summary.py", "memory_index.py"):
+        source = ROOT / "scripts" / script_name
+        destination = scripts_dir / script_name
+        shutil.copy2(source, destination)
+        if destination.suffix == ".sh":
+            destination.chmod(0o755)
+    return soak_root
+
+
 def test_soak_runner_marks_operator_stop_as_interrupted(tmp_path: Path) -> None:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     make_started_file = tmp_path / "make-started"
     output_root = tmp_path / "soak-output"
+    soak_root = _prepare_minimal_soak_root(tmp_path)
 
     _write_executable(
         fake_bin / "docker",
@@ -60,6 +76,13 @@ sleep 30
 exit 0
 """,
     )
+    _write_executable(
+        fake_bin / "python3",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+exec {sys.executable} "$@"
+""",
+    )
 
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
@@ -67,8 +90,8 @@ exit 0
 
     process = subprocess.Popen(
         [
-            "bash",
-            "scripts/soak_runner.sh",
+                "bash",
+                "scripts/soak_runner.sh",
             "--duration-hours",
             "1",
             "--max-cycles",
@@ -89,12 +112,12 @@ exit 0
             "0",
             "--matrix-runs",
             "0",
-            "--label",
-            "ws82-interrupt-test",
-            "--output-root",
-            str(output_root),
-        ],
-        cwd=ROOT,
+                "--label",
+                "ws83-interrupt-test",
+                "--output-root",
+                str(output_root),
+            ],
+        cwd=soak_root,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -124,6 +147,8 @@ exit 0
     run_dir = run_dirs[0]
 
     summary = _read_key_value_file(run_dir / "summary.txt")
+    manifest = _read_key_value_file(run_dir / "manifest.txt")
+    assert manifest["python_bin"] == str(fake_bin / "python3")
     assert summary["overall_status"] == "INTERRUPTED"
     assert summary["stop_reason"] == "signal"
     assert summary["steps_total"] == "1"

@@ -52,7 +52,26 @@ EOF
 }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+
+resolve_python_bin() {
+  local venv_python="${ROOT_DIR}/.venv/bin/python"
+  if [[ -x "${venv_python}" ]]; then
+    printf '%s\n' "${venv_python}"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  echo "error: python interpreter not found; looked for ${venv_python}, python3, and python" >&2
+  return 1
+}
+
+PYTHON_BIN="$(resolve_python_bin)"
 
 DURATION_HOURS=10
 OUTPUT_ROOT="/var/tmp/foxclaw-soak"
@@ -109,7 +128,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
-  echo "error: virtualenv python not found at ${PYTHON_BIN}" >&2
+  echo "error: resolved python interpreter is not executable at ${PYTHON_BIN}" >&2
   exit 1
 fi
 
