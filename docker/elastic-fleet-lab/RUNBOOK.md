@@ -35,7 +35,10 @@ You can verify the services are running and accessible:
 
 This lab uses HTTP inside the Docker network with basic auth; if TLS is enabled for Elasticsearch, ELASTICSEARCH_HOSTS and trust settings must be updated.
 
-1.  **Open the Fleet UI**: Navigate to `http://localhost:5601` in your browser, log in with `elastic` and your configured password, and go to **Management -> Fleet**.
+1.  **Open the Fleet UI**: Navigate to `http://localhost:5601` in your browser.
+    - Log into Kibana UI with `elastic` / `ELASTIC_PASSWORD`.
+    - Kibana uses `kibana_system` / `KIBANA_SYSTEM_PASSWORD` internally to talk to Elasticsearch.
+    Then go to **Management -> Fleet**.
 2.  **Generate a Fleet Server Service Token** (if not provided in `.env`):
     ```bash
     curl -s -u elastic:${ELASTIC_PASSWORD} \
