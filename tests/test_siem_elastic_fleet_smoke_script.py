@@ -320,7 +320,7 @@ class _FleetHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/fleet/enrollment_api_keys":
                 self._send_json(
                     200,
-                    {"item": {"id": "enrollment-key-1", "api_key": "fleet-token"}},
+                    {"item": {"id": "enrollment-key-1", "api_key": "fleet-token"}},  # pragma: allowlist secret
                 )
                 return
             if parsed.path == "/api/fleet/agent_policies/delete":

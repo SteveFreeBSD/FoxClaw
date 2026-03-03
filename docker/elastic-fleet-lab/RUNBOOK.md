@@ -11,8 +11,8 @@ This directory contains a reproducible, Docker Compose-based lab environment for
 
     ```bash
     # docker/elastic-fleet-lab/.env
-    ELASTIC_PASSWORD="YOUR_SECURE_PASSWORD"
-    KIBANA_SYSTEM_PASSWORD="ANOTHER_SECURE_PASSWORD"
+    ELASTIC_PASSWORD="YOUR_SECURE_PASSWORD" # pragma: allowlist secret
+    KIBANA_SYSTEM_PASSWORD="ANOTHER_SECURE_PASSWORD" # pragma: allowlist secret
     KIBANA_ENCRYPTION_KEY="SOME_RANDOM_LONG_STRING_AT_LEAST_32_CHARS"
     FLEET_SERVER_SERVICE_TOKEN="YOUR_FLEET_TOKEN" # Optional, can be generated later
     ```
