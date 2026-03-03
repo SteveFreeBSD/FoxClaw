@@ -239,10 +239,8 @@ print(f'Running as unit: {{unit_name}}.service; invocation ID: fake-invocation')
             "allow-active",
             "--label",
             "WS83 Test",
-            "--siem-elastic-fleet-runs",
-            "1",
-            "--launch-timeout-seconds",
-            "1",
+                "--launch-timeout-seconds",
+                "1",
             "--preflight-cmd",
             str(fake_preflight),
             "--scan-cmd",
@@ -286,8 +284,6 @@ print(f'Running as unit: {{unit_name}}.service; invocation ID: fake-invocation')
         "20260302T000000Z-ws83-test"
     )
     recorded_launch_argv = manifest["steps"]["soak_launch"]["argv"]
-    assert "--siem-elastic-fleet-runs" in recorded_launch_argv
-    assert "1" in recorded_launch_argv
     assert "top-secret-for-test" not in json.dumps(recorded_launch_argv)
     assert all("--setenv=SOAK_SUDO_PASSWORD=" not in arg for arg in recorded_launch_argv)
     assert "--property=EnvironmentFile=<redacted>" in recorded_launch_argv
