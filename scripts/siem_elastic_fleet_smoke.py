@@ -657,6 +657,19 @@ def main(argv: list[str] | None = None) -> int:
         _write_manifest(manifest_path, manifest)
         print(exc.message, file=sys.stderr)
         return exc.exit_code
+    except Exception as exc:
+        manifest["status"] = "FAIL"
+        manifest["exit_code"] = 1
+        manifest["error"] = f"unexpected error: {exc}"
+        _capture_log_tail(
+            docker_cmd=docker_cmd,
+            container_name=agent_container_name,
+            output_path=agent_log_tail_path,
+            timeout_seconds=args.timeout_seconds,
+        )
+        _write_manifest(manifest_path, manifest)
+        print(f"error: unexpected Fleet smoke failure: {exc}", file=sys.stderr)
+        return 1
     finally:
         if cleanup_resources:
             cleanup_errors = manifest["cleanup_errors"]
@@ -912,7 +925,7 @@ def _wait_for_agent_policy_ready(
             auth=auth,
             timeout_seconds=max(1, int(deadline - time.monotonic())),
             error_message="failed to read Fleet agents",
-                headers={"kbn-xsrf": "foxclaw-fleet-smoke"},
+            headers={"kbn-xsrf": "foxclaw-fleet-smoke"},
         )
         matching = [
             item
