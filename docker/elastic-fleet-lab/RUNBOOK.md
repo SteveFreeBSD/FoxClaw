@@ -2,6 +2,8 @@
 
 This directory contains a reproducible, Docker Compose-based lab environment for testing FoxClaw's Elastic Common Schema (ECS) NDJSON output against a live Elastic Security stack (Elasticsearch, Kibana, and Fleet Server).
 
+> Deprecated note: do not follow the older fixed-path Custom Logs flow with `/logs/foxclaw.ecs.ndjson`. The current supported ingest proof uses `scripts/siem_elastic_fleet_smoke.py`, which creates a temporary `filestream` package policy and rotates the ECS filename per run under `/var/log/foxclaw`.
+
 ## Prerequisites
 
 1.  **Docker & Docker Compose** must be installed.
@@ -45,54 +47,27 @@ This lab uses HTTP inside the Docker network with basic auth; if TLS is enabled 
       -X POST http://127.0.0.1:9200/_security/service/elastic/fleet-server/credential/token/fleet-server-token
     ```
 
-## Enrolling an Elastic Agent
+## Managed-Ingest Proof
 
-To ingest FoxClaw's NDJSON output, enroll a containerized Elastic Agent and bind-mount the log file.
+Use the repo-managed Fleet smoke runner instead of configuring a fixed log path by hand.
 
-1.  In Kibana Fleet, create an Agent Policy with a **Custom Logs** integration pointing to the path `/logs/foxclaw.ecs.ndjson`.
-2.  Enable advanced JSON parsing in the integration:
-    ```yaml
-    json:
-      keys_under_root: true
-      overwrite_keys: true
-      add_error_key: true
-    ```
-3.  Start an Elastic Agent container, binding your local FoxClaw log:
+1.  Enroll the existing `foxclaw-agent` container into the `FoxClaw Agent Policy` once for this lab.
+2.  From the repository root, run:
     ```bash
-    docker run -d --name foxclaw-agent --net host \
-      -v /var/log/foxclaw/foxclaw.ecs.ndjson:/logs/foxclaw.ecs.ndjson:ro \
-      -e FLEET_ENROLL=1 \
-      -e FLEET_URL=https://127.0.0.1:8220 \
-      -e FLEET_ENROLLMENT_TOKEN=<YOUR_ENROLLMENT_TOKEN_FROM_KIBANA> \
-      -e FLEET_INSECURE=true \
-      --user root \
-      docker.elastic.co/beats/elastic-agent:8.17.0
+    .venv/bin/python scripts/siem_elastic_fleet_smoke.py \
+      --output-dir /var/tmp/foxclaw-elastic-fleet-smoke \
+      --profile tests/fixtures/firefox_profile \
+      --ruleset foxclaw/rulesets/balanced.yml \
+      --timeout-seconds 180
     ```
+3.  The runner creates a temporary Fleet `filestream` package policy, writes a rotated ECS filename under `/var/log/foxclaw`, proves ingest, and then cleans up the temporary policy resources.
 
 ## Verifying Ingestion
 
-Run the following queries against Elasticsearch to confirm ECS compliance and indexing:
+Read `run_id`, `target_agent_id`, and `expected_index_name` from `/var/tmp/foxclaw-elastic-fleet-smoke/manifest.json`, then run the following query against Elasticsearch to confirm the current run and target agent were indexed:
 
-**Check Data Streams**:
-```bash
-curl -s -u elastic:${ELASTIC_PASSWORD} "http://127.0.0.1:9200/_data_stream?pretty"
-```
-
-**Check Document Body & JSON parsing**:
-```bash
-curl -s -u elastic:${ELASTIC_PASSWORD} -H 'Content-Type: application/json' \
-  http://127.0.0.1:9200/logs-*/_search \
-  -d '{"size":1,"query":{"match":{"observer.name":"FoxClaw"}}}'
-```
-
-**Check Mapping Types**:
-```bash
-curl -s -u elastic:${ELASTIC_PASSWORD} "http://127.0.0.1:9200/logs-*/_mapping" | head -n 100
-```
-
-**Confirm Alert Detection Rules Match**:
 ```bash
 curl -s -u elastic:${ELASTIC_PASSWORD} -H 'Content-Type: application/json' \
   http://127.0.0.1:9200/logs-foxclaw.scan-default/_count \
-  -d '{"query":{"bool":{"must":[{"term":{"event.kind":"alert"}},{"term":{"event.action":"foxclaw.finding"}}]}}}'
+  -d '{"query":{"bool":{"filter":[{"term":{"data_stream.dataset":"foxclaw.scan"}},{"term":{"labels.foxclaw_run_id":"<run_id>"}},{"term":{"elastic_agent.id":"<target_agent_id>"}}]}}}'
 ```

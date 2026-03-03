@@ -3,11 +3,12 @@
 Use this baseline for reliable Linux->Windows profile soak runs.
 
 1. Preferred: launch the combined workflow with the first-class wrapper:
-   `python scripts/windows_share_comprehensive_soak.py --source-root /mnt/firefox-profiles --lock-policy allow-active --label windows-share-comprehensive`
+   `python scripts/windows_share_comprehensive_soak.py --source-root /mnt/firefox-profiles --lock-policy allow-active --siem-wazuh-runs 1 --siem-elastic-fleet-runs 1 --label windows-share-comprehensive`
 2. The wrapper will:
    - validate the mount with `scripts/windows_share_preflight.sh`
    - prove direct staged scanning against one mounted profile
    - run a bounded `foxclaw acquire windows-share-batch` sanity pass with explicit include policy
+   - optionally run the Wazuh and Elastic Fleet SIEM smoke lanes inside the detached soak
    - launch the detached long soak and record the unit/run-dir trail in one manifest
 3. Keep staging mandatory; do not scan the mount directly except for the wrapper’s staged presoak proof.
 4. Treat `b67gz6f3.default` as a degenerate stub profile and exclude it from performance baselines.
@@ -30,3 +31,4 @@ Notes:
 - Preflight accepts layered mount types (for example `autofs` stacked on an SMB mount) and requires that at least one supported SMB filesystem type is present: `cifs`, `smb3`, `smbfs`, or `fuse.smbnetfs`.
 - Timeout failures are operational errors and are reported per-profile in `windows-share-batch-summary.json`.
 - The comprehensive wrapper keeps mixed corpora explicit via `--corpus-mode mixed|generated-only` and records seed/stub classification in its workflow manifest.
+- The Elastic Fleet smoke runner uses the existing `foxclaw-agent` lab container by default and rotates the tailed ECS filename per run so repeated soak cycles do not stick on filestream registry state.

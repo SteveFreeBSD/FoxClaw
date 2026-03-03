@@ -8,7 +8,7 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - Validate deterministic snapshot behavior under repeated execution.
 - Validate ruleset trust fail-closed behavior under repeated execution.
 - Exercise fuzz resilience and container Firefox matrix (`esr`, `beta`, `nightly`).
-- Exercise native SIEM validation through the Wazuh NDJSON smoke lane when enabled.
+- Exercise native SIEM validation through the Wazuh NDJSON smoke lane and Elastic Fleet managed-ingest lane when enabled.
 - Produce structured logs for post-run forensic analysis.
 
 ## Harness
@@ -23,6 +23,7 @@ This runbook defines long-run stability soak execution for FoxClaw with reproduc
 - `1` fuzz run (`500` realistic+mutated profiles; fidelity-gated)
 - `0` adversary runs by default (enable with `--adversary-runs`)
 - `0` Wazuh SIEM runs by default (enable with `--siem-wazuh-runs`)
+- `0` Elastic Fleet SIEM runs by default (enable with `--siem-elastic-fleet-runs`)
 - `1` Firefox matrix run (`esr`, `beta`, `nightly`)
 
 ## Launch (overnight)
@@ -40,6 +41,7 @@ scripts/soak_runner.sh \
   --fuzz-count 1 \
   --adversary-runs 0 \
   --siem-wazuh-runs 1 \
+  --siem-elastic-fleet-runs 1 \
   --matrix-runs 0 \
   --label ws78-gate
 ```
@@ -58,6 +60,7 @@ systemd-run --user \
     --duration-hours 10 \
     --stage-timeout-seconds 1800 \
     --siem-wazuh-runs 1 \
+    --siem-elastic-fleet-runs 1 \
     --label overnight-phase1 \
     --output-root /var/tmp/foxclaw-soak
 unset SOAK_SUDO_PASSWORD
@@ -106,14 +109,23 @@ Preferred Windows-share comprehensive workflow:
 python scripts/windows_share_comprehensive_soak.py \
   --source-root /mnt/firefox-profiles \
   --lock-policy allow-active \
+  --siem-wazuh-runs 1 \
+  --siem-elastic-fleet-runs 1 \
   --label windows-share-comprehensive
 ```
+
+Pipeline exit-code note:
+- `bash`: `set -o pipefail; python scripts/windows_share_comprehensive_soak.py --no-such-flag 2>&1 | tail -n 3; echo "python_rc=${PIPESTATUS[0]} tail_rc=${PIPESTATUS[1]} pipeline_rc=$?"`
+- `zsh`: `setopt PIPE_FAIL; python scripts/windows_share_comprehensive_soak.py --no-such-flag 2>&1 | tail -n 3; print -r -- "python_rc=${pipestatus[1]} tail_rc=${pipestatus[2]} pipeline_rc=$?"`
+- `fish`: `python scripts/windows_share_comprehensive_soak.py --no-such-flag 2>&1 | tail -n 3; echo "python_rc=$pipestatus[1] tail_rc=$pipestatus[2]"`
+- Plain `$?` after a pipeline reports `tail` unless pipefail is enabled, and `${PIPESTATUS[...]}` is Bash-only.
 
 Behavior:
 
 - runs `scripts/windows_share_preflight.sh`
 - performs one direct staged presoak scan and verifies artifacts
 - runs a bounded `foxclaw acquire windows-share-batch` sanity gate with explicit include policy
+- forwards the optional `siem_wazuh` and `siem_elastic_fleet` soak lanes into the detached long soak when requested
 - launches the detached long soak via `systemd-run --user`
 - writes one workflow manifest under `--output-root` that records the presoak result, batch summary, systemd unit name, and long-soak run directory
 
@@ -226,6 +238,7 @@ Key files:
 - `synth/cycle-*/fidelity-summary.json`: synth profile realism gate output.
 - `fuzz/cycle-*/fidelity-summary.json`: fuzz profile realism gate output.
 - `siem-wazuh/cycle-*/`: native FoxClaw -> NDJSON -> Wazuh smoke artifacts (`foxclaw.ndjson`, `wazuh-logtest.txt`, `alerts-excerpt.jsonl`, `ossec-log-tail.txt`, `manifest.json`) when `--siem-wazuh-runs` is enabled.
+- `siem-elastic-fleet/cycle-*/`: native FoxClaw ECS -> Fleet-managed `filestream` smoke artifacts (`foxclaw.ecs.ndjson`, Fleet API responses, `elastic-agent-log-tail.txt`, `manifest.json`) when `--siem-elastic-fleet-runs` is enabled.
 
 ## Wazuh Lane
 
@@ -260,6 +273,47 @@ Expected outcome:
 - `soak-summary.json` exists in the run root
 - `results.tsv` contains a passing `siem_wazuh` stage
 - `siem-wazuh/cycle-*/run-*/manifest.json` records the pinned image, NDJSON path, `wazuh-logtest` artifact, `alerts.json` excerpt, and `ossec.log` tail path
+
+## Elastic Fleet Lane
+
+Run the managed-ingest proof against the local Fleet lab without a full soak:
+
+```bash
+.venv/bin/python scripts/siem_elastic_fleet_smoke.py \
+  --output-dir /var/tmp/foxclaw-elastic-fleet-smoke \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml
+```
+
+The runner defaults to the existing local Fleet lab agent (`foxclaw-agent`) and
+existing agent policy (`FoxClaw Agent Policy`). Each run writes the scan to a
+unique ECS filename under `/var/log/foxclaw` and points a temporary Fleet
+`filestream` package policy at the matching `/logs/<file>` path so repeated
+soak cycles do not stall on filestream registry state.
+
+Run one reduced soak cycle with both SIEM lanes enabled:
+
+```bash
+scripts/soak_runner.sh \
+  --duration-hours 1 \
+  --max-cycles 1 \
+  --stage-timeout-seconds 1800 \
+  --integration-runs 1 \
+  --snapshot-runs 1 \
+  --synth-count 1 \
+  --fuzz-count 1 \
+  --adversary-runs 0 \
+  --siem-wazuh-runs 1 \
+  --siem-elastic-fleet-runs 1 \
+  --matrix-runs 0 \
+  --label ws85-fleet-wazuh
+```
+
+Expected outcome:
+
+- `summary.txt` reports `overall_status=PASS`
+- `results.tsv` contains a passing `siem_elastic_fleet` stage
+- `siem-elastic-fleet/cycle-*/run-*/manifest.json` records `agent_mode=existing`, `package_name=filestream`, the Fleet package-policy artifact, and the Elastic Agent log tail path
 
 ## Post-Run Forensic Queries
 

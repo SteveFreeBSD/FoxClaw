@@ -18,8 +18,8 @@ This plan converts the current review and research into sequenced, testable exec
 - Immediate execution focus:
   - Hold Rust bootstrap until explicitly resumed after reviewing completed Python production-hardening, SIEM, and ECS export evidence.
 - Rationale:
-  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, WS-81, WS-82, WS-83, and WS-84 are now complete in the validated Python baseline.
-  - Python now has native Wazuh smoke coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, resilient local memory-recall forensics, first-class Elastic Common Schema export, and a passing Elastic Security acceptance proof.
+  - WS-75, WS-76, WS-77, WS-78, WS-79, WS-80, WS-81, WS-82, WS-83, WS-84, and WS-85 are now complete in the validated Python baseline.
+  - Python now has native Wazuh smoke coverage, first-class Elastic Fleet managed-ingest coverage, a soak-harness SIEM lane, bounded stage timeouts, machine-readable soak summaries, resilient local memory-recall forensics, first-class Elastic Common Schema export, and a passing Elastic Security acceptance proof.
   - A live overnight soak surfaced a matrix-lane wrapper defect, and the follow-up hardening now routes Firefox ESR/Beta/Nightly Docker stages through a real executable so `timeout` no longer fails on shell-function invocation.
   - Rust bootstrap remains deferred until that completed Python evidence packet, including ECS output and Elastic Security proof, is explicitly accepted as the baseline for branch handoff.
 
@@ -61,6 +61,7 @@ This plan converts the current review and research into sequenced, testable exec
 | WS-82 | complete | WS-81 | Elastic Security ECS acceptance proof: validate native FoxClaw ECS output against a pinned local Elasticsearch + Kibana stack, confirm Security-required fields and rule-preview execution, and document the operator runbook before Rust resumes. |
 | WS-83 | complete | WS-78, WS-80 | Soak stop-status semantics: record operator-requested stops as `INTERRUPTED` evidence instead of synthetic stage failures while preserving partial-run artifacts and summaries. |
 | WS-84 | complete | WS-46, WS-78, WS-83 | First-class Windows-share comprehensive soak entrypoint: codify presoak validation, corpus policy, and detached long-soak orchestration into one operator-safe workflow. |
+| WS-85 | complete | WS-82, WS-84 | Elastic Fleet managed-ingest parity: automate the current Fleet/Elastic-Agent ECS file-ingest proof, wire it into the Python soak workflow as an optional lane, and document the operator-safe Windows-share + Wazuh + Fleet path before Rust resumes. |
 | WS-31 | pending | WS-30 | Initialize `foxclaw-rs` Rust workspace and integration testbed runner. |
 | WS-32 | pending | WS-30 | Contract canonicalization: freeze JSON/SARIF compatibility policy and publish migration fixtures. |
 | WS-33 | pending | WS-32 | ATT&CK mapping layer for browser-focused findings with deterministic evidence fields. |
@@ -1243,6 +1244,26 @@ This plan converts the current review and research into sequenced, testable exec
   - `docs/SOAK.md`
   - `docs/WINDOWS_SHARE_STABILITY.md`
   - `docs/WINDOWS_SHARE_TESTING.md`
+
+### WS-85 - Elastic Fleet Managed-Ingest Parity
+
+- Status: complete.
+- Goal: close the remaining Python SIEM parity gap by turning the manual Elastic Fleet lab flow into a first-class managed-ingest proof and optional soak lane that can run alongside the mounted Windows-share and Wazuh paths.
+- Delivered:
+  - added `scripts/siem_elastic_fleet_smoke.py` as a first-class Elastic Fleet managed-ingest proof that defaults to the real local Fleet lab shape: existing `foxclaw-agent`, existing `FoxClaw Agent Policy`, and temporary `filestream` package policies instead of a second competing host-networked agent.
+  - made repeated Fleet runs deterministic by writing each scan to a per-run ECS filename under `/var/log/foxclaw` and pointing the temporary `filestream` package policy at the matching `/logs/<file>` path, avoiding fixed-path filestream registry stalls across soak reruns.
+  - proved package-policy application explicitly by waiting for an online Fleet agent whose reported component state contains the created package-policy ID before accepting document-count growth as a valid ingest proof.
+  - wired the managed-ingest proof into `scripts/soak_runner.sh` via `--siem-elastic-fleet-runs` and forwarded that control through `scripts/windows_share_comprehensive_soak.py` so the mounted-share wrapper can launch Wazuh and Fleet SIEM lanes together.
+  - validated the live Fleet lab on 2026-03-03 with the existing managed agent: `status=PASS`, `agent_mode=existing`, `package_name=filestream`, `expected_index_name=logs-foxclaw.scan-default`, `count_before=16`, `count_after=23`, `new_documents=7`, output rooted at `/var/tmp/foxclaw-elastic-fleet-smoke-live-20260303T1004`.
+- Tests/docs changed:
+  - `tests/test_siem_elastic_fleet_smoke_script.py`
+  - `tests/test_windows_share_comprehensive_soak_script.py`
+  - `scripts/soak_runner.sh`
+  - `scripts/windows_share_comprehensive_soak.py`
+  - `docs/SOAK.md`
+  - `docs/WINDOWS_SHARE_STABILITY.md`
+  - `docs/WINDOWS_SHARE_TESTING.md`
+  - `docs/WS85_EVIDENCE_2026-03-03.md`
 
 ## Workslice Update Protocol
 

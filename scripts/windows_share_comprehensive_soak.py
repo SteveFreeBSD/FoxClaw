@@ -23,7 +23,12 @@ REPO_ROOT = SCRIPT_DIR.parent
 DEFAULT_PREFLIGHT_CMD = f"bash {SCRIPT_DIR / 'windows_share_preflight.sh'}"
 DEFAULT_SCAN_CMD = f"{sys.executable} -m foxclaw"
 DEFAULT_BATCH_CMD = f"{sys.executable} -m foxclaw acquire windows-share-batch"
+DEFAULT_FLEET_SMOKE_CMD = f"{sys.executable} {SCRIPT_DIR / 'siem_elastic_fleet_smoke.py'}"
 DEFAULT_LAUNCHER_CMD = "systemd-run --user"
+DEFAULT_FLEET_PROFILE = REPO_ROOT / "tests" / "fixtures" / "firefox_profile"
+DEFAULT_FLEET_RULESET = REPO_ROOT / "foxclaw" / "rulesets" / "balanced.yml"
+DEFAULT_FLEET_PRESOAK_TIMEOUT_SECONDS = 60
+DEFAULT_FLEET_PRESOAK_RETRY_DELAY_SECONDS = 15
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--duration-hours", type=int, default=10)
     parser.add_argument("--stage-timeout-seconds", type=int, default=1800)
     parser.add_argument("--siem-wazuh-runs", type=int, default=1)
+    parser.add_argument("--siem-elastic-fleet-runs", type=int, default=0)
     parser.add_argument(
         "--label",
         default="windows-share-comprehensive",
@@ -142,6 +148,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--launcher-cmd",
         default=DEFAULT_LAUNCHER_CMD,
         help="Command prefix used to launch the detached long soak.",
+    )
+    parser.add_argument(
+        "--fleet-smoke-cmd",
+        default=DEFAULT_FLEET_SMOKE_CMD,
+        help="Command prefix used for the Elastic Fleet presoak smoke runner.",
+    )
+    parser.add_argument(
+        "--fleet-profile",
+        type=Path,
+        default=DEFAULT_FLEET_PROFILE,
+        help="Firefox profile used for the Elastic Fleet presoak smoke run.",
+    )
+    parser.add_argument(
+        "--fleet-ruleset",
+        type=Path,
+        default=DEFAULT_FLEET_RULESET,
+        help="Ruleset used for the Elastic Fleet presoak smoke run.",
+    )
+    parser.add_argument(
+        "--fleet-presoak-timeout-seconds",
+        type=int,
+        default=DEFAULT_FLEET_PRESOAK_TIMEOUT_SECONDS,
+        help="Timeout budget for the Elastic Fleet presoak smoke run.",
     )
     parser.add_argument(
         "--soak-runner",
@@ -245,6 +274,10 @@ def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _write_environment_file(values: dict[str, str]) -> Path:
     fd, raw_path = tempfile.mkstemp(prefix="foxclaw-windows-share-soak-env-", text=True)
     path = Path(raw_path)
@@ -309,6 +342,22 @@ def _batch_summary_view(summary_path: Path) -> dict[str, Any]:
     }
 
 
+def _fleet_presoak_retry_delay_seconds() -> int:
+    raw = os.environ.get("FOXCLAW_FLEET_PRESOAK_RETRY_DELAY_SECONDS")
+    if raw is None:
+        return DEFAULT_FLEET_PRESOAK_RETRY_DELAY_SECONDS
+    try:
+        delay = int(raw)
+    except ValueError:
+        return DEFAULT_FLEET_PRESOAK_RETRY_DELAY_SECONDS
+    return delay if delay >= 0 else DEFAULT_FLEET_PRESOAK_RETRY_DELAY_SECONDS
+
+
+def _is_retryable_fleet_presoak_failure(result: subprocess.CompletedProcess[str]) -> bool:
+    stderr = result.stderr.lower()
+    return result.returncode == 124 or "offline" in stderr
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     launch_id = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -337,10 +386,22 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("error: --stage-timeout-seconds must be greater than zero")
     if args.launch_timeout_seconds < 1:
         raise SystemExit("error: --launch-timeout-seconds must be greater than zero")
+    if args.fleet_presoak_timeout_seconds < 1:
+        raise SystemExit("error: --fleet-presoak-timeout-seconds must be greater than zero")
     if not source_root.is_dir():
         raise SystemExit(f"error: source root does not exist: {source_root}")
     if not soak_runner.is_file():
         raise SystemExit(f"error: soak runner not found: {soak_runner}")
+    if args.siem_elastic_fleet_runs > 0:
+        fleet_profile = args.fleet_profile.expanduser().resolve(strict=False)
+        fleet_ruleset = args.fleet_ruleset.expanduser().resolve(strict=False)
+        if not fleet_profile.is_dir():
+            raise SystemExit(f"error: Fleet presoak profile not found: {fleet_profile}")
+        if not fleet_ruleset.is_file():
+            raise SystemExit(f"error: Fleet presoak ruleset not found: {fleet_ruleset}")
+    else:
+        fleet_profile = args.fleet_profile.expanduser().resolve(strict=False)
+        fleet_ruleset = args.fleet_ruleset.expanduser().resolve(strict=False)
 
     excluded_names = {name.strip() for name in args.exclude_profile_name if name.strip()}
     corpus_profiles = _plan_corpus(
@@ -462,6 +523,71 @@ def main(argv: list[str] | None = None) -> int:
     if batch_result.returncode != 0:
         raise SystemExit(batch_result.returncode)
 
+    if args.siem_elastic_fleet_runs > 0:
+        fleet_presoak_dir = presoak_root / "elastic-fleet"
+        fleet_presoak_cmd = [
+            *shlex.split(args.fleet_smoke_cmd),
+            "--output-dir",
+            str(fleet_presoak_dir),
+            "--profile",
+            str(fleet_profile),
+            "--ruleset",
+            str(fleet_ruleset),
+            "--timeout-seconds",
+            str(args.fleet_presoak_timeout_seconds),
+        ]
+        fleet_presoak_attempts: list[dict[str, Any]] = []
+        fleet_presoak_result = _run_command(fleet_presoak_cmd)
+        fleet_presoak_attempts.append(
+            {
+                "attempt": 1,
+                "exit_code": fleet_presoak_result.returncode,
+                "stdout": fleet_presoak_result.stdout,
+                "stderr": fleet_presoak_result.stderr,
+            }
+        )
+        if _is_retryable_fleet_presoak_failure(fleet_presoak_result):
+            time.sleep(_fleet_presoak_retry_delay_seconds())
+            fleet_presoak_result = _run_command(fleet_presoak_cmd)
+            fleet_presoak_attempts.append(
+                {
+                    "attempt": 2,
+                    "exit_code": fleet_presoak_result.returncode,
+                    "stdout": fleet_presoak_result.stdout,
+                    "stderr": fleet_presoak_result.stderr,
+                }
+            )
+        manifest["steps"]["fleet_presoak"] = {
+            "argv": fleet_presoak_cmd,
+            "exit_code": fleet_presoak_result.returncode,
+            "stdout": fleet_presoak_result.stdout,
+            "stderr": fleet_presoak_result.stderr,
+            "artifact_root": str(fleet_presoak_dir),
+            "attempts": fleet_presoak_attempts,
+        }
+        fleet_manifest_path = fleet_presoak_dir / "manifest.json"
+        if fleet_manifest_path.is_file():
+            fleet_manifest = _read_json(fleet_manifest_path)
+            manifest["steps"]["fleet_presoak"]["summary"] = {
+                "status": fleet_manifest.get("status"),
+                "run_id": fleet_manifest.get("run_id"),
+                "target_agent_id": fleet_manifest.get("target_agent_id"),
+                "expected_index_name": fleet_manifest.get("expected_index_name"),
+                "count_before": fleet_manifest.get("count_before"),
+                "count_after": fleet_manifest.get("count_after"),
+                "new_documents": fleet_manifest.get("new_documents"),
+            }
+        _write_manifest(manifest_out, manifest)
+        if fleet_presoak_result.returncode != 0:
+            raise SystemExit(fleet_presoak_result.returncode)
+        fleet_summary = manifest["steps"]["fleet_presoak"].get("summary")
+        if not isinstance(fleet_summary, dict):
+            raise SystemExit("error: Elastic Fleet presoak did not produce a manifest summary")
+        if fleet_summary.get("status") != "PASS":
+            raise SystemExit("error: Elastic Fleet presoak did not report PASS")
+        if not isinstance(fleet_summary.get("new_documents"), int) or fleet_summary["new_documents"] <= 0:
+            raise SystemExit("error: Elastic Fleet presoak did not ingest new documents")
+
     known_runs = {
         str(path)
         for path in output_root.glob(f"*{_sanitize_label(args.label)}*")
@@ -491,6 +617,8 @@ def main(argv: list[str] | None = None) -> int:
             str(args.stage_timeout_seconds),
             "--siem-wazuh-runs",
             str(args.siem_wazuh_runs),
+            "--siem-elastic-fleet-runs",
+            str(args.siem_elastic_fleet_runs),
             "--label",
             args.label,
             "--output-root",

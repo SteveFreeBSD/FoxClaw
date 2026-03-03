@@ -1,0 +1,38 @@
+# FoxClaw ECS Ingestion Runbook
+
+# 0) Quick triage — can the agent see the host file?
+ls -l /var/log/foxclaw/foxclaw.ecs.ndjson
+docker exec foxclaw-agent ls -l /logs/foxclaw.ecs.ndjson \
+  || echo "Fix mount: /var/log/foxclaw:/logs:ro"
+
+# 1) Run one scan to the host file
+.venv/bin/python -m foxclaw scan \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --ecs-out /var/log/foxclaw/foxclaw.ecs.ndjson --deterministic
+
+# 2) Verify the agent container can see the file
+docker exec foxclaw-agent ls -l /logs/foxclaw.ecs.ndjson
+docker exec foxclaw-agent wc -l /logs/foxclaw.ecs.ndjson
+
+# 3) Verify data stream exists and doc count increases
+COUNT_BEFORE=$(curl -s -u "elastic:${ELASTIC_PASSWORD}" \
+  http://127.0.0.1:9200/logs-foxclaw.scan-default/_count | \
+  python3 -c "import sys,json;print(json.load(sys.stdin)['count'])")
+echo "count_before=${COUNT_BEFORE}"
+COUNT_AFTER=${COUNT_BEFORE}
+for i in $(seq 1 10); do
+  sleep 3
+  COUNT_AFTER=$(curl -s -u "elastic:${ELASTIC_PASSWORD}" \
+    http://127.0.0.1:9200/logs-foxclaw.scan-default/_count | \
+    python3 -c "import sys,json;print(json.load(sys.stdin)['count'])")
+  test "${COUNT_AFTER}" -gt "${COUNT_BEFORE}" && break
+done
+echo "count_after=${COUNT_AFTER}"
+test "${COUNT_AFTER}" -gt "${COUNT_BEFORE}" && echo "PASS" || echo "FAIL"
+
+# 4) Run mini soak
+scripts/soak_runner.sh --duration-hours 1 --max-cycles 1 \
+  --integration-runs 1 --snapshot-runs 1 --synth-count 1 \
+  --fuzz-count 1 --adversary-runs 0 --siem-wazuh-runs 0 \
+  --matrix-runs 0 --label elastic-agent-gate

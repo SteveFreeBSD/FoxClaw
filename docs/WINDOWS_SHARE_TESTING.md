@@ -201,6 +201,8 @@ Preferred operator workflow:
 python scripts/windows_share_comprehensive_soak.py \
   --source-root /mnt/firefox-profiles \
   --lock-policy allow-active \
+  --siem-wazuh-runs 1 \
+  --siem-elastic-fleet-runs 1 \
   --label windows-share-comprehensive
 ```
 
@@ -210,6 +212,7 @@ What it does:
 - selects a deterministic presoak profile (prefers the first generated profile in sorted order)
 - runs one direct staged `foxclaw scan` proof and verifies the expected artifacts
 - runs a bounded `foxclaw acquire windows-share-batch` sanity pass with explicit include policy
+- can forward the Wazuh and Elastic Fleet SIEM lanes into the detached long soak via `--siem-wazuh-runs` and `--siem-elastic-fleet-runs`
 - launches the detached long soak and writes one workflow manifest with:
   - corpus classification (`generated`, `seed`, `degenerate_stub`, `other`)
   - lock policy
@@ -241,6 +244,8 @@ scripts/soak_runner.sh \
   --snapshot-runs 1 \
   --synth-count 4 \
   --fuzz-count 4 \
+  --siem-wazuh-runs 1 \
+  --siem-elastic-fleet-runs 1 \
   --matrix-runs 0 \
   --label mini-windows-share-lane
 ```
