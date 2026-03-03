@@ -34,6 +34,7 @@ Options:
   --adversary-runs <N>      Adversary testbed runs per cycle (default: 0).
   --adversary-count <N>     Profiles per adversary scenario per run (default: 1).
   --siem-wazuh-runs <N>     Wazuh NDJSON smoke runs per cycle (default: 0).
+  --siem-elastic-fleet-runs <N> Elastic Fleet ECS smoke runs per cycle (default: 0).
   --matrix-runs <N>        Firefox matrix iterations per cycle (default: 1).
   --max-cycles <N>         Optional hard cap on cycle count (default: 0 = unlimited until deadline).
   -h, --help               Show this help.
@@ -92,6 +93,7 @@ FUZZ_FIDELITY_MIN_SCORE=50
 ADVERSARY_RUNS=0
 ADVERSARY_COUNT=1
 SIEM_WAZUH_RUNS=0
+SIEM_ELASTIC_FLEET_RUNS=0
 REQUIRE_LAUNCH_GATE=0
 LAUNCH_GATE_MIN_SCORE=50
 MATRIX_RUNS=1
@@ -120,6 +122,7 @@ while [[ $# -gt 0 ]]; do
     --adversary-runs)   ADVERSARY_RUNS="${2:-}"; shift 2 ;;
     --adversary-count)  ADVERSARY_COUNT="${2:-}"; shift 2 ;;
     --siem-wazuh-runs)  SIEM_WAZUH_RUNS="${2:-}"; shift 2 ;;
+    --siem-elastic-fleet-runs) SIEM_ELASTIC_FLEET_RUNS="${2:-}"; shift 2 ;;
     --matrix-runs)      MATRIX_RUNS="${2:-}"; shift 2 ;;
     --max-cycles)       MAX_CYCLES="${2:-}"; shift 2 ;;
     -h|--help)          usage; exit 0 ;;
@@ -132,7 +135,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-for v in DURATION_HOURS STAGE_TIMEOUT_SECONDS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE ADVERSARY_RUNS ADVERSARY_COUNT SIEM_WAZUH_RUNS MATRIX_RUNS MAX_CYCLES; do
+for v in DURATION_HOURS STAGE_TIMEOUT_SECONDS INTEGRATION_RUNS SNAPSHOT_RUNS SYNTH_COUNT SYNTH_SEED SYNTH_MUTATION_BUDGET SYNTH_FIDELITY_MIN_SCORE LAUNCH_GATE_MIN_SCORE FUZZ_COUNT FUZZ_SEED FUZZ_MUTATION_BUDGET FUZZ_FIDELITY_MIN_SCORE ADVERSARY_RUNS ADVERSARY_COUNT SIEM_WAZUH_RUNS SIEM_ELASTIC_FLEET_RUNS MATRIX_RUNS MAX_CYCLES; do
   if ! [[ "${!v}" =~ ^[0-9]+$ ]]; then
     echo "error: ${v} must be a non-negative integer" >&2
     exit 2
@@ -237,6 +240,7 @@ fuzz_fidelity_min_score=${FUZZ_FIDELITY_MIN_SCORE}
 adversary_runs_per_cycle=${ADVERSARY_RUNS}
 adversary_count_per_scenario=${ADVERSARY_COUNT}
 siem_wazuh_runs_per_cycle=${SIEM_WAZUH_RUNS}
+siem_elastic_fleet_runs_per_cycle=${SIEM_ELASTIC_FLEET_RUNS}
 require_launch_gate=${REQUIRE_LAUNCH_GATE}
 launch_gate_min_score=${LAUNCH_GATE_MIN_SCORE}
 matrix_runs_per_cycle=${MATRIX_RUNS}
@@ -599,6 +603,21 @@ while true; do
     mkdir -p "${siem_cycle_dir}"
     run_step_cmd "${cycle}" "siem_wazuh" "${s}" "${LOG_DIR}/cycle-${cycle}-siem-wazuh-${s}.log" "${siem_cycle_dir}" \
       "${PYTHON_BIN}" "${ROOT_DIR}/scripts/siem_wazuh_smoke.py" \
+      --output-dir "${siem_cycle_dir}" \
+      --python-bin "${PYTHON_BIN}" || overall_fail=1
+    if [[ "${stop_requested}" -eq 1 ]]; then
+      break
+    fi
+  done
+  if [[ "${stop_requested}" -eq 1 ]]; then
+    break
+  fi
+
+  for ((s=1; s<=SIEM_ELASTIC_FLEET_RUNS; s++)); do
+    siem_cycle_dir="${RUN_DIR}/siem-elastic-fleet/cycle-${cycle}-run-${s}"
+    mkdir -p "${siem_cycle_dir}"
+    run_step_cmd "${cycle}" "siem_elastic_fleet" "${s}" "${LOG_DIR}/cycle-${cycle}-siem-elastic-fleet-${s}.log" "${siem_cycle_dir}" \
+      "${PYTHON_BIN}" "${ROOT_DIR}/scripts/siem_elastic_fleet_smoke.py" \
       --output-dir "${siem_cycle_dir}" \
       --python-bin "${PYTHON_BIN}" || overall_fail=1
     if [[ "${stop_requested}" -eq 1 ]]; then

@@ -1,0 +1,24 @@
+# FoxClaw ECS Ingestion Runbook
+
+# 1) Run the supported Fleet managed-ingest smoke proof
+.venv/bin/python scripts/siem_elastic_fleet_smoke.py \
+  --output-dir /var/tmp/foxclaw-elastic-fleet-smoke \
+  --profile tests/fixtures/firefox_profile \
+  --ruleset foxclaw/rulesets/balanced.yml \
+  --timeout-seconds 180
+
+# 2) Read the effective ECS paths and proof IDs from the manifest
+python - <<'PY'
+import json
+from pathlib import Path
+manifest = json.loads(Path("/var/tmp/foxclaw-elastic-fleet-smoke/manifest.json").read_text())
+print("ecs_host_path=", manifest["ecs_host_path"])
+print("ecs_container_path=", manifest["ecs_container_path"])
+print("run_id=", manifest["run_id"])
+print("target_agent_id=", manifest["target_agent_id"])
+PY
+
+# 3) Optional: confirm only this run and target agent were indexed
+curl -s -u "elastic:${ELASTIC_PASSWORD}" -H 'Content-Type: application/json' \
+  http://127.0.0.1:9200/logs-foxclaw.scan-default/_count \
+  -d '{"query":{"bool":{"filter":[{"term":{"data_stream.dataset":"foxclaw.scan"}},{"term":{"labels.foxclaw_run_id":"<run_id>"}},{"term":{"elastic_agent.id":"<target_agent_id>"}}]}}}'

@@ -55,3 +55,6 @@
 - Windows-share mount classification and CLI orchestration duplication remain medium-severity maintainability risks; they are not blockers for the current Python push/merge packet.
 - The overnight pre-fix soak remains on disk as historical failure evidence; current review should treat WS-80 as the authoritative post-fix soak state.
 - ECS output intentionally preserves FoxClaw-specific detail under a `foxclaw` extension namespace because ECS does not natively model Firefox profile identity or FoxClaw scan summary fields.
+
+## Fleet lab harness
+A reproducible Elastic Stack + Fleet Server lab used for ECS ingestion verification lives in docker/elastic-fleet-lab/ with operational steps in docker/elastic-fleet-lab/RUNBOOK.md.

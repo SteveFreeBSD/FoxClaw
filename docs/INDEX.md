@@ -56,7 +56,8 @@ This is the canonical navigation entrypoint for FoxClaw documentation.
   - `docs/WS80_EVIDENCE_2026-02-28.md`
   - `docs/WS81_EVIDENCE_2026-02-28.md`
   - `docs/WS82_EVIDENCE_2026-02-28.md`
-  - `docs/WORKSLICES.md` (WS-83 and WS-84 completion details)
+- `docs/WORKSLICES.md` (WS-83, WS-84, and WS-85 completion details)
+- `docs/WS85_EVIDENCE_2026-03-03.md`
 - Current mounted-share soak workflow:
   - `docs/SOAK.md`
   - `docs/WINDOWS_SHARE_STABILITY.md`
