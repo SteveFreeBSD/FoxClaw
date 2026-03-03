@@ -18,19 +18,40 @@ services:
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
 
+  setup_kibana_system:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+    container_name: setup_kibana_system
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD}
+    command: >
+      bash -c '
+        echo "Waiting for Elasticsearch availability...";
+        until curl -sf -u "elastic:$${ELASTIC_PASSWORD}" http://elasticsearch:9200 | grep -q "You Know, for Search"; do sleep 2; done;
+        echo "Setting kibana_system password...";
+        curl -sf -X POST -u "elastic:$${ELASTIC_PASSWORD}" -H "Content-Type: application/json" http://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"$${KIBANA_SYSTEM_PASSWORD}\"}" || exit 1
+      '
+    depends_on:
+      - elasticsearch
+    networks:
+      - elastic
+
   kibana:
     image: docker.elastic.co/kibana/kibana:8.17.0
     container_name: kibana
     environment:
       - SERVER_NAME=kibana
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=elastic
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD}
       - xpack.encryptedSavedObjects.encryptionKey=${KIBANA_ENCRYPTION_KEY}
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      setup_kibana_system:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_started
     networks:
       - elastic
 
@@ -55,6 +76,7 @@ services:
 
 volumes:
   elasticsearch-data:
+
 
 networks:
   elastic:

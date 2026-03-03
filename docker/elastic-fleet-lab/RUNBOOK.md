@@ -10,6 +10,7 @@ This directory contains a reproducible, Docker Compose-based lab environment for
     ```bash
     # docker/elastic-fleet-lab/.env
     ELASTIC_PASSWORD="YOUR_SECURE_PASSWORD"
+    KIBANA_SYSTEM_PASSWORD="ANOTHER_SECURE_PASSWORD"
     KIBANA_ENCRYPTION_KEY="SOME_RANDOM_LONG_STRING_AT_LEAST_32_CHARS"
     FLEET_SERVER_SERVICE_TOKEN="YOUR_FLEET_TOKEN" # Optional, can be generated later
     ```
@@ -31,6 +32,8 @@ You can verify the services are running and accessible:
 ```
 
 ## Fleet Configuration
+
+This lab uses HTTP inside the Docker network with basic auth; if TLS is enabled for Elasticsearch, ELASTICSEARCH_HOSTS and trust settings must be updated.
 
 1.  **Open the Fleet UI**: Navigate to `http://localhost:5601` in your browser, log in with `elastic` and your configured password, and go to **Management -> Fleet**.
 2.  **Generate a Fleet Server Service Token** (if not provided in `.env`):
